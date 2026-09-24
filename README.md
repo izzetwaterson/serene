@@ -19,6 +19,10 @@ arayüz `ui/` klasöründeki mockup'tan uyarlandı.
   AES-128 şifreli HLS parçaları çözülür ve tek dosyada birleştirilir.
 - **İstek başlığı aktarımı** — tarayıcıdaki `Referer`, `Cookie` ve `User-Agent` göreve
   taşınır; giriş/Referer doğrulayan CDN'lerden indirme çalışır.
+- **İndirme onayı** — tarayıcıdan devralınan indirme, "İndirme Bilgileri" penceresi
+  onaylanana kadar başlamaz. Boyut, kategori ve adres gösterilir; kayıt klasörü ile
+  dosya adı burada değiştirilebilir. Medya yakalamaları ve elle girilen adresler
+  bu pencereyi görmez.
 
 ## Gereksinimler
 
@@ -64,11 +68,19 @@ cargo test
 | `node scripts/check_panel.mjs` | "Tarayıcıdan" paneli (CDP ile gerçek arayüz, kaçış denetimi) |
 | `node scripts/check_tray.mjs` | Tepsi, kapatınca gizleme, tek örnek koruması |
 | `node scripts/check_extension.mjs` | Eklenti mantığı, devralma, medya taraması, geri düşme |
+| `node scripts/check_handoff.mjs` | "İndirme Bilgileri" penceresi: onay, klasör/ad değişikliği, erteleme, iptal, sıra rozeti |
 | `node scripts/check_nmh.mjs` | Native messaging kaydı, çerçeveleme, sessiz başlatma |
 
 Her koşum `BASARILI:` ya da `BASARISIZ:` yazar ve başarısızlıkta sıfırdan farklı çıkar.
-`check_nmh.mjs` sonunda kayıt defteri anahtarını siler; kaydı geri kurmak için o
-derlemenin `serene.exe --register-host` komutu çalıştırılır.
+
+Üç koşum kullanıcı durumuna dokunur; hepsi önce yedekler, sonunda geri koyar:
+
+- `check_nmh.mjs` kayıt defteri anahtarını siler; kaydı geri kurmak için o
+  derlemenin `serene.exe --register-host` komutu çalıştırılır.
+- `check_handoff.mjs` `tasks.json`'u yedekleyip boşaltır ve
+  `confirmBrowserDownload` ayarını kendi ihtiyacına göre açıp kapatır.
+- `check_extension.mjs` `settings.json`'da `confirmBrowserDownload` ayarını geçici
+  olarak kapatır (devralma adımı onay penceresinde takılmasın diye).
 
 Koşumlar varsayılan olarak `target\debug` ikililerini kullanır. Başka bir derlemeyi
 denemek için `SERENE_EXE` (uygulama ikilisi) ve `SERENE_TARGET_DIR` (iki ikilinin
@@ -144,7 +156,9 @@ Otomatik testlerin kapsamadığı, tarayıcı ve masaüstü davranışına bağl
 |---|---|
 | Uygulama açıkken `serene.exe`'yi ikinci kez çalıştır | Yeni pencere açılmaz, var olan pencere öne gelir |
 | "Kapatınca tepsiye gizle" açıkken Kapat düğmesi | Uygulama kapanmaz, tepsiye gizlenir; indirme sürer |
-| Tarayıcıdan 256 KB'tan büyük bir dosya indir | Tarayıcının kendi indirmesi iptal olur, görev Serene'ye düşer ve bildirim çıkar |
+| Tarayıcıdan 256 KB'tan büyük bir dosya indir | Tarayıcının kendi indirmesi iptal olur; "İndirme Bilgileri" penceresi açılır ve indirme onaylanana kadar başlamaz |
+| Pencerede klasörü ve dosya adını değiştirip "İndirmeyi Başlat" | İndirme yeni konuma, yeni adla iner; görev kartı da yeni adı gösterir |
+| Pencerede "Daha Sonra" | Görev "Onay bekliyor" durumunda listede kalır; karttaki bilgi düğmesi pencereyi geri getirir |
 | Bir bağlantıya sağ tıklayıp "Serene ile indir" | Görev oluşur; giriş gerektiren sitede de indirme çalışır (Referer/Cookie aktarılır) |
 | HLS/DASH oynatan bir sayfada videoyu başlat | Eklenti rozeti artar, kayıt "Tarayıcıdan" panelinde görünür |
 | Serene kapalıyken aynı sayfayı oynat | Rozet artar ama Serene kendiliğinden başlamaz |
@@ -199,6 +213,8 @@ Arayüz ile çekirdek arasındaki sözleşme olaylar ve komutlardır:
 - `tasks:progress` — 400 ms'de bir yalnızca sayısal ilerleme gönderilir
 - `clipboard:link` — panoda yeni bağlantı görüldüğünde
 - `captures:update` — yakalanan medya listesi değiştiğinde tam liste gönderilir
+- `handoff:pending` — tarayıcıdan devralınan bir indirme onay beklerken; pencere öne
+  gelir ve "İndirme Bilgileri" penceresine düşer (görev duraklatılmış doğar)
 
 İlerleme için ayrı olay kullanılmasının sebebi: saniyede birkaç kez tam liste
 göndermek yerine sadece değişen sayıları yamamak, arayüzde gereksiz yeniden
@@ -214,6 +230,8 @@ olaylara abone olur. Yanıtlar isteğin `reqId` alanını geri yansıtır.
 - Aynı anda aynı sunucudan çok sayıda bağlantı bazı sunucularda 429 ile
   karşılanabilir; `connections` ayarını düşürmek gerekir.
 - Kategori klasörlere ayırma yapılmaz; kategori yalnızca arayüz filtresidir.
+  "İndirme Bilgileri" penceresindeki kategori de salt okunur bir etikettir: dosya
+  adından türetilir ve seçilen klasörü değiştirmez.
 - **DRM reddedilir.** `SAMPLE-AES` gibi şifreli akışlar için görev, ne olduğunu
   söyleyen bir hatayla başarısız olur; çözmenin bir yolu yoktur.
 - **MSE / blob akışları yakalanamaz.** Medyayı JavaScript ile `blob:` adresine yazan
