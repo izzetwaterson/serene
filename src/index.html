@@ -298,6 +298,14 @@
         <input id="set-tray" class="w-4 h-4 accent-primary cursor-pointer flex-shrink-0" type="checkbox" />
       </label>
 
+      <label class="flex items-center justify-between gap-4 bg-surface-container-low rounded-2xl px-4 py-3.5 border border-outline-variant/50 cursor-pointer">
+        <span class="flex flex-col">
+          <span class="text-[13px] font-medium text-on-surface">Tarayıcı indirmelerini önce sor</span>
+          <span class="text-[11px] text-secondary leading-tight mt-0.5">Devralınan indirme, bilgileri onaylanana kadar başlamaz</span>
+        </span>
+        <input id="set-confirm" class="w-4 h-4 accent-primary cursor-pointer flex-shrink-0" type="checkbox" />
+      </label>
+
       <div class="flex items-center justify-between gap-3 pt-1">
         <button id="clear-completed" class="text-[13px] font-medium text-secondary hover:text-on-surface transition-colors cursor-pointer">Tamamlananları temizle</button>
         <div class="flex items-center gap-3">
@@ -322,6 +330,62 @@
       </div>
     </div>
     <div id="confirm-buttons" class="flex flex-col gap-2"></div>
+  </div>
+</div>
+
+<!-- İndirme Bilgileri: tarayıcıdan devralınan indirme onay bekliyor -->
+<div id="handoff-modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-on-surface/25 backdrop-blur-sm p-6">
+  <div class="bg-surface-container-lowest rounded-3xl shadow-float w-full max-w-lg max-h-full overflow-y-auto">
+    <div class="flex items-center justify-between gap-3 px-7 pt-6 pb-4">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <h2 class="font-headline text-xl text-on-background">İndirme Bilgileri</h2>
+        <span id="handoff-count" class="hidden text-[11px] font-semibold px-2 py-0.5 rounded-full bg-tertiary-fixed/50 text-on-tertiary-container flex-shrink-0"></span>
+      </div>
+      <button id="close-handoff" class="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0" title="Kapat (sonra indir)">
+        <span class="material-symbols-outlined text-[17px]">close</span>
+      </button>
+    </div>
+
+    <div class="px-7 pb-7 flex flex-col gap-5">
+      <div class="flex items-center gap-4 bg-surface-container-low rounded-2xl p-4 border border-outline-variant/50">
+        <div id="handoff-icon-box" class="w-12 h-12 rounded-2xl bg-surface-container-high text-secondary flex items-center justify-center flex-shrink-0">
+          <span id="handoff-icon" class="material-symbols-outlined text-[24px]">draft</span>
+        </div>
+        <div class="min-w-0 flex-1">
+          <p id="handoff-name" class="font-body font-semibold text-[15px] text-on-surface truncate">…</p>
+          <div class="flex items-center gap-2 mt-1 flex-wrap">
+            <span id="handoff-cat" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface-container text-secondary">Diğer</span>
+            <span id="handoff-size" class="text-[11px] text-secondary font-mono">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="text-[12px] font-semibold text-outline uppercase tracking-wider">Adres</label>
+        <input id="handoff-url" class="w-full min-w-0 bg-surface-container-low border border-outline-variant/60 rounded-xl px-3.5 py-2.5 text-[12px] font-mono text-secondary focus:outline-none" type="text" readonly />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="text-[12px] font-semibold text-outline uppercase tracking-wider">Kayıt klasörü</label>
+        <div class="flex items-center gap-2">
+          <input id="handoff-dir" class="flex-1 min-w-0 bg-surface-container-low border border-outline-variant/60 rounded-xl px-3.5 py-2.5 text-[12px] font-mono text-on-surface focus:outline-none focus:border-primary/50" type="text" readonly />
+          <button id="handoff-browse" class="px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-[13px] font-medium transition-colors cursor-pointer flex-shrink-0">Gözat</button>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="text-[12px] font-semibold text-outline uppercase tracking-wider">Dosya adı</label>
+        <input id="handoff-filename" class="w-full min-w-0 bg-surface-container-low border border-outline-variant/60 rounded-xl px-3.5 py-2.5 text-[13px] text-on-surface focus:outline-none focus:border-primary/50" type="text" autocomplete="off" spellcheck="false" />
+      </div>
+
+      <p id="handoff-note" class="text-[11px] text-secondary leading-relaxed bg-surface-container-low/70 border border-outline-variant/40 rounded-xl px-3.5 py-2.5"></p>
+
+      <div class="flex items-center justify-end gap-2 flex-wrap pt-1">
+        <button id="handoff-cancel" class="px-4 py-2.5 rounded-full text-[13px] font-medium text-secondary hover:text-on-surface transition-colors cursor-pointer mr-auto">İptal</button>
+        <button id="handoff-later" class="px-5 py-2.5 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface text-[13px] font-medium transition-colors cursor-pointer">Sonra İndir</button>
+        <button id="handoff-start" class="px-5 py-2.5 rounded-full bg-primary hover:bg-primary/90 text-on-primary text-[13px] font-medium shadow-soft transition-all cursor-pointer">İndirmeyi Başlat</button>
+      </div>
+    </div>
   </div>
 </div>
 

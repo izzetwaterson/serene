@@ -25,6 +25,10 @@ let toastTimer = null;
 let confirmResolve = null;
 /* Acilistaki mevcut kayitlar bildirim gostermesin diye ilk liste buraya alinir. */
 let knownCaptureIds = new Set();
+/* Onay bekleyen devralmalar; pencere bunlari sirayla gosterir. */
+let handoffQueue = [];
+/* Pencerede su an duran gorevin id'si; null ise pencere kapali. */
+let handoffId = null;
 
 /* ---------- biçimlendirme yardımcıları ---------- */
 
@@ -124,6 +128,10 @@ function countBy(filter) {
 }
 
 function metaLine(task) {
+  /* Onay bekleyen gorev duraklatilmis dogar; satirda neden bekledigi yazsin. */
+  if (task.pending) {
+    return `${task.total ? fmtBytes(task.total) : "Boyut bilinmiyor"} • Onay bekliyor`;
+  }
   if (task.status === "completed") {
     return `${fmtBytes(task.total)} • ${fmtWhen(task.finished_at)}`;
   }
@@ -177,6 +185,7 @@ function actionsFor(task) {
       );
     case "paused":
       return (
+        (task.pending ? iconButton(task, "info", "info", "Bilgileri Aç", TONE_PRIMARY) : "") +
         iconButton(task, "resume", "play_arrow", "Devam Et", TONE_PRIMARY) +
         iconButton(task, "remove", "close", "İptal Et", TONE_DANGER)
       );
@@ -199,6 +208,9 @@ function actionsFor(task) {
 }
 
 function statusChip(task) {
+  if (task.pending) {
+    return '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-tertiary-fixed/50 text-on-tertiary-container flex-shrink-0">Onay bekliyor</span>';
+  }
   const map = {
     downloading: ["Devam ediyor", "bg-primary-fixed/50 text-on-primary-fixed"],
     paused: ["Duraklatıldı", "bg-surface-container text-secondary"],
@@ -663,6 +675,9 @@ async function runAction(action, id) {
       case "resume":
         await invoke("resume_download", { id });
         break;
+      case "info":
+        openHandoffById(id);
+        break;
       case "retry":
         await invoke("retry_download", { id });
         break;
@@ -920,6 +935,170 @@ function closeConfirm(value = null) {
   if (confirmResolve) confirmResolve(value);
 }
 
+/* ---------- indirme bilgileri penceresi ---------- */
+
+/* Tarayicidan devralinan indirmeler "pending" dogar: kullanici bilgileri
+   onaylayana kadar kuyruk onlari baslatmaz (bkz. should_hold). Ayni anda
+   birden fazla istek gelebilecegi icin pencere bekleyenleri sirayla gosterir. */
+
+function dirOf(dest) {
+  return String(dest || "").replace(/[\\/][^\\/]*$/, "");
+}
+
+function currentHandoff() {
+  return state.tasks.find((t) => t.id === handoffId) || null;
+}
+
+function renderHandoffCount() {
+  const badge = document.getElementById("handoff-count");
+  const waiting = handoffQueue.length;
+  if (waiting > 1) {
+    badge.textContent = `${waiting - 1} sırada`;
+    badge.classList.remove("hidden");
+  } else {
+    badge.classList.add("hidden");
+  }
+}
+
+function showHandoff(task) {
+  const style = styleOf(task);
+  const box = document.getElementById("handoff-icon-box");
+
+  document.getElementById("handoff-icon").textContent = style.icon;
+  box.className = `w-12 h-12 rounded-2xl ${style.box} ${style.tone} flex items-center justify-center flex-shrink-0`;
+
+  document.getElementById("handoff-name").textContent = task.filename;
+  document.getElementById("handoff-cat").textContent = CATEGORY_TITLES[task.category] || "Diğer";
+  document.getElementById("handoff-size").textContent = task.total
+    ? `${fmtBytes(task.total)} (${task.total.toLocaleString("tr-TR")} bayt)`
+    : "Boyut bilinmiyor";
+  document.getElementById("handoff-url").value = task.url;
+  document.getElementById("handoff-dir").value = dirOf(task.dest);
+  document.getElementById("handoff-filename").value = task.filename;
+
+  /* Kategori dosya adindan turetilir; ad degistirilirse gorev kartinda
+     guncellenir ama penceredeki etiket sunucunun onerdigi adi anlatir. */
+  document.getElementById("handoff-note").textContent = !task.total
+    ? "Sunucu boyutu bildirmedi; boyut indirme başlarken netleşecek."
+    : task.resumable
+      ? "Sunucu parçalı indirmeyi destekliyor; dosya birden çok bağlantıyla daha hızlı inebilir."
+      : "Sunucu parçalı indirmeyi desteklemiyor; dosya tek bağlantıyla inecek.";
+
+  handoffId = task.id;
+  renderHandoffCount();
+
+  /* Onceki turdan kalan devre disi durumu temizle. */
+  document.getElementById("handoff-start").disabled = false;
+
+  const modal = document.getElementById("handoff-modal");
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function hideHandoff() {
+  handoffId = null;
+  const modal = document.getElementById("handoff-modal");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+/* Sirayi listedeki gercek duruma gore tazeler: gorev silinmis, baslatilmis
+   ya da baska yoldan onaylanmis olabilir. */
+function syncHandoff() {
+  handoffQueue = handoffQueue.filter((task) => {
+    const live = state.tasks.find((t) => t.id === task.id);
+    return Boolean(live && live.pending);
+  });
+
+  if (handoffId && !handoffQueue.some((task) => task.id === handoffId)) hideHandoff();
+  if (!handoffId && handoffQueue.length) {
+    const first = handoffQueue[0];
+    showHandoff(state.tasks.find((t) => t.id === first.id) || first);
+  }
+  renderHandoffCount();
+}
+
+function queueHandoff(task) {
+  if (!task || handoffQueue.some((t) => t.id === task.id)) return;
+  handoffQueue.push(task);
+  syncHandoff();
+}
+
+/* Kapatma (X, Esc, arka plan) = sonra karar ver: gorev onay beklemeye devam
+   eder, listedeki "Bilgileri Ac" dugmesiyle pencere geri gelir. */
+function dismissHandoff() {
+  if (!handoffId) return;
+  handoffQueue = handoffQueue.filter((t) => t.id !== handoffId);
+  hideHandoff();
+  syncHandoff();
+}
+
+function openHandoffById(id) {
+  if (handoffId) return;
+  const task = state.tasks.find((t) => t.id === id);
+  if (!task || !task.pending) return;
+  if (!handoffQueue.some((t) => t.id === task.id)) handoffQueue.push(task);
+  syncHandoff();
+}
+
+/* Kayit yeri ve adi uca yazilir; `set_task_dest` gorevi onaylanmis sayip
+   bekleme isaretini kaldirir. `start` true ise indirme hemen baslar. */
+async function decideHandoff(start) {
+  const task = currentHandoff();
+  if (!task) {
+    hideHandoff();
+    return;
+  }
+
+  const dir = document.getElementById("handoff-dir").value.trim();
+  const name = document.getElementById("handoff-filename").value.trim();
+  const startButton = document.getElementById("handoff-start");
+  startButton.disabled = true;
+
+  /* Pencere ve sira once kapatilir: arada dusen bir `tasks:update` siradaki
+     gorevi yanlislikla one almasin. */
+  handoffQueue = handoffQueue.filter((t) => t.id !== task.id);
+  hideHandoff();
+
+  try {
+    await invoke("set_task_dest", { id: task.id, destDir: dir, filename: name });
+    if (start) await invoke("resume_download", { id: task.id });
+  } catch (message) {
+    startButton.disabled = false;
+    showToast(String(message));
+    queueHandoff(task);
+    return;
+  }
+  startButton.disabled = false;
+
+  await refreshTasks();
+  syncHandoff();
+  showToast(start ? `İndirme başlatıldı: ${name}` : `${name} listeye alındı`);
+}
+
+async function cancelHandoff() {
+  const task = currentHandoff();
+  if (!task) {
+    hideHandoff();
+    return;
+  }
+
+  handoffQueue = handoffQueue.filter((t) => t.id !== task.id);
+  hideHandoff();
+
+  try {
+    await invoke("remove_download", { id: task.id, deleteFile: false });
+  } catch (message) {
+    showToast(String(message));
+    queueHandoff(task);
+    return;
+  }
+
+  await refreshTasks();
+  syncHandoff();
+  showToast("İndirme iptal edildi");
+}
+
 /* ---------- ayarlar ---------- */
 
 function openSettings() {
@@ -929,6 +1108,7 @@ function openSettings() {
   document.getElementById("set-connections").value = state.settings.connections;
   document.getElementById("set-clipboard").checked = state.settings.watchClipboard;
   document.getElementById("set-tray").checked = state.settings.closeToTray;
+  document.getElementById("set-confirm").checked = state.settings.confirmBrowserDownload;
   document.getElementById("settings-status").textContent = "";
 
   const modal = document.getElementById("settings-modal");
@@ -950,6 +1130,7 @@ async function saveSettings() {
     connections: Number(document.getElementById("set-connections").value) || 8,
     watchClipboard: document.getElementById("set-clipboard").checked,
     closeToTray: document.getElementById("set-tray").checked,
+    confirmBrowserDownload: document.getElementById("set-confirm").checked,
   };
 
   try {
@@ -1164,6 +1345,7 @@ function bindUi() {
       search.select();
     }
     if (event.key === "Escape") {
+      if (handoffId) dismissHandoff();
       closeConfirm(null);
       closeSettings();
       if (document.activeElement === search) {
@@ -1193,6 +1375,21 @@ function bindUi() {
     if (picked) document.getElementById("set-dir").value = picked;
   });
 
+  document.getElementById("close-handoff").addEventListener("click", dismissHandoff);
+  document.getElementById("handoff-later").addEventListener("click", () => decideHandoff(false));
+  document.getElementById("handoff-start").addEventListener("click", () => decideHandoff(true));
+  document.getElementById("handoff-cancel").addEventListener("click", cancelHandoff);
+  document.getElementById("handoff-modal").addEventListener("click", (event) => {
+    if (event.target.id === "handoff-modal") dismissHandoff();
+  });
+  document.getElementById("handoff-browse").addEventListener("click", async () => {
+    const picked = await invoke("pick_directory");
+    if (picked) document.getElementById("handoff-dir").value = picked;
+  });
+  document.getElementById("handoff-filename").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") decideHandoff(true);
+  });
+
   document.getElementById("save-settings").addEventListener("click", saveSettings);
 
   document.getElementById("clear-completed").addEventListener("click", async () => {
@@ -1208,6 +1405,7 @@ async function bindEvents() {
   await listen("tasks:update", (event) => {
     state.tasks = event.payload;
     renderAll();
+    syncHandoff();
   });
 
   await listen("tasks:progress", (event) => {
@@ -1227,6 +1425,14 @@ async function bindEvents() {
     showClipboardToast(event.payload);
   });
 
+  /* Tarayicidan devralinan indirme onay bekliyor; pencere hemen acilir.
+     Olay listeden once dusse bile kart gorunsun diye liste tazelenir. */
+  await listen("handoff:pending", async (event) => {
+    const task = event.payload;
+    if (!task || !state.tasks.some((t) => t.id === task.id)) await refreshTasks();
+    queueHandoff(task);
+  });
+
   /* Tepsi menusundeki "Ayarlar" secildiginde pencere one gelir ve bu olay duser. */
   await listen("ui:settings", () => {
     openSettings();
@@ -1244,6 +1450,9 @@ async function init() {
   await bindEvents();
   refreshBridge();
   await refreshDisk();
+
+  /* Onceki oturumdan onay bekleyen bir devralma kalmis olabilir. */
+  for (const task of state.tasks.filter((t) => t.pending)) queueHandoff(task);
 
   renderAll();
   document.getElementById("url-input").focus();
