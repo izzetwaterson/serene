@@ -1,0 +1,283 @@
+:root {
+  --bg: #f7f4ed;
+  --surface: #ffffff;
+  --on-surface: #1b1c1a;
+  --secondary: #6b6f68;
+  --primary: #2f5d50;
+  --outline: #d9d5cb;
+  --bad: #9c3b32;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 340px;
+  margin: 0;
+  padding: 14px;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--on-surface);
+  background: var(--bg);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.status {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  color: var(--secondary);
+}
+
+.status--ok {
+  color: var(--primary);
+  border-color: #bcd2c9;
+  background: #eaf2ee;
+}
+
+.status--bad {
+  color: var(--bad);
+  border-color: #e6c9c5;
+  background: #fbeeec;
+}
+
+h2 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--secondary);
+  font-weight: 600;
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.section-head h2 {
+  margin-bottom: 8px;
+}
+
+.count {
+  font-size: 10.5px;
+  color: var(--secondary);
+}
+
+#candidate-section {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--outline);
+}
+
+/* Yakalanan aday: tur rozeti, ad, "Indir" dugmesi ve alt satirda boyut/host. */
+.candidate__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+
+.candidate__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.candidate__meta {
+  font-size: 10.5px;
+  color: var(--secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kind {
+  flex: 0 0 auto;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--outline);
+  background: var(--bg);
+  color: var(--secondary);
+}
+
+.kind--hls {
+  border-color: #bcd2c9;
+  background: #eaf2ee;
+  color: var(--primary);
+}
+
+.kind--dash {
+  border-color: #c9bcd2;
+  background: #f0eaf2;
+  color: #5d2f50;
+}
+
+button.mini {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border-radius: 8px;
+  font-size: 11px;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  color: var(--on-surface);
+}
+
+button.wide {
+  width: 100%;
+  margin-top: 8px;
+}
+
+button.ghost:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task {
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  border-radius: 12px;
+  padding: 9px 10px;
+}
+
+.task__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.task__name {
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task__meta {
+  font-size: 10.5px;
+  color: var(--secondary);
+  white-space: nowrap;
+}
+
+.bar {
+  height: 4px;
+  border-radius: 999px;
+  background: #e7e3da;
+  overflow: hidden;
+}
+
+.bar__fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  transition: width 0.3s ease;
+}
+
+.bar__fill--failed {
+  background: var(--bad);
+}
+
+.bar__fill--completed {
+  background: #4f8a75;
+}
+
+.empty {
+  margin: 0;
+  padding: 14px 0;
+  text-align: center;
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 14px 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--outline);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.toggle input {
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+footer {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid transparent;
+}
+
+button.primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+button.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.ghost {
+  background: var(--surface);
+  border-color: var(--outline);
+  color: var(--on-surface);
+}

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Serene ayarları</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Serene</h1>
+      <p class="lead">
+        İndirmeleri Firefox yerine Serene alır. Medya ve büyük dosyalar için sağ tık
+        menüsündeki <strong>Serene ile indir</strong> her zaman kullanılabilir.
+      </p>
+
+      <label class="row">
+        <span class="row__text">
+          <span class="row__title">İndirmeleri devral</span>
+          <span class="row__hint">Firefox indirmeyi iptal eder, dosyayı Serene indirir</span>
+        </span>
+        <input id="takeover" type="checkbox" />
+      </label>
+
+      <label class="row">
+        <span class="row__text">
+          <span class="row__title">Aktarınca bildirim göster</span>
+          <span class="row__hint">İndirme Serene'ye devredildiğinde kısa bilgi gösterilir</span>
+        </span>
+        <input id="notify" type="checkbox" />
+      </label>
+
+      <label class="row row--stacked">
+        <span class="row__text">
+          <span class="row__title">En küçük boyut (KB)</span>
+          <span class="row__hint">Bu boyutun altındaki indirmelere karışılmaz</span>
+        </span>
+        <input id="min-size" type="number" min="0" max="102400" step="64" />
+      </label>
+
+      <label class="row row--stacked">
+        <span class="row__text">
+          <span class="row__title">Hariç tutulan alan adları</span>
+          <span class="row__hint">Her satıra bir alan adı; alt alan adları da kapsanır</span>
+        </span>
+        <textarea id="excluded" rows="5" spellcheck="false"></textarea>
+      </label>
+
+      <footer>
+        <button id="save" type="button" class="primary">Kaydet</button>
+        <button id="reset" type="button" class="ghost">Varsayılanlara dön</button>
+        <span id="status" class="status"></span>
+      </footer>
+    </main>
+
+    <script src="options.js"></script>
+  </body>
+</html>

@@ -1,0 +1,52 @@
+{
+  "manifest_version": 2,
+  "name": "Serene İndirme Yöneticisi",
+  "version": "0.1.0",
+  "description": "İndirmeleri ve medyayı yakalayıp Serene indirme yöneticisine aktarır.",
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "serene@izzet.local",
+      "strict_min_version": "115.0"
+    }
+  },
+
+  "permissions": [
+    "nativeMessaging",
+    "downloads",
+    "webRequest",
+    "webRequestBlocking",
+    "cookies",
+    "storage",
+    "menus",
+    "notifications",
+    "tabs",
+    "<all_urls>"
+  ],
+
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
+
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "Serene",
+    "default_icon": {
+      "32": "icons/32x32.png",
+      "48": "icons/48x48.png",
+      "96": "icons/96x96.png"
+    }
+  },
+
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+
+  "icons": {
+    "32": "icons/32x32.png",
+    "48": "icons/48x48.png",
+    "96": "icons/96x96.png"
+  }
+}

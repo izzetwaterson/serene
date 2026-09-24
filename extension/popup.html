@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Serene</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img src="icons/48x48.png" alt="" width="20" height="20" />
+        <span>Serene</span>
+      </div>
+      <span id="status" class="status status--unknown">bağlanıyor…</span>
+    </header>
+
+    <section id="candidate-section">
+      <div class="section-head">
+        <h2>Yakalananlar</h2>
+        <span id="candidate-count" class="count"></span>
+      </div>
+      <ul id="candidate-list" class="tasks"></ul>
+      <p id="candidates-empty" class="empty">Bu sekmede medya bulunamadı.</p>
+      <button id="download-all" type="button" class="ghost wide" disabled>Hepsini indir</button>
+    </section>
+
+    <section id="active-section">
+      <h2>Aktif indirmeler</h2>
+      <ul id="task-list" class="tasks"></ul>
+      <p id="empty" class="empty">Şu an inen bir şey yok.</p>
+    </section>
+
+    <section class="controls">
+      <label class="toggle">
+        <input id="takeover" type="checkbox" />
+        <span>İndirmeleri Serene devralsın</span>
+      </label>
+      <label class="toggle">
+        <input id="notify" type="checkbox" />
+        <span>Aktarınca bildirim göster</span>
+      </label>
+    </section>
+
+    <footer>
+      <button id="open-app" type="button" class="primary">Serene'yi Aç</button>
+      <button id="open-options" type="button" class="ghost">Ayarlar</button>
+    </footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
