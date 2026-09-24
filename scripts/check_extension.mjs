@@ -25,11 +25,15 @@
 //  14. Sekme kapaninca / gezinme baslayinca adaylar silinir
 //  15. Tarama tek basina native baglanti ACMAZ (uygulama baslamaz)
 //
+// DIKKAT: {4}. adimda `%APPDATA%\Serene\settings.json` icindeki onay ayari
+// gecici olarak kapatilir (devralma pencere beklemesin diye) ve kosum sonunda
+// eski haline dondurulur. `Downloads\eklenti-testi.bin` silinir.
+//
 // Kullanim: node scripts/check_extension.mjs
 
 import { execSync, spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runInNewContext } from "node:vm";
 
@@ -40,6 +44,7 @@ const DIR =
 const NMH = join(DIR, "serene-nmh.exe");
 const APPDATA = process.env.APPDATA;
 const MANIFEST_PATH = join(APPDATA, "Serene", "nmh", "com.serene.nmh.json");
+const SETTINGS_PATH = join(APPDATA, "Serene", "settings.json");
 const DOWNLOADS = join(process.env.USERPROFILE, "Downloads");
 const HTTP_PORT = 8795;
 
@@ -485,6 +490,10 @@ async function main() {
   const problems = [];
   let failed = false;
 
+  /* {4} adiminda yazilan ayarin kosum oncesi hali; sonunda geri konur. */
+  let settingsBackup = null;
+  let settingsTouched = false;
+
   killAll();
   await sleep(800);
   try {
@@ -623,6 +632,25 @@ async function main() {
     }
 
     /* 4. Indirme devralma */
+    // Devralinan indirme artik "Indirme Bilgileri" penceresiyle onay bekler
+    // (bkz. should_hold). Bu kosum arayuzu surmuyor, bu yuzden uygulama
+    // baslamadan once ayar kapatilir; pencere davranisi ayri kosumda
+    // (scripts/check_handoff.mjs) dogrulanir. Ayar kosum sonunda geri konur.
+    try {
+      settingsBackup = existsSync(SETTINGS_PATH) ? readFileSync(SETTINGS_PATH, "utf8") : null;
+      settingsTouched = true;
+      mkdirSync(join(APPDATA, "Serene"), { recursive: true });
+      const current = settingsBackup ? JSON.parse(settingsBackup) : {};
+      writeFileSync(
+        SETTINGS_PATH,
+        JSON.stringify({ ...current, confirmBrowserDownload: false }, null, 2),
+        "utf8"
+      );
+      console.log("onay penceresi ayari kosum icin kapatildi");
+    } catch (error) {
+      problems.push(`onay penceresi ayari kapatilamadi: ${error.message}`);
+    }
+
     const url = `http://127.0.0.1:${HTTP_PORT}/eklenti-testi.bin`;
     await mock.state.fireDownloadCreated({
       id: 101,
@@ -979,6 +1007,15 @@ async function main() {
       rmSync(join(DOWNLOADS, "eklenti-testi.bin"), { force: true });
     } catch {
       /* yok */
+    }
+    // Uygulama kapandiktan sonra ayar dosyasi eski haline dondurulur.
+    if (settingsTouched) {
+      try {
+        if (settingsBackup === null) rmSync(SETTINGS_PATH, { force: true });
+        else writeFileSync(SETTINGS_PATH, settingsBackup, "utf8");
+      } catch (error) {
+        console.log(`uyari: settings.json geri konulamadi (${error.message})`);
+      }
     }
     httpServer.close();
   }
