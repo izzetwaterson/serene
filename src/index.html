@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Serene — Huzurlu İndirme Deneyimi</title>
+<link rel="stylesheet" href="fonts.css" />
+<link rel="stylesheet" href="app.css" />
+</head>
+<body class="bg-background text-on-surface font-body antialiased h-screen flex flex-col overflow-hidden selection:bg-primary-fixed selection:text-primary">
+
+<!-- Üst bar -->
+<header data-tauri-drag-region="deep" class="flex-shrink-0 z-40 bg-background/85 backdrop-blur-md border-b border-outline-variant/50 px-6 py-2.5 flex items-center justify-between gap-4">
+  <div class="flex items-center gap-3 flex-shrink-0">
+    <div class="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+      <span class="material-symbols-outlined text-[15px]">spa</span>
+    </div>
+    <span class="font-headline font-medium text-[15px] tracking-tight text-on-surface">Serene</span>
+    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-surface-container text-secondary">v0.1</span>
+  </div>
+
+  <div class="w-full max-w-md hidden md:block">
+    <div class="relative flex items-center h-9 w-full rounded-full bg-surface-container-low border border-outline-variant/60 px-3 shadow-inner-soft focus-within:border-primary/50 focus-within:bg-surface-container-lowest transition-all">
+      <span class="material-symbols-outlined text-[17px] text-outline mr-2">search</span>
+      <input id="search" class="w-full bg-transparent text-[13px] text-on-surface placeholder:text-outline/80 focus:outline-none" placeholder="İndirilenleri ara (örn: 'Nature')..." type="text" autocomplete="off" spellcheck="false" />
+      <kbd class="text-[10px] font-mono text-outline bg-surface-container px-1.5 py-0.5 rounded border border-outline-variant/60">Ctrl K</kbd>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-3 flex-shrink-0">
+    <div id="bridge-pill" class="flex items-center gap-2 bg-surface-container-low border border-outline-variant/60 px-3 py-1 rounded-full shadow-soft text-xs text-secondary" title="Tarayıcı eklentisi bağlı değil">
+      <span id="bridge-dot" class="w-2 h-2 rounded-full bg-outline"></span>
+      <span id="bridge-text">Tarayıcı yok</span>
+    </div>
+    <div id="speed-pill" class="hidden items-center gap-2 bg-surface-container-low border border-outline-variant/60 px-3 py-1 rounded-full shadow-soft text-xs text-secondary font-mono">
+      <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+      <span id="speed-pill-text">0 B/s</span>
+    </div>
+    <button id="open-settings" class="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center border border-outline-variant/60 transition-colors cursor-pointer" title="Ayarlar">
+      <span class="material-symbols-outlined text-[17px] text-secondary">tune</span>
+    </button>
+    <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-primary/30 to-tertiary/30 border border-primary/20 flex items-center justify-center text-xs font-semibold text-primary" title="Yerel profil">
+      EF
+    </div>
+
+    <!-- Pencere denetimleri (işletim sistemi çerçevesi kapalı) -->
+    <div class="flex items-center gap-1 ml-1 pl-2 border-l border-outline-variant/60">
+      <button id="win-min" class="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center border border-outline-variant/60 transition-colors cursor-pointer" title="Küçült">
+        <span class="material-symbols-outlined text-[17px] text-secondary">remove</span>
+      </button>
+      <button id="win-max" class="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center border border-outline-variant/60 transition-colors cursor-pointer" title="Büyüt">
+        <span id="win-max-icon" class="material-symbols-outlined text-[17px] text-secondary">crop_square</span>
+      </button>
+      <button id="win-close" class="w-8 h-8 rounded-full bg-surface-container hover:bg-error-container text-on-surface flex items-center justify-center border border-outline-variant/60 transition-colors cursor-pointer" title="Kapat">
+        <span class="material-symbols-outlined text-[17px] text-secondary">close</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="flex-1 flex flex-col md:flex-row max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 gap-6 overflow-hidden">
+
+  <!-- Sol menü -->
+  <aside class="w-full md:w-60 flex-shrink-0 flex flex-col gap-6 overflow-y-auto pb-2">
+    <button id="new-download" class="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-primary text-on-primary font-medium text-[14px] shadow-float hover:bg-primary/95 active:scale-[0.99] transition-all cursor-pointer">
+      <span class="material-symbols-outlined text-[19px]">add_circle</span>
+      <span>Yeni İndirme Başlat</span>
+    </button>
+
+    <div class="bg-surface-container-low rounded-3xl p-3 border border-outline-variant/50 shadow-soft">
+      <div class="px-3 py-2 text-[11px] font-semibold text-outline uppercase tracking-wider">Kuyruklar</div>
+      <nav class="flex flex-col gap-1" id="queue-nav">
+        <button class="nav-item flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-colors cursor-pointer w-full" data-filter="all">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[18px]">cloud_queue</span>
+            <span>Tüm İndirmeler</span>
+          </div>
+          <span class="font-mono text-[12px] font-semibold" data-count="all">0</span>
+        </button>
+        <button class="nav-item flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-colors cursor-pointer w-full" data-filter="active">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[18px]">autorenew</span>
+            <span>Devam Edenler</span>
+          </div>
+          <span class="font-mono text-[12px] font-semibold" data-count="active">0</span>
+        </button>
+        <button class="nav-item flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-colors cursor-pointer w-full" data-filter="completed">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[18px]">task_alt</span>
+            <span>Tamamlananlar</span>
+          </div>
+          <span class="font-mono text-[12px] font-semibold" data-count="completed">0</span>
+        </button>
+        <button class="nav-item flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-colors cursor-pointer w-full" data-filter="queued">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[18px]">hourglass_bottom</span>
+            <span>Kuyrukta</span>
+          </div>
+          <span class="font-mono text-[12px] font-semibold" data-count="queued">0</span>
+        </button>
+        <button class="nav-item flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-colors cursor-pointer w-full" data-filter="failed">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[18px]">info</span>
+            <span>Hata Verenler</span>
+          </div>
+          <span class="font-mono text-[12px] font-semibold" data-count="failed">0</span>
+        </button>
+      </nav>
+
+      <nav class="flex flex-col gap-1 mt-1" id="browser-nav">
+        <button id="browser-queue" class="nav-item flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-colors cursor-pointer w-full" title="Tarayıcıdan yakalanan medya">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[18px]">travel_explore</span>
+            <span>Tarayıcıdan</span>
+          </div>
+          <span class="font-mono text-[12px] font-semibold" data-count-captures>0</span>
+        </button>
+      </nav>
+
+      <div class="my-3 border-t border-outline-variant/50"></div>
+      <div class="px-3 py-1.5 text-[11px] font-semibold text-outline uppercase tracking-wider">Kategoriler</div>
+      <nav class="flex flex-col gap-0.5" id="category-nav">
+        <button class="cat-item flex items-center justify-between px-3.5 py-2 rounded-2xl transition-colors cursor-pointer w-full" data-category="video">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[17px] text-secondary">movie</span>
+            <span>Videolar</span>
+          </div>
+          <span class="font-mono text-[11px] text-outline" data-count-cat="video">0</span>
+        </button>
+        <button class="cat-item flex items-center justify-between px-3.5 py-2 rounded-2xl transition-colors cursor-pointer w-full" data-category="audio">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[17px] text-secondary">music_note</span>
+            <span>Sesler</span>
+          </div>
+          <span class="font-mono text-[11px] text-outline" data-count-cat="audio">0</span>
+        </button>
+        <button class="cat-item flex items-center justify-between px-3.5 py-2 rounded-2xl transition-colors cursor-pointer w-full" data-category="document">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[17px] text-secondary">description</span>
+            <span>Belgeler</span>
+          </div>
+          <span class="font-mono text-[11px] text-outline" data-count-cat="document">0</span>
+        </button>
+        <button class="cat-item flex items-center justify-between px-3.5 py-2 rounded-2xl transition-colors cursor-pointer w-full" data-category="software">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[17px] text-secondary">code</span>
+            <span>Yazılımlar</span>
+          </div>
+          <span class="font-mono text-[11px] text-outline" data-count-cat="software">0</span>
+        </button>
+        <button class="cat-item flex items-center justify-between px-3.5 py-2 rounded-2xl transition-colors cursor-pointer w-full" data-category="archive">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[17px] text-secondary">folder_zip</span>
+            <span>Sıkıştırılmış</span>
+          </div>
+          <span class="font-mono text-[11px] text-outline" data-count-cat="archive">0</span>
+        </button>
+        <button class="cat-item flex items-center justify-between px-3.5 py-2 rounded-2xl transition-colors cursor-pointer w-full" data-category="image">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[17px] text-secondary">image</span>
+            <span>Görseller</span>
+          </div>
+          <span class="font-mono text-[11px] text-outline" data-count-cat="image">0</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Disk durumu -->
+    <div class="bg-secondary-container/60 rounded-3xl p-4 border border-outline-variant/40 flex flex-col gap-2">
+      <div class="flex items-center justify-between text-xs text-on-secondary-container font-medium">
+        <span class="flex items-center gap-1.5 min-w-0">
+          <span class="material-symbols-outlined text-[15px] text-primary">hard_drive</span>
+          <span id="disk-label" class="truncate">Disk</span>
+        </span>
+        <span class="font-mono flex-shrink-0" id="disk-percent">—</span>
+      </div>
+      <div class="w-full h-2 rounded-full bg-surface-dim overflow-hidden p-0.5">
+        <div class="h-full bg-primary rounded-full transition-all duration-500" id="disk-bar" style="width: 0%"></div>
+      </div>
+      <p class="text-[11px] text-secondary leading-tight mt-1" id="disk-detail">Hesaplanıyor…</p>
+    </div>
+  </aside>
+
+  <!-- Orta alan -->
+  <main class="flex-1 flex flex-col min-w-0 overflow-y-auto pb-4 pr-1">
+    <div class="flex flex-col w-full gap-8 pb-16">
+
+      <!-- Karşılama + bağlantı girişi -->
+      <section id="hero" class="flex flex-col items-center text-center py-8 px-4 relative scroll-mt-4">
+        <div class="absolute inset-0 bg-gradient-to-b from-primary-fixed/20 via-transparent to-transparent rounded-3xl -z-10 pointer-events-none"></div>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed/45 text-on-primary-fixed text-xs font-semibold mb-4 tracking-wide">
+          <span class="material-symbols-outlined text-[14px]">eco</span>
+          Huzurlu İndirme Alanı
+        </span>
+        <h1 class="font-headline text-3xl md:text-4xl text-on-background font-normal tracking-tight mb-3">
+          Bugün ne indirmek istersiniz?
+        </h1>
+        <p class="text-secondary max-w-md text-sm md:text-base font-body mb-8 leading-relaxed">
+          Bir bağlantı yapıştırın veya hızlıca dosya arayın. Her şey sakin ve düzenli bir şekilde arka planda hallolur.
+        </p>
+
+        <div class="w-full max-w-2xl bg-surface-container-lowest rounded-full p-2.5 shadow-float flex items-center gap-3 transition-all focus-within:ring-2 focus-within:ring-primary/20">
+          <div class="w-10 h-10 rounded-full bg-primary-fixed/40 flex items-center justify-center text-primary ml-1 flex-shrink-0">
+            <span class="material-symbols-outlined text-[20px]">link</span>
+          </div>
+          <input id="url-input" class="flex-1 min-w-0 bg-transparent text-sm text-on-surface placeholder:text-outline focus:outline-none px-2 font-body" placeholder="https:// bağlantısını buraya bırakın..." type="text" autocomplete="off" spellcheck="false" />
+          <button id="pick-dest" class="w-10 h-10 rounded-full bg-surface-container hover:bg-surface-container-high text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0" title="Bu indirme için farklı klasör seç">
+            <span class="material-symbols-outlined text-[19px]">create_new_folder</span>
+          </button>
+          <button id="download-btn" class="bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-on-primary font-medium text-sm px-6 py-2.5 rounded-full shadow-soft transition-all flex items-center gap-2 cursor-pointer flex-shrink-0">
+            <span class="material-symbols-outlined text-[18px]">download</span>
+            <span>İndir</span>
+          </button>
+        </div>
+
+        <button id="dest-hint" class="mt-3 text-[11px] text-secondary hover:text-primary transition-colors flex items-center gap-1.5 cursor-pointer" title="Kayıt klasörünü değiştir">
+          <span class="material-symbols-outlined text-[14px]">folder</span>
+          <span id="dest-hint-text" class="font-mono truncate max-w-md">…</span>
+          <span class="material-symbols-outlined text-[13px]">edit</span>
+        </button>
+
+        <!-- Yalnızca sıradaki indirmeler için geçerli klasör -->
+        <div id="dest-override" class="hidden mt-3 items-center gap-2 text-[11px] bg-primary-fixed/25 border border-primary/20 rounded-full pl-3 pr-1.5 py-1.5">
+          <span class="material-symbols-outlined text-[14px] text-primary">folder_special</span>
+          <span class="text-on-primary-fixed">Bu indirme şuraya kaydedilecek:</span>
+          <span id="dest-override-text" class="font-mono text-primary truncate max-w-[16rem]">…</span>
+          <button id="dest-override-clear" class="w-6 h-6 rounded-full hover:bg-primary/20 text-primary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0" title="Özel klasörü kaldır">
+            <span class="material-symbols-outlined text-[15px]">close</span>
+          </button>
+        </div>
+
+        <p id="add-error" class="hidden mt-3 text-[12px] text-on-error-container bg-error-container/60 px-3 py-1.5 rounded-full"></p>
+      </section>
+
+      <!-- Liste -->
+      <div id="task-root" class="flex flex-col gap-8"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Yakalanan bağlantı bildirimi -->
+<div id="toast-root" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 items-end"></div>
+
+<!-- Bağlantı sürükleme katmanı -->
+<div id="drop-overlay" class="hidden fixed inset-0 z-[60] items-center justify-center bg-background/70 backdrop-blur-sm p-10 pointer-events-none">
+  <div class="w-full max-w-lg h-full max-h-72 rounded-3xl border-2 border-dashed border-primary/60 bg-primary-fixed/20 flex flex-col items-center justify-center gap-2.5 text-center">
+    <span class="material-symbols-outlined text-[38px] text-primary">link</span>
+    <p class="font-headline text-xl text-on-background">Bağlantıyı buraya bırakın</p>
+    <p class="text-[13px] text-secondary">Serene indirmeyi hemen başlatacak</p>
+  </div>
+</div>
+
+<!-- Ayarlar -->
+<div id="settings-modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-on-surface/25 backdrop-blur-sm p-6">
+  <div class="bg-surface-container-lowest rounded-3xl shadow-float w-full max-w-lg max-h-full overflow-y-auto">
+    <div class="flex items-center justify-between px-7 pt-6 pb-4">
+      <h2 class="font-headline text-xl text-on-background">Ayarlar</h2>
+      <button id="close-settings" class="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high text-secondary flex items-center justify-center transition-colors cursor-pointer" title="Kapat">
+        <span class="material-symbols-outlined text-[17px]">close</span>
+      </button>
+    </div>
+
+    <div class="px-7 pb-7 flex flex-col gap-6">
+      <div class="flex flex-col gap-2">
+        <label class="text-[12px] font-semibold text-outline uppercase tracking-wider">Kayıt klasörü</label>
+        <div class="flex items-center gap-2">
+          <input id="set-dir" class="flex-1 min-w-0 bg-surface-container-low border border-outline-variant/60 rounded-xl px-3.5 py-2.5 text-[13px] font-mono text-on-surface focus:outline-none focus:border-primary/50" type="text" readonly />
+          <button id="browse-dir" class="px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-[13px] font-medium transition-colors cursor-pointer flex-shrink-0">Gözat</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-5">
+        <div class="flex flex-col gap-2">
+          <label class="text-[12px] font-semibold text-outline uppercase tracking-wider">Eşzamanlı indirme</label>
+          <input id="set-concurrent" class="bg-surface-container-low border border-outline-variant/60 rounded-xl px-3.5 py-2.5 text-[13px] text-on-surface focus:outline-none focus:border-primary/50" type="number" min="1" max="16" />
+          <p class="text-[11px] text-secondary leading-tight">Aynı anda kaç dosya iner</p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-[12px] font-semibold text-outline uppercase tracking-wider">Bağlantı / dosya</label>
+          <input id="set-connections" class="bg-surface-container-low border border-outline-variant/60 rounded-xl px-3.5 py-2.5 text-[13px] text-on-surface focus:outline-none focus:border-primary/50" type="number" min="1" max="16" />
+          <p class="text-[11px] text-secondary leading-tight">Parçalı indirmede bağlantı sayısı</p>
+        </div>
+      </div>
+
+      <label class="flex items-center justify-between gap-4 bg-surface-container-low rounded-2xl px-4 py-3.5 border border-outline-variant/50 cursor-pointer">
+        <span class="flex flex-col">
+          <span class="text-[13px] font-medium text-on-surface">Panoyu izle</span>
+          <span class="text-[11px] text-secondary leading-tight mt-0.5">Kopyaladığınız bağlantıları yakalayıp önerir</span>
+        </span>
+        <input id="set-clipboard" class="w-4 h-4 accent-primary cursor-pointer flex-shrink-0" type="checkbox" />
+      </label>
+
+      <label class="flex items-center justify-between gap-4 bg-surface-container-low rounded-2xl px-4 py-3.5 border border-outline-variant/50 cursor-pointer">
+        <span class="flex flex-col">
+          <span class="text-[13px] font-medium text-on-surface">Kapatınca tepsiye gizle</span>
+          <span class="text-[11px] text-secondary leading-tight mt-0.5">Kapat düğmesi uygulamayı bitirmez, indirmeler sürer</span>
+        </span>
+        <input id="set-tray" class="w-4 h-4 accent-primary cursor-pointer flex-shrink-0" type="checkbox" />
+      </label>
+
+      <div class="flex items-center justify-between gap-3 pt-1">
+        <button id="clear-completed" class="text-[13px] font-medium text-secondary hover:text-on-surface transition-colors cursor-pointer">Tamamlananları temizle</button>
+        <div class="flex items-center gap-3">
+          <span id="settings-status" class="text-[12px] text-primary"></span>
+          <button id="save-settings" class="px-5 py-2.5 rounded-full bg-primary hover:bg-primary/90 text-on-primary text-[13px] font-medium shadow-soft transition-all cursor-pointer">Kaydet</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Onay penceresi -->
+<div id="confirm-modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-on-surface/25 backdrop-blur-sm p-6">
+  <div class="bg-surface-container-lowest rounded-3xl shadow-float w-full max-w-sm p-7 flex flex-col gap-5">
+    <div class="flex items-start gap-3.5">
+      <div class="w-10 h-10 rounded-2xl bg-error-container/60 flex items-center justify-center text-on-error-container flex-shrink-0">
+        <span id="confirm-icon" class="material-symbols-outlined text-[20px]">delete</span>
+      </div>
+      <div class="min-w-0 flex-1">
+        <h3 id="confirm-title" class="font-headline text-lg text-on-background leading-snug break-words"></h3>
+        <p id="confirm-text" class="text-[12.5px] text-secondary mt-1.5 leading-relaxed break-words"></p>
+      </div>
+    </div>
+    <div id="confirm-buttons" class="flex flex-col gap-2"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+
+</body>
+</html>

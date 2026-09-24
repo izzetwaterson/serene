@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #dcd8ce;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Sayı girişlerindeki artırma oklarını gizle */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  user-select: none;
+}
+
+@layer components {
+  .nav-item {
+    @apply text-[13.5px] text-on-surface-variant;
+  }
+  .nav-item .material-symbols-outlined {
+    @apply text-secondary;
+  }
+  .nav-item [data-count],
+  .nav-item [data-count-captures] {
+    @apply text-outline;
+  }
+  .nav-item:hover {
+    @apply bg-surface-container text-on-surface;
+  }
+  .nav-item.is-active {
+    @apply bg-surface-container-high text-primary font-medium;
+  }
+  .nav-item.is-active .material-symbols-outlined,
+  .nav-item.is-active [data-count],
+  .nav-item.is-active [data-count-captures] {
+    @apply text-primary;
+  }
+
+  .cat-item {
+    @apply text-[13px] text-on-surface-variant;
+  }
+  .cat-item [data-count-cat] {
+    @apply text-outline;
+  }
+  .cat-item:hover {
+    @apply bg-surface-container text-on-surface;
+  }
+  .cat-item.is-active {
+    @apply bg-surface-container-high text-primary font-medium;
+  }
+  .cat-item.is-active .material-symbols-outlined,
+  .cat-item.is-active [data-count-cat] {
+    @apply text-primary;
+  }
+}
