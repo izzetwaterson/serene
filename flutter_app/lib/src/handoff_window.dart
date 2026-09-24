@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'data.dart';
+import 'folder_picker.dart';
 import 'format.dart';
 import 'handoff.dart';
 import 'rust/api/handoff.dart' as ffi;
@@ -28,7 +29,13 @@ class HandoffWindow extends StatefulWidget {
 }
 
 class _HandoffWindowState extends State<HandoffWindow> {
-  late final TextEditingController _name = TextEditingController(text: widget.task.filename);
+  late final TextEditingController _name = TextEditingController(
+    text: widget.task.filename,
+  );
+
+  /// Secilebilir kayit klasoru: gorevdeki yol bir oneri, kullanici degistirebilir.
+  late String _dir = widget.task.dir;
+
   String? _notice;
   bool _busy = false;
 
@@ -49,12 +56,26 @@ class _HandoffWindowState extends State<HandoffWindow> {
     return 'Sunucu parçalı indirmeyi desteklemiyor; dosya tek bağlantıyla inecek.';
   }
 
+  /// Yerel klasor diyaloğu: secilen yol hem gostergeye hem karara girer.
+  Future<void> _browse() async {
+    final picked = await pickFolder(
+      title: 'Kayıt klasörünü seçin',
+      initialDirectory: _dir.trim().isEmpty ? null : _dir.trim(),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _dir = picked);
+  }
+
   /// Karar: yer/ad motora yazilir, `start` ile hemen indirmeye alinir.
   Future<void> _decide({required bool start}) async {
     final name = _name.text.trim();
     if (_busy) return;
     if (name.isEmpty) {
       setState(() => _notice = 'Dosya adı boş bırakılamaz.');
+      return;
+    }
+    if (_dir.trim().isEmpty) {
+      setState(() => _notice = 'Kayıt klasörü boş olamaz.');
       return;
     }
     if (widget.preview) {
@@ -71,7 +92,7 @@ class _HandoffWindowState extends State<HandoffWindow> {
     try {
       ffi.confirmHandoff(
         id: widget.task.id,
-        destDir: widget.task.dir,
+        destDir: _dir,
         filename: name,
         start: start,
       );
@@ -132,8 +153,10 @@ class _HandoffWindowState extends State<HandoffWindow> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text('İndirme Bilgileri',
-                        style: head(20, color: Serene.onBackground)),
+                    child: Text(
+                      'İndirme Bilgileri',
+                      style: head(20, color: Serene.onBackground),
+                    ),
                   ),
                   CircleButton(
                     icon: 'close',
@@ -169,10 +192,17 @@ class _HandoffWindowState extends State<HandoffWindow> {
                           height: 48,
                           decoration: BoxDecoration(
                             color: style.box,
-                            borderRadius: BorderRadius.circular(Serene.radiusTile),
+                            borderRadius: BorderRadius.circular(
+                              Serene.radiusTile,
+                            ),
                           ),
                           child: Center(
-                              child: SIcon(style.icon, size: 24, color: style.tone)),
+                            child: SIcon(
+                              style.icon,
+                              size: 24,
+                              color: style.tone,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -190,16 +220,20 @@ class _HandoffWindowState extends State<HandoffWindow> {
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 2),
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Serene.surfaceContainer,
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
                                       categoryTitles[task.category] ?? 'Diğer',
-                                      style: body(10,
-                                          weight: FontWeight.w600,
-                                          color: Serene.secondary),
+                                      style: body(
+                                        10,
+                                        weight: FontWeight.w600,
+                                        color: Serene.secondary,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -220,36 +254,42 @@ class _HandoffWindowState extends State<HandoffWindow> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _Field(
+                  Field(
                     label: 'Adres',
-                    child: _ReadOnlyField(text: task.url),
+                    child: ReadOnlyField(text: task.url),
                   ),
                   const SizedBox(height: 20),
-                  _Field(
+                  Field(
                     label: 'Kayıt klasörü',
                     child: Row(
                       children: [
-                        Expanded(child: _ReadOnlyField(text: task.dir)),
+                        Expanded(child: ReadOnlyField(text: _dir)),
                         const SizedBox(width: 8),
                         HoverSurface(
-                          onTap: () => setState(() =>
-                              _notice = 'Spike: klasör seçimi henüz bağlı değil.'),
+                          onTap: _busy ? null : _browse,
                           radius: Serene.radiusField,
                           background: Serene.surfaceContainer,
                           hoverBackground: Serene.surfaceContainerHigh,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          child: Text('Gözat',
-                              style: body(13, weight: FontWeight.w500)),
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Text(
+                            'Gözat',
+                            style: body(13, weight: FontWeight.w500),
+                          ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _Field(
+                  Field(
                     label: 'Dosya adı',
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Serene.surfaceContainerLow,
                         borderRadius: BorderRadius.circular(Serene.radiusField),
@@ -259,6 +299,7 @@ class _HandoffWindowState extends State<HandoffWindow> {
                         controller: _name,
                         cursorColor: Serene.primary,
                         style: body(13),
+                        onSubmitted: (_) => _decide(start: true),
                         decoration: const InputDecoration(
                           isDense: true,
                           border: InputBorder.none,
@@ -268,25 +309,35 @@ class _HandoffWindowState extends State<HandoffWindow> {
                   ),
                   const SizedBox(height: 20),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: Serene.surfaceContainerLow.withValues(alpha: 0.7),
                       borderRadius: BorderRadius.circular(Serene.radiusField),
                       border: Border.all(color: const Color(0x66DCD8CE)),
                     ),
-                    child: Text(_note,
-                        style: body(11, color: Serene.secondary, height: 1.6)),
+                    child: Text(
+                      _note,
+                      style: body(11, color: Serene.secondary, height: 1.6),
+                    ),
                   ),
                   if (_notice != null) ...[
                     const SizedBox(height: 14),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Serene.errorContainer.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: Text(_notice!,
-                          style: body(12, color: Serene.onErrorContainer)),
+                      child: Text(
+                        _notice!,
+                        style: body(12, color: Serene.onErrorContainer),
+                      ),
                     ),
                   ],
                   const SizedBox(height: 20),
@@ -297,9 +348,13 @@ class _HandoffWindowState extends State<HandoffWindow> {
                         background: Colors.transparent,
                         hoverBackground: Serene.surfaceContainer,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        child: Text('İptal',
-                            style: body(13, color: Serene.secondary)),
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        child: Text(
+                          'İptal',
+                          style: body(13, color: Serene.secondary),
+                        ),
                       ),
                       const Spacer(),
                       HoverSurface(
@@ -308,9 +363,13 @@ class _HandoffWindowState extends State<HandoffWindow> {
                         background: Serene.surfaceContainer,
                         hoverBackground: Serene.surfaceContainerHigh,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
-                        child: Text('Sonra İndir',
-                            style: body(13, weight: FontWeight.w500)),
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        child: Text(
+                          'Sonra İndir',
+                          style: body(13, weight: FontWeight.w500),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       HoverSurface(
@@ -319,13 +378,19 @@ class _HandoffWindowState extends State<HandoffWindow> {
                         background: Serene.primary,
                         hoverBackground: const Color(0xE63D6A4B),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
                         child: Row(
                           children: [
-                            Text('İndirmeyi Başlat',
-                                style: body(13,
-                                    weight: FontWeight.w500,
-                                    color: Serene.onPrimary)),
+                            Text(
+                              'İndirmeyi Başlat',
+                              style: body(
+                                13,
+                                weight: FontWeight.w500,
+                                color: Serene.onPrimary,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -350,53 +415,4 @@ String _grouped(int value) {
     buffer.write(digits[i]);
   }
   return buffer.toString();
-}
-
-class _Field extends StatelessWidget {
-  const _Field({required this.label, required this.child});
-
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 8),
-          child: Text(
-            label.toUpperCase(),
-            style: body(12,
-                weight: FontWeight.w600, color: Serene.outline, letterSpacing: 0.6),
-          ),
-        ),
-        child,
-      ],
-    );
-  }
-}
-
-class _ReadOnlyField extends StatelessWidget {
-  const _ReadOnlyField({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      decoration: BoxDecoration(
-        color: Serene.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(Serene.radiusField),
-        border: Border.all(color: const Color(0x99DCD8CE)),
-      ),
-      child: Text(
-        text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: mono(12, color: Serene.onSurface),
-      ),
-    );
-  }
 }

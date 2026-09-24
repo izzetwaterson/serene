@@ -19,7 +19,10 @@ class TaskPane extends StatelessWidget {
     required this.onQueryJump,
     required this.onSubmitUrl,
     required this.onAction,
-    required this.onNotice,
+    required this.destOverride,
+    required this.onPickFolder,
+    required this.onClearOverride,
+    required this.onOpenSettings,
   });
 
   final List<Task> tasks;
@@ -32,7 +35,12 @@ class TaskPane extends StatelessWidget {
   final ValueChanged<String> onQueryJump;
   final VoidCallback onSubmitUrl;
   final void Function(Task task, String action) onAction;
-  final ValueChanged<String> onNotice;
+
+  /// Siradaki indirmeler icin secilen gecici hedef ve ayarlar kisayollari.
+  final String? destOverride;
+  final VoidCallback onPickFolder;
+  final VoidCallback onClearOverride;
+  final VoidCallback onOpenSettings;
 
   List<Task> get _filtered {
     var list = tasks;
@@ -42,9 +50,11 @@ class TaskPane extends StatelessWidget {
     if (query.isNotEmpty) {
       final needle = query.toLowerCase();
       list = list
-          .where((task) =>
-              task.filename.toLowerCase().contains(needle) ||
-              task.url.toLowerCase().contains(needle))
+          .where(
+            (task) =>
+                task.filename.toLowerCase().contains(needle) ||
+                task.url.toLowerCase().contains(needle),
+          )
           .toList();
     }
     return list;
@@ -56,7 +66,9 @@ class TaskPane extends StatelessWidget {
     final sections = <Widget>[];
 
     if (isDefault) {
-      final inFlight = tasks.where((task) => task.status != 'completed').toList();
+      final inFlight = tasks
+          .where((task) => task.status != 'completed')
+          .toList();
       final done = tasks.where((task) => task.status == 'completed').toList();
 
       sections.add(
@@ -70,13 +82,9 @@ class TaskPane extends StatelessWidget {
               ? const EmptyState(
                   icon: 'downloading',
                   title: 'Şu an inen bir şey yok',
-                  hint:
-                      'Yukarıdaki alana bir bağlantı yapıştırın; gerisini Serene halledecek.',
+                  hint: 'Yukarıdaki alana bir bağlantı yapıştırın; gerisini Serene halledecek.',
                 )
-              : _CardList(
-                  tasks: inFlight,
-                  onAction: onAction,
-                ),
+              : _CardList(tasks: inFlight, onAction: onAction),
         ),
       );
 
@@ -89,8 +97,14 @@ class TaskPane extends StatelessWidget {
                 onTap: () => onQueryJump('completed'),
                 background: Colors.transparent,
                 padding: EdgeInsets.zero,
-                child: Text('Tümünü Gör',
-                    style: body(12, weight: FontWeight.w600, color: Serene.primary)),
+                child: Text(
+                  'Tümünü Gör',
+                  style: body(
+                    12,
+                    weight: FontWeight.w600,
+                    color: Serene.primary,
+                  ),
+                ),
               ),
             ),
             child: _CompletedGrid(
@@ -130,7 +144,10 @@ class TaskPane extends StatelessWidget {
             notice: notice,
             url: url,
             onSubmitUrl: onSubmitUrl,
-            onNotice: onNotice,
+            destOverride: destOverride,
+            onPickFolder: onPickFolder,
+            onClearOverride: onClearOverride,
+            onOpenSettings: onOpenSettings,
           ),
           for (final section in sections) ...[
             const SizedBox(height: 32),
@@ -152,11 +169,7 @@ class _Section extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        header,
-        const SizedBox(height: 16),
-        child,
-      ],
+      children: [header, const SizedBox(height: 16), child],
     );
   }
 }
@@ -169,14 +182,22 @@ class Hero extends StatelessWidget {
     required this.notice,
     required this.url,
     required this.onSubmitUrl,
-    required this.onNotice,
+    required this.destOverride,
+    required this.onPickFolder,
+    required this.onClearOverride,
+    required this.onOpenSettings,
   });
 
   final Settings settings;
   final String? notice;
   final TextEditingController url;
   final VoidCallback onSubmitUrl;
-  final ValueChanged<String> onNotice;
+
+  /// Ayarlar degismeden yalnizca siradaki indirmeler icin secilen klasor.
+  final String? destOverride;
+  final VoidCallback onPickFolder;
+  final VoidCallback onClearOverride;
+  final VoidCallback onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -206,18 +227,24 @@ class Hero extends StatelessWidget {
               children: [
                 const SIcon('eco', size: 14, color: Serene.onPrimaryFixed),
                 const SizedBox(width: 6),
-                Text('Huzurlu İndirme Alanı',
-                    style: body(12,
-                        weight: FontWeight.w600,
-                        color: Serene.onPrimaryFixed,
-                        letterSpacing: 0.4)),
+                Text(
+                  'Huzurlu İndirme Alanı',
+                  style: body(
+                    12,
+                    weight: FontWeight.w600,
+                    color: Serene.onPrimaryFixed,
+                    letterSpacing: 0.4,
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          Text('Bugün ne indirmek istersiniz?',
-              textAlign: TextAlign.center,
-              style: head(36, letterSpacing: -0.6, color: Serene.onBackground)),
+          Text(
+            'Bugün ne indirmek istersiniz?',
+            textAlign: TextAlign.center,
+            style: head(36, letterSpacing: -0.6, color: Serene.onBackground),
+          ),
           const SizedBox(height: 12),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 448),
@@ -249,7 +276,8 @@ class Hero extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: const Center(
-                        child: SIcon('link', size: 20, color: Serene.primary)),
+                      child: SIcon('link', size: 20, color: Serene.primary),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -274,7 +302,7 @@ class Hero extends StatelessWidget {
                     background: Serene.surfaceContainer,
                     hoverBackground: Serene.surfaceContainerHigh,
                     foreground: Serene.secondary,
-                    onTap: () => onNotice('Klasör seçimi ayarlar penceresiyle gelecek'),
+                    onTap: onPickFolder,
                   ),
                   const SizedBox(width: 12),
                   ValueListenableBuilder<TextEditingValue>(
@@ -288,16 +316,26 @@ class Hero extends StatelessWidget {
                           radius: 999,
                           background: Serene.primary,
                           hoverBackground: const Color(0xE63D6A4B),
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 10,
+                          ),
                           child: Row(
                             children: [
-                              const SIcon('download', size: 18, color: Serene.onPrimary),
+                              const SIcon(
+                                'download',
+                                size: 18,
+                                color: Serene.onPrimary,
+                              ),
                               const SizedBox(width: 8),
-                              Text('İndir',
-                                  style: body(14,
-                                      weight: FontWeight.w500,
-                                      color: Serene.onPrimary)),
+                              Text(
+                                'İndir',
+                                style: body(
+                                  14,
+                                  weight: FontWeight.w500,
+                                  color: Serene.onPrimary,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -310,7 +348,7 @@ class Hero extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           HoverSurface(
-            onTap: () => onNotice('Klasör ayarı ayarlar penceresiyle gelecek'),
+            onTap: onOpenSettings,
             background: Colors.transparent,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
@@ -332,6 +370,62 @@ class Hero extends StatelessWidget {
               ],
             ),
           ),
+          // Yalnizca siradaki indirmeler icin gecerli olan secili klasor.
+          if (destOverride != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.only(
+                left: 12,
+                right: 6,
+                top: 6,
+                bottom: 6,
+              ),
+              decoration: BoxDecoration(
+                color: Serene.primaryFixed.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: Serene.primary.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SIcon(
+                    'folder_special',
+                    size: 14,
+                    color: Serene.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Bu indirme şuraya kaydedilecek:',
+                      style: body(11, color: Serene.onPrimaryFixed),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 256),
+                    child: Text(
+                      destOverride!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: mono(11, color: Serene.primary),
+                    ),
+                  ),
+                  CircleButton(
+                    icon: 'close',
+                    title: 'Özel klasörü kaldır',
+                    size: 24,
+                    iconSize: 15,
+                    background: Colors.transparent,
+                    hoverBackground: Serene.primary.withValues(alpha: 0.2),
+                    foreground: Serene.primary,
+                    onTap: onClearOverride,
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (notice != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -340,8 +434,10 @@ class Hero extends StatelessWidget {
                 color: Serene.errorContainer.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: Text(notice!,
-                  style: body(12, color: Serene.onErrorContainer)),
+              child: Text(
+                notice!,
+                style: body(12, color: Serene.onErrorContainer),
+              ),
             ),
           ],
         ],
@@ -382,7 +478,10 @@ class TaskCard extends StatelessWidget {
               Row(
                 children: [
                   for (final action in actionsFor(task)) ...[
-                    _ActionButton(action: action, onTap: () => onAction(task, action.action)),
+                    _ActionButton(
+                      action: action,
+                      onTap: () => onAction(task, action.action),
+                    ),
                     const SizedBox(width: 6),
                   ],
                 ],
@@ -450,7 +549,10 @@ class CompletedCard extends StatelessWidget {
           Row(
             children: [
               for (final action in actionsFor(task)) ...[
-                _ActionButton(action: action, onTap: () => onAction(task, action.action)),
+                _ActionButton(
+                  action: action,
+                  onTap: () => onAction(task, action.action),
+                ),
                 const SizedBox(width: 6),
               ],
             ],
@@ -557,16 +659,20 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final (background, hover, foreground) = switch (action.tone) {
       1 => (
-          Serene.errorContainer.withValues(alpha: 0.5),
-          Serene.errorContainer,
-          Serene.onErrorContainer,
-        ),
+        Serene.errorContainer.withValues(alpha: 0.5),
+        Serene.errorContainer,
+        Serene.onErrorContainer,
+      ),
       2 => (
-          Serene.primary.withValues(alpha: 0.1),
-          Serene.primary.withValues(alpha: 0.2),
-          Serene.primary,
-        ),
-      _ => (Serene.surfaceContainer, Serene.surfaceContainerHigh, Serene.secondary),
+        Serene.primary.withValues(alpha: 0.1),
+        Serene.primary.withValues(alpha: 0.2),
+        Serene.primary,
+      ),
+      _ => (
+        Serene.surfaceContainer,
+        Serene.surfaceContainerHigh,
+        Serene.secondary,
+      ),
     };
 
     return CircleButton(
@@ -619,19 +725,21 @@ class CaptureCard extends StatelessWidget {
                   color: item.kind == 'hls'
                       ? const Color(0x80D3EBD8)
                       : item.kind == 'dash'
-                          ? const Color(0x80F8E0A8)
-                          : Serene.surfaceContainer,
+                      ? const Color(0x80F8E0A8)
+                      : Serene.surfaceContainer,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   captureKindLabel(item.kind),
-                  style: body(10,
-                      weight: FontWeight.w600,
-                      color: item.kind == 'hls'
-                          ? Serene.onPrimaryFixed
-                          : item.kind == 'dash'
-                              ? Serene.onTertiaryContainer
-                              : Serene.secondary),
+                  style: body(
+                    10,
+                    weight: FontWeight.w600,
+                    color: item.kind == 'hls'
+                        ? Serene.onPrimaryFixed
+                        : item.kind == 'dash'
+                        ? Serene.onTertiaryContainer
+                        : Serene.secondary,
+                  ),
                 ),
               ),
             ),
@@ -695,9 +803,14 @@ class CapturesPane extends StatelessWidget {
                     onTap: onClear,
                     background: Colors.transparent,
                     padding: EdgeInsets.zero,
-                    child: Text('Tümünü Temizle',
-                        style: body(12,
-                            weight: FontWeight.w600, color: Serene.secondary)),
+                    child: Text(
+                      'Tümünü Temizle',
+                      style: body(
+                        12,
+                        weight: FontWeight.w600,
+                        color: Serene.secondary,
+                      ),
+                    ),
                   ),
           ),
           const SizedBox(height: 16),
@@ -705,12 +818,18 @@ class CapturesPane extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Serene.errorContainer.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text(notice!, style: body(12, color: Serene.onErrorContainer)),
+                child: Text(
+                  notice!,
+                  style: body(12, color: Serene.onErrorContainer),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -719,7 +838,8 @@ class CapturesPane extends StatelessWidget {
             EmptyState(
               icon: 'travel_explore',
               title: 'Yakalanan medya yok',
-              hint: 'Tarayıcıda oynattığınız videolar ve sesler burada birikir; '
+              hint:
+                  'Tarayıcıda oynattığınız videolar ve sesler burada birikir; '
                   'indirmek istediğinizi tek tıkla seçersiniz.',
             )
           else

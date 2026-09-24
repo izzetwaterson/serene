@@ -1,9 +1,22 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:serene_app/src/data.dart';
 import 'package:serene_app/src/format.dart';
 import 'package:serene_app/src/handoff.dart';
 import 'package:serene_app/src/rust/api/dto.dart' as engine;
+import 'package:serene_app/src/settings_view.dart';
+import 'package:serene_app/src/theme.dart';
+
+Settings _engineSettings() => Settings(
+      downloadDir: r'C:\indir',
+      maxConcurrent: 3,
+      connections: 8,
+      watchClipboard: false,
+      closeToTray: true,
+      confirmBrowserDownload: true,
+    );
 
 void main() {
   test('bayt bicimlendirme', () {
@@ -111,4 +124,62 @@ void main() {
   test('kopru hatasinin kisa aciklamasi', () {
     expect(engineReason(Exception('Gorev bulunamadi')), 'Gorev bulunamadi');
   });
+
+  test('sayi alanlari 1..16 arasinda kalir', () {
+    expect(parseCount('5', 3), 5);
+    expect(parseCount('', 3), 3);
+    expect(parseCount('bir', 8), 8);
+    expect(parseCount('0', 3), 1);
+    expect(parseCount('40', 3), 16);
+  });
+
+  testWidgets('ayarlar paneli motor ayarlarindan dolar', (tester) async {
+    await tester.pumpWidget(_settingsHost(
+      SettingsPanel(
+        settings: _engineSettings(),
+        onClose: () {},
+        onSaved: (_) {},
+      ),
+    ));
+
+    expect(find.text('Ayarlar'), findsOneWidget);
+    expect(find.text(r'C:\indir'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('8'), findsOneWidget);
+  });
+
+  testWidgets('ayarlar paneli Esc ile kapanir', (tester) async {
+    var closed = 0;
+    await tester.pumpWidget(_settingsHost(
+      SettingsPanel(
+        settings: _engineSettings(),
+        onClose: () => closed++,
+        onSaved: (_) {},
+      ),
+    ));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(closed, 1);
+  });
+
+  testWidgets('tepsi ayari satira tiklaninca cevrilir', (tester) async {
+    await tester.pumpWidget(_settingsHost(
+      SettingsPanel(
+        settings: _engineSettings(),
+        onClose: () {},
+        onSaved: (_) {},
+      ),
+    ));
+
+    final boxes = find.byType(Checkbox);
+    expect(tester.widget<Checkbox>(boxes.at(1)).value, isTrue);
+    await tester.tap(find.text('Kapatınca tepsiye gizle'));
+    await tester.pump();
+    expect(tester.widget<Checkbox>(boxes.at(1)).value, isFalse);
+  });
 }
+
+/// Panel tek basina da ayni temayi seesin: katmanin sahibi ana pencere gibi.
+Widget _settingsHost(Widget child) =>
+    MaterialApp(theme: sereneTheme(), home: child);

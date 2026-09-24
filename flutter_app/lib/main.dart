@@ -18,6 +18,7 @@ import 'src/theme.dart';
 /// Iki kip:
 ///   serene_app.exe                 -> ana pencere (main window)
 ///   `serene_app.exe --demo`        -> ana pencere ornek gorevlerle acilir
+///   `serene_app.exe --settings`    -> ana pencere ayarlar katmani acik halde
 ///   `serene_app.exe --handoff=<b64>` -> ayri "İndirme Bilgileri" penceresi
 ///   `serene_app.exe --selfcheck`   -> pencere acmadan Rust motorunu yoklar
 ///
@@ -34,11 +35,16 @@ Future<void> main(List<String> args) async {
 
   final payload = _arg(args, 'handoff');
   if (payload != null) {
-    await _openHandoff(_decodeTask(payload),
-        preview: args.contains('--handoff-demo'));
+    await _openHandoff(
+      _decodeTask(payload),
+      preview: args.contains('--handoff-demo'),
+    );
     return;
   }
-  await _openMain(demo: args.contains('--demo'));
+  await _openMain(
+    demo: args.contains('--demo'),
+    settings: args.contains('--settings'),
+  );
 }
 
 /// Köprü yoklaması: derlenen Rust kütüphanesi yükleniyor mu, motor kendi
@@ -52,7 +58,9 @@ Future<void> _selfcheck() async {
 
   final dataDir = Platform.environment['SERENE_DATA_DIR'];
   if (dataDir == null || dataDir.isEmpty) {
-    stderr.writeln('KOPRU HATA: SERENE_DATA_DIR tanımlı değil (yalıtılmış yoklama)');
+    stderr.writeln(
+      'KOPRU HATA: SERENE_DATA_DIR tanımlı değil (yalıtılmış yoklama)',
+    );
     exit(2);
   }
 
@@ -78,7 +86,7 @@ Future<void> _selfcheck() async {
   }
 }
 
-Future<void> _openMain({bool demo = false}) async {
+Future<void> _openMain({bool demo = false, bool settings = false}) async {
   // Motor pencereden once kurulur: ilk kare bos listeyle boyanmasın.
   await RustLib.init();
 
@@ -106,7 +114,7 @@ Future<void> _openMain({bool demo = false}) async {
     await windowManager.focus();
   });
 
-  runApp(SereneApp(demo: demo));
+  runApp(SereneApp(demo: demo, settings: settings));
 
   // Firefox native messaging kaydi ikilinin yolunu gosterir; surum
   // yukseltmesinde degistigi icin her acilista tazele. Gelistirme derlemesinin
@@ -175,9 +183,12 @@ Task _decodeTask(String payload) {
 }
 
 class SereneApp extends StatelessWidget {
-  const SereneApp({super.key, this.demo = false});
+  const SereneApp({super.key, this.demo = false, this.settings = false});
 
   final bool demo;
+
+  /// Ana pencereyle birlikte ayarlar katmanini acar (`--settings`).
+  final bool settings;
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +196,7 @@ class SereneApp extends StatelessWidget {
       title: 'Serene',
       debugShowCheckedModeBanner: false,
       theme: sereneTheme(),
-      home: MainWindow(demoOn: demo),
+      home: MainWindow(demoOn: demo, settingsOn: settings),
     );
   }
 }

@@ -59,61 +59,61 @@ class Task {
   /// `PlatformInt64` masaustunde `int`, webde `BigInt`'tir; `toInt()` ile
   /// ikisinde de ayni okunur.
   static Task fromEngine(engine.Task raw) => Task(
-        id: raw.id,
-        url: raw.url,
-        filename: raw.filename,
-        dest: raw.dest,
-        total: raw.total.toInt(),
-        downloaded: raw.downloaded.toInt(),
-        speed: raw.speed,
-        status: raw.status.name,
-        category: raw.category.name,
-        createdAt: raw.createdAt.toInt(),
-        error: raw.error,
-        finishedAt: raw.finishedAt?.toInt(),
-        kind: raw.kind.name,
-        source: raw.source,
-        pending: raw.pending,
-        resumable: raw.resumable,
-      );
+    id: raw.id,
+    url: raw.url,
+    filename: raw.filename,
+    dest: raw.dest,
+    total: raw.total.toInt(),
+    downloaded: raw.downloaded.toInt(),
+    speed: raw.speed,
+    status: raw.status.name,
+    category: raw.category.name,
+    createdAt: raw.createdAt.toInt(),
+    error: raw.error,
+    finishedAt: raw.finishedAt?.toInt(),
+    kind: raw.kind.name,
+    source: raw.source,
+    pending: raw.pending,
+    resumable: raw.resumable,
+  );
 
   static Task fromJson(Map<String, dynamic> raw) => Task(
-        id: raw['id'] as String? ?? '',
-        url: raw['url'] as String? ?? '',
-        filename: raw['filename'] as String? ?? '',
-        dest: raw['dest'] as String? ?? '',
-        total: (raw['total'] as num?)?.toInt() ?? 0,
-        downloaded: (raw['downloaded'] as num?)?.toInt() ?? 0,
-        speed: (raw['speed'] as num?)?.toDouble() ?? 0,
-        status: raw['status'] as String? ?? 'queued',
-        category: raw['category'] as String? ?? 'other',
-        createdAt: (raw['created_at'] as num?)?.toInt() ?? 0,
-        error: raw['error'] as String?,
-        finishedAt: (raw['finished_at'] as num?)?.toInt(),
-        kind: raw['kind'] as String? ?? 'file',
-        source: raw['source'] as String?,
-        pending: raw['pending'] as bool? ?? false,
-        resumable: raw['resumable'] as bool? ?? false,
-      );
+    id: raw['id'] as String? ?? '',
+    url: raw['url'] as String? ?? '',
+    filename: raw['filename'] as String? ?? '',
+    dest: raw['dest'] as String? ?? '',
+    total: (raw['total'] as num?)?.toInt() ?? 0,
+    downloaded: (raw['downloaded'] as num?)?.toInt() ?? 0,
+    speed: (raw['speed'] as num?)?.toDouble() ?? 0,
+    status: raw['status'] as String? ?? 'queued',
+    category: raw['category'] as String? ?? 'other',
+    createdAt: (raw['created_at'] as num?)?.toInt() ?? 0,
+    error: raw['error'] as String?,
+    finishedAt: (raw['finished_at'] as num?)?.toInt(),
+    kind: raw['kind'] as String? ?? 'file',
+    source: raw['source'] as String?,
+    pending: raw['pending'] as bool? ?? false,
+    resumable: raw['resumable'] as bool? ?? false,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'url': url,
-        'filename': filename,
-        'dest': dest,
-        'total': total,
-        'downloaded': downloaded,
-        'speed': speed,
-        'status': status,
-        'category': category,
-        'created_at': createdAt,
-        if (error != null) 'error': error,
-        if (finishedAt != null) 'finished_at': finishedAt,
-        'kind': kind,
-        if (source != null) 'source': source,
-        'pending': pending,
-        'resumable': resumable,
-      };
+    'id': id,
+    'url': url,
+    'filename': filename,
+    'dest': dest,
+    'total': total,
+    'downloaded': downloaded,
+    'speed': speed,
+    'status': status,
+    'category': category,
+    'created_at': createdAt,
+    if (error != null) 'error': error,
+    if (finishedAt != null) 'finished_at': finishedAt,
+    'kind': kind,
+    if (source != null) 'source': source,
+    'pending': pending,
+    'resumable': resumable,
+  };
 }
 
 /// Eklentinin yakaladigi medya adayi (kayit bicimi camelCase).
@@ -139,32 +139,40 @@ class CaptureItem {
   final int createdAt;
 
   static CaptureItem fromEngine(engine.Capture raw) => CaptureItem(
-        id: raw.id,
-        url: raw.url,
-        filename: raw.filename,
-        size: raw.size.toInt(),
-        contentType: raw.contentType,
-        kind: raw.kind.name,
-        site: raw.site,
-        createdAt: raw.createdAt.toInt(),
-      );
-
+    id: raw.id,
+    url: raw.url,
+    filename: raw.filename,
+    size: raw.size.toInt(),
+    contentType: raw.contentType,
+    kind: raw.kind.name,
+    site: raw.site,
+    createdAt: raw.createdAt.toInt(),
+  );
 }
 
 class Settings {
   Settings({
     required this.downloadDir,
-    required this.confirmBrowserDownload,
+    required this.maxConcurrent,
+    required this.connections,
+    required this.watchClipboard,
     required this.closeToTray,
+    required this.confirmBrowserDownload,
   });
 
   static Settings fromEngine(engine.AppConfig raw) => Settings(
-        downloadDir: raw.downloadDir,
-        confirmBrowserDownload: raw.confirmBrowserDownload,
-        closeToTray: raw.closeToTray,
-      );
+    downloadDir: raw.downloadDir,
+    maxConcurrent: raw.maxConcurrent,
+    connections: raw.connections,
+    watchClipboard: raw.watchClipboard,
+    closeToTray: raw.closeToTray,
+    confirmBrowserDownload: raw.confirmBrowserDownload,
+  );
 
   final String downloadDir;
-  final bool confirmBrowserDownload;
+  final int maxConcurrent;
+  final int connections;
+  final bool watchClipboard;
   final bool closeToTray;
+  final bool confirmBrowserDownload;
 }

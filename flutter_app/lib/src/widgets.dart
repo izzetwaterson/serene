@@ -52,10 +52,16 @@ class _CircleButtonState extends State<CircleButton> {
             decoration: BoxDecoration(
               color: _hover ? widget.hoverBackground : widget.background,
               shape: BoxShape.circle,
-              border: widget.border == null ? null : Border.all(color: widget.border!),
+              border: widget.border == null
+                  ? null
+                  : Border.all(color: widget.border!),
             ),
             child: Center(
-              child: SIcon(widget.icon, size: widget.iconSize, color: widget.foreground),
+              child: SIcon(
+                widget.icon,
+                size: widget.iconSize,
+                color: widget.foreground,
+              ),
             ),
           ),
         ),
@@ -121,7 +127,12 @@ class _HoverSurfaceState extends State<HoverSurface> {
 
 /// Durum rozeti (statusChip).
 class StatusChip extends StatelessWidget {
-  const StatusChip({super.key, required this.label, required this.background, required this.foreground});
+  const StatusChip({
+    super.key,
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
 
   final String label;
   final Color background;
@@ -180,11 +191,11 @@ class SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         children: [
-          if (pulse) ...[
-            _PulseDot(),
-            const SizedBox(width: 8),
-          ],
-          Text(title, style: head(20, color: Serene.onBackground, letterSpacing: -0.2)),
+          if (pulse) ...[_PulseDot(), const SizedBox(width: 8)],
+          Text(
+            title,
+            style: head(20, color: Serene.onBackground, letterSpacing: -0.2),
+          ),
           const Spacer(),
           if (right.isNotEmpty)
             Row(
@@ -207,7 +218,8 @@ class _PulseDot extends StatefulWidget {
   State<_PulseDot> createState() => _PulseDotState();
 }
 
-class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1400),
@@ -226,7 +238,10 @@ class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixi
       child: Container(
         width: 10,
         height: 10,
-        decoration: const BoxDecoration(color: Serene.primary, shape: BoxShape.circle),
+        decoration: const BoxDecoration(
+          color: Serene.primary,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }
@@ -234,7 +249,12 @@ class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixi
 
 /// Bos durum kutusu (emptyState).
 class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, required this.icon, required this.title, required this.hint});
+  const EmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.hint,
+  });
 
   final String icon;
   final String title;
@@ -255,7 +275,10 @@ class EmptyState extends StatelessWidget {
           Container(
             width: 56,
             height: 56,
-            decoration: const BoxDecoration(color: Serene.surfaceContainer, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: Serene.surfaceContainer,
+              shape: BoxShape.circle,
+            ),
             child: Center(child: SIcon(icon, size: 26, color: Serene.outline)),
           ),
           const SizedBox(height: 16),
@@ -270,6 +293,61 @@ class EmptyState extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Etiket + alan: buyuk harfli baslik satiri ve altindaki girdi.
+class Field extends StatelessWidget {
+  const Field({super.key, required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 8),
+          child: Text(
+            label.toUpperCase(),
+            style: body(
+              12,
+              weight: FontWeight.w600,
+              color: Serene.outline,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+}
+
+/// Okunabilir ama duzenlenemez alan (yol ve baglanti satirlari).
+class ReadOnlyField extends StatelessWidget {
+  const ReadOnlyField({super.key, required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        color: Serene.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(Serene.radiusField),
+        border: Border.all(color: const Color(0x99DCD8CE)),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: mono(12, color: Serene.onSurface),
       ),
     );
   }
@@ -315,7 +393,9 @@ class CardHeader extends StatelessWidget {
             color: style.box,
             borderRadius: BorderRadius.circular(radius),
           ),
-          child: Center(child: SIcon(style.icon, size: iconSize, color: style.tone)),
+          child: Center(
+            child: SIcon(style.icon, size: iconSize, color: style.tone),
+          ),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -332,10 +412,7 @@ class CardHeader extends StatelessWidget {
                       style: body(nameSize, weight: nameWeight),
                     ),
                   ),
-                  if (chip != null) ...[
-                    const SizedBox(width: 8),
-                    chip!,
-                  ],
+                  if (chip != null) ...[const SizedBox(width: 8), chip!],
                 ],
               ),
               const SizedBox(height: 2),

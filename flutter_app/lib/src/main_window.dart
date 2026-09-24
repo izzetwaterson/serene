@@ -9,20 +9,26 @@ import 'package:window_manager/window_manager.dart';
 import 'cards.dart';
 import 'data.dart';
 import 'demo.dart';
+import 'folder_picker.dart';
 import 'format.dart';
 import 'handoff.dart';
 import 'rust/api/commands.dart' as ffi;
 import 'rust/api/dto.dart' as engine;
 import 'rust/api/events.dart' as ffi;
 import 'rust/api/lifecycle.dart' as ffi;
+import 'settings_view.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
 /// Ana pencere: Tauri arayuzunun Flutter karsiligi.
 class MainWindow extends StatefulWidget {
-  const MainWindow({super.key, this.demoOn = false});
+  const MainWindow({super.key, this.demoOn = false, this.settingsOn = false});
 
   final bool demoOn;
+
+  /// Ayarlar katmani pencereyle birlikte acilir; kosumlar arayuzu tiklamadan
+  /// gosterebilmek icin `--settings` bayragiyla verilir.
+  final bool settingsOn;
 
   @override
   State<MainWindow> createState() => _MainWindowState();
@@ -47,6 +53,10 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
   bool _demoOn = false;
   bool _bridgeUp = false;
   bool _maximized = false;
+  bool _showSettings = false;
+
+  /// Yalnizca siradaki indirmeler icin secilen klasor; ayarlara dokunmaz.
+  String? _destOverride;
   DiskUsage? _disk;
   String? _notice;
 
@@ -72,6 +82,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
   void initState() {
     super.initState();
     _demoOn = widget.demoOn;
+    _showSettings = widget.settingsOn;
     windowManager.addListener(this);
 
     // Motor bu noktada ayaaga kalkmis olur: main() RustLib.init ve bootEngine
@@ -80,19 +91,23 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     _applyTasks(ffi.listTasks());
     _applyCaptures(ffi.listCaptures());
 
-    _streams.add(ffi.watchTasks().listen((raw) {
-      _applyTasks(raw);
-      _pumpHandoffs();
-    }));
+    _streams.add(
+      ffi.watchTasks().listen((raw) {
+        _applyTasks(raw);
+        _pumpHandoffs();
+      }),
+    );
     _streams.add(ffi.watchProgress().listen(_applyProgress));
     _streams.add(ffi.watchCaptures().listen(_applyCaptures));
     // Ikinci acilis ya da eklentideki "Serene'yi Ac": pencere one gelir.
     _streams.add(ffi.watchPresent().listen((_) => _present()));
     // Yeni bir tarayici devralmasi: onay penceresi sirasina girer.
-    _streams.add(ffi.watchHandoff().listen((task) {
-      _handoffs.request(task.id);
-      _pumpHandoffs();
-    }));
+    _streams.add(
+      ffi.watchHandoff().listen((task) {
+        _handoffs.request(task.id);
+        _pumpHandoffs();
+      }),
+    );
 
     // Kapanip acildiktan sonra onay bekleyen gorevler yeniden sorulur.
     for (final task in _real) {
@@ -102,7 +117,10 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
 
     _setupShell();
     _checkBridge();
-    _bridgeClock = Timer.periodic(const Duration(seconds: 2), (_) => _checkBridge());
+    _bridgeClock = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _checkBridge(),
+    );
     _loadDisk();
     _syncDemoClock();
   }
@@ -126,14 +144,18 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     final menu = Menu.create();
     if (menu != null) {
       menu.addItem(_trayItem('Pencereyi Göster', _present));
-      menu.addItem(_trayItem('Tümünü Duraklat', () async {
-        ffi.pauseAllDownloads();
-        await _present();
-      }));
-      menu.addItem(_trayItem('Ayarlar', () async {
-        await _present();
-        _notify('Ayarlar penceresi henüz bağlı değil');
-      }));
+      menu.addItem(
+        _trayItem('Tümünü Duraklat', () async {
+          ffi.pauseAllDownloads();
+          await _present();
+        }),
+      );
+      menu.addItem(
+        _trayItem('Ayarlar', () async {
+          await _present();
+          _openSettings();
+        }),
+      );
       menu.addSeparator();
       menu.addItem(_trayItem('Çıkış', _quit));
       icon.setContextMenu(menu);
@@ -258,7 +280,9 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
       setState(() {
         _disk = DiskUsage(
           // Motor hedef klasoru dondurur; kart eski arayuz gibi surucuyu yazar.
-          mount: RegExp(r'^([A-Za-z]:)').firstMatch(usage.mount)?.group(1) ?? usage.mount,
+          mount:
+              RegExp(r'^([A-Za-z]:)').firstMatch(usage.mount)?.group(1) ??
+              usage.mount,
           total: usage.total.toInt(),
           free: usage.free.toInt(),
           used: usage.used.toInt(),
@@ -267,6 +291,28 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     } catch (_) {
       /* disk okunamazsa kart bos kalir */
     }
+  }
+
+  /// Ayarlar katmani: taslak motorun guncel ayarlarindan dolurulur.
+  void _openSettings() => setState(() => _showSettings = true);
+
+  void _closeSettings() => setState(() => _showSettings = false);
+
+  /// Kaydedilen ayar arayuzde kullanilir; disk karti yeni hedef klasore bakar.
+  void _applySettings(Settings saved) {
+    setState(() => _settings = saved);
+    _loadDisk();
+  }
+
+  /// Siradaki indirmeler icin gecici hedef; ayarlardaki klasoru degistirmez.
+  Future<void> _pickDest() async {
+    final picked = await pickFolder(
+      title: 'Bu indirme için klasör seçin',
+      initialDirectory: _settings.downloadDir,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _destOverride = picked);
+    _notify('Bu indirme şuraya kaydedilecek: $picked');
   }
 
   void _notify(String message) {
@@ -343,7 +389,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     try {
       switch (action) {
         case 'download':
-          await ffi.downloadCapture(id: item.id, destDir: null);
+          await ffi.downloadCapture(id: item.id, destDir: _destOverride);
           if (!mounted) return;
           // Kart listesinin oldugu yere don: yakalama artik goreve donusti.
           setState(() => _view = 'tasks');
@@ -377,7 +423,10 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
   /// Gorev baska bir yerden onaylanir ya da silinirse acik pencere kapatilir;
   /// boylece pencere asla yarim kalmis bir karari sormaz.
   void _pumpHandoffs() {
-    final pending = {for (final task in _tasks) if (task.pending) task.id};
+    final pending = {
+      for (final task in _tasks)
+        if (task.pending) task.id,
+    };
     final stale = _handoffs.sync(pending);
     if (stale != null) {
       _handoffProc?.kill();
@@ -403,16 +452,18 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
 
   void _spawnHandoff(Task task) {
     final payload = base64Url.encode(utf8.encode(jsonEncode(task.toJson())));
-    Process.start(
-      Platform.resolvedExecutable,
-      ['--handoff=$payload', if (_demoOn) '--handoff-demo'],
-      mode: ProcessStartMode.detached,
-    ).then((process) {
-      _handoffProc = process;
-      return process.exitCode;
-    }).then((_) => _handoffClosed(task.id)).catchError((Object _) {
-      _handoffClosed(task.id);
-    });
+    Process.start(Platform.resolvedExecutable, [
+          '--handoff=$payload',
+          if (_demoOn) '--handoff-demo',
+        ], mode: ProcessStartMode.detached)
+        .then((process) {
+          _handoffProc = process;
+          return process.exitCode;
+        })
+        .then((_) => _handoffClosed(task.id))
+        .catchError((Object _) {
+          _handoffClosed(task.id);
+        });
   }
 
   void _handoffClosed(String id) {
@@ -428,7 +479,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     try {
       await ffi.addDownload(
         url: value,
-        destDir: null,
+        destDir: _destOverride,
         referer: null,
         cookie: null,
         userAgent: null,
@@ -459,7 +510,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
                 maximized: _maximized,
                 search: _search,
                 onQuery: (value) => setState(() => _query = value),
-                onSettings: () => _notify('Ayarlar penceresi henüz bağlı değil'),
+                onSettings: _openSettings,
                 onMinimize: windowManager.minimize,
                 onMaximize: () async {
                   if (await windowManager.isMaximized()) {
@@ -489,7 +540,9 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
                             view: _view,
                             demoOn: _demoOn,
                             onNewDownload: () => _url.text.isEmpty
-                                ? _notify('Bağlantı alanına bir adres yapıştırın')
+                                ? _notify(
+                                    'Bağlantı alanına bir adres yapıştırın',
+                                  )
                                 : _submitUrl(),
                             onFilter: (value) => setState(() {
                               _filter = value;
@@ -500,7 +553,8 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
                               _category = value;
                               _view = 'tasks';
                             }),
-                            onCaptures: () => setState(() => _view = 'captures'),
+                            onCaptures: () =>
+                                setState(() => _view = 'captures'),
                             onDemo: (value) {
                               setState(() => _demoOn = value);
                               _syncDemoClock();
@@ -529,7 +583,11 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
                                     }),
                                     onSubmitUrl: _submitUrl,
                                     onAction: _runAction,
-                                    onNotice: _notify,
+                                    destOverride: _destOverride,
+                                    onPickFolder: _pickDest,
+                                    onClearOverride: () =>
+                                        setState(() => _destOverride = null),
+                                    onOpenSettings: _openSettings,
                                   ),
                           ),
                         ],
@@ -540,6 +598,14 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
               ),
             ],
           ),
+          if (_showSettings)
+            Positioned.fill(
+              child: SettingsLayer(
+                settings: _settings,
+                onClose: _closeSettings,
+                onSaved: _applySettings,
+              ),
+            ),
         ],
       ),
     );
@@ -606,11 +672,15 @@ class Header extends StatelessWidget {
                 color: Serene.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Center(child: SIcon('spa', size: 15, color: Serene.primary)),
+              child: const Center(
+                child: SIcon('spa', size: 15, color: Serene.primary),
+              ),
             ),
             const SizedBox(width: 12),
-            Text('Serene',
-                style: head(15, weight: FontWeight.w500, letterSpacing: -0.3)),
+            Text(
+              'Serene',
+              style: head(15, weight: FontWeight.w500, letterSpacing: -0.3),
+            ),
             const SizedBox(width: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -618,7 +688,14 @@ class Header extends StatelessWidget {
                 color: Serene.surfaceContainer,
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: Text('v0.1', style: body(11, weight: FontWeight.w500, color: Serene.secondary)),
+              child: Text(
+                'v0.1',
+                style: body(
+                  11,
+                  weight: FontWeight.w500,
+                  color: Serene.secondary,
+                ),
+              ),
             ),
             Expanded(
               child: Center(
@@ -672,8 +749,14 @@ class Header extends StatelessWidget {
                   border: Border.all(color: const Color(0x333D6A4B)),
                 ),
                 child: Center(
-                  child: Text('EF',
-                      style: body(12, weight: FontWeight.w600, color: Serene.primary)),
+                  child: Text(
+                    'EF',
+                    style: body(
+                      12,
+                      weight: FontWeight.w600,
+                      color: Serene.primary,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -760,7 +843,10 @@ class _SearchField extends StatelessWidget {
                 isDense: true,
                 border: InputBorder.none,
                 hintText: "İndirilenleri ara (örn: 'Nature')...",
-                hintStyle: body(13, color: Serene.outline.withValues(alpha: 0.8)),
+                hintStyle: body(
+                  13,
+                  color: Serene.outline.withValues(alpha: 0.8),
+                ),
               ),
             ),
           ),
@@ -832,7 +918,8 @@ class _PulseDot extends StatefulWidget {
   State<_PulseDot> createState() => _PulseDotState();
 }
 
-class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 900),
@@ -851,7 +938,10 @@ class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixi
       child: Container(
         width: 8,
         height: 8,
-        decoration: const BoxDecoration(color: Serene.primary, shape: BoxShape.circle),
+        decoration: const BoxDecoration(
+          color: Serene.primary,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }
@@ -891,12 +981,12 @@ class Sidebar extends StatelessWidget {
   final ValueChanged<bool> onDemo;
 
   int _count(String key) => switch (key) {
-        'active' => tasks.where((task) => inProgress.contains(task.status)).length,
-        'completed' => tasks.where((task) => task.status == 'completed').length,
-        'queued' => tasks.where((task) => task.status == 'queued').length,
-        'failed' => tasks.where((task) => task.status == 'failed').length,
-        _ => tasks.length,
-      };
+    'active' => tasks.where((task) => inProgress.contains(task.status)).length,
+    'completed' => tasks.where((task) => task.status == 'completed').length,
+    'queued' => tasks.where((task) => task.status == 'queued').length,
+    'failed' => tasks.where((task) => task.status == 'failed').length,
+    _ => tasks.length,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -933,8 +1023,14 @@ class Sidebar extends StatelessWidget {
                 children: [
                   const SIcon('add_circle', size: 19, color: Serene.onPrimary),
                   const SizedBox(width: 10),
-                  Text('Yeni İndirme Başlat',
-                      style: body(14, weight: FontWeight.w500, color: Serene.onPrimary)),
+                  Text(
+                    'Yeni İndirme Başlat',
+                    style: body(
+                      14,
+                      weight: FontWeight.w500,
+                      color: Serene.onPrimary,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -956,7 +1052,8 @@ class Sidebar extends StatelessWidget {
                       icon: icon,
                       label: label,
                       count: _count(key),
-                      active: view == 'tasks' && category == null && filter == key,
+                      active:
+                          view == 'tasks' && category == null && filter == key,
                       onTap: () => onFilter(key),
                     ),
                     const SizedBox(height: 4),
@@ -1011,8 +1108,12 @@ class _GroupLabel extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: Text(
           text.toUpperCase(),
-          style: body(11,
-              weight: FontWeight.w600, color: Serene.outline, letterSpacing: 0.6),
+          style: body(
+            11,
+            weight: FontWeight.w600,
+            color: Serene.outline,
+            letterSpacing: 0.6,
+          ),
         ),
       ),
     );
@@ -1049,22 +1150,31 @@ class NavItem extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 14, vertical: compact ? 8 : 10),
       child: Row(
         children: [
-          SIcon(icon, size: compact ? 17 : 18, color: active ? Serene.primary : Serene.secondary),
+          SIcon(
+            icon,
+            size: compact ? 17 : 18,
+            color: active ? Serene.primary : Serene.secondary,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: body(compact ? 13 : 13.5,
-                  weight: active ? FontWeight.w500 : FontWeight.w400, color: tone),
+              style: body(
+                compact ? 13 : 13.5,
+                weight: active ? FontWeight.w500 : FontWeight.w400,
+                color: tone,
+              ),
             ),
           ),
           Text(
             '$count',
-            style: mono(compact ? 11 : 12,
-                weight: FontWeight.w600,
-                color: active ? Serene.primary : Serene.outline),
+            style: mono(
+              compact ? 11 : 12,
+              weight: FontWeight.w600,
+              color: active ? Serene.primary : Serene.outline,
+            ),
           ),
         ],
       ),
@@ -1104,8 +1214,11 @@ class _DiskCard extends StatelessWidget {
                   usage == null ? 'Disk' : '${usage.mount} sürücüsü',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: body(12,
-                      weight: FontWeight.w500, color: Serene.onSecondaryContainer),
+                  style: body(
+                    12,
+                    weight: FontWeight.w500,
+                    color: Serene.onSecondaryContainer,
+                  ),
                 ),
               ),
               Text(
@@ -1169,10 +1282,14 @@ class _DemoSwitch extends StatelessWidget {
             decoration: BoxDecoration(
               color: value ? Serene.primary : Colors.transparent,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: value ? Serene.primary : Serene.outline),
+              border: Border.all(
+                color: value ? Serene.primary : Serene.outline,
+              ),
             ),
             child: value
-                ? const Center(child: SIcon('check', size: 11, color: Serene.onPrimary))
+                ? const Center(
+                    child: SIcon('check', size: 11, color: Serene.onPrimary),
+                  )
                 : null,
           ),
           const SizedBox(width: 8),
