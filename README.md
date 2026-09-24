@@ -50,6 +50,40 @@ cargo build
 cargo test
 ```
 
+### Doğrulama koşumları
+
+`scripts/` altındaki koşumlar uygulamayı gerçekten başlatıp uçtan uca sınar. Hepsi
+`serene.exe` çalıştırdığı için **sırayla** koşulmalıdır (aynı anda ikisi çakışır):
+
+| Koşum | Doğruladığı |
+|---|---|
+| `node scripts/check_bridge.mjs` | Yerel köprü: token, el sıkışma, komutlar, olay akışı |
+| `node scripts/check_hls.mjs` | HLS: varyant seçimi, birleştirme, AES-128, başlıklar, DRM reddi |
+| `node scripts/check_dash.mjs` | DASH: SegmentTemplate/SegmentTimeline, video seçimi |
+| `node scripts/check_captures.mjs` | Yakalananlar: tekilleştirme, indirme, silme, kalıcılık |
+| `node scripts/check_panel.mjs` | "Tarayıcıdan" paneli (CDP ile gerçek arayüz, kaçış denetimi) |
+| `node scripts/check_tray.mjs` | Tepsi, kapatınca gizleme, tek örnek koruması |
+| `node scripts/check_extension.mjs` | Eklenti mantığı, devralma, medya taraması, geri düşme |
+| `node scripts/check_nmh.mjs` | Native messaging kaydı, çerçeveleme, sessiz başlatma |
+
+Her koşum `BASARILI:` ya da `BASARISIZ:` yazar ve başarısızlıkta sıfırdan farklı çıkar.
+`check_nmh.mjs` sonunda kayıt defteri anahtarını siler; kaydı geri kurmak için o
+derlemenin `serene.exe --register-host` komutu çalıştırılır.
+
+Koşumlar varsayılan olarak `target\debug` ikililerini kullanır. Başka bir derlemeyi
+denemek için `SERENE_EXE` (uygulama ikilisi) ve `SERENE_TARGET_DIR` (iki ikilinin
+klasörü) ortam değişkenleri verilir:
+
+```cmd
+set SERENE_EXE=%CD%\src-tauri\target\release\serene.exe
+set SERENE_TARGET_DIR=%CD%\src-tauri\target\release
+node scripts\check_bridge.mjs
+```
+
+`smoke_test.py`, `e2e_download.py` (klavye girdisi gönderir, pencere odağı ister) ve
+`e2e_cdp.mjs` (dış ağdan indirme) yardımcı koşumlardır; günlük doğrulama için yukarıdaki
+liste yeterlidir.
+
 ## Tarayıcı eklentisi
 
 Eklenti `extension/` klasöründedir (Firefox Manifest V2, kalıcı arka plan betiği).
@@ -124,12 +158,19 @@ cd src-tauri
 cargo build --release
 ```
 
-`target\release\serene.exe` ve `target\release\serene-nmh.exe` birlikte kopyalanmalıdır.
-NSIS kurulum paketi için:
+`target\release\serene.exe` ve `target\release\serene-nmh.exe` birlikte kopyalanmalıdır;
+`serene-nmh.exe` her zaman `serene.exe`'nin yanında aranır. Tauri aynı klasöre
+`WebView2Loader.dll` de bırakır — klasörü olduğu gibi taşımak en güvenlisi. NSIS kurulum
+paketi için:
 
 ```cmd
 cargo tauri build
 ```
+
+Native messaging kaydı **son çalıştırılan derlemeyi** işaret eder: uygulama her açılışta
+kendi klasöründeki `serene-nmh.exe` yolunu yazar. Yayın klasörünü başka bir yere
+taşıdıysanız oradaki `serene.exe`'yi bir kez çalıştırmak kaydı tazeler; araya giren bir
+geliştirme derlemesi kaydı tekrar `target\debug`'a çevirir.
 
 ## Mimari
 

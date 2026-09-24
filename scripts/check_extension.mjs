@@ -35,7 +35,8 @@ import { runInNewContext } from "node:vm";
 
 const ROOT = "C:\\Users\\izzet\\Desktop\\serene";
 const EXT = join(ROOT, "extension");
-const DIR = join(ROOT, "src-tauri", "target", "debug");
+const DIR =
+  process.env.SERENE_TARGET_DIR || join(ROOT, "src-tauri", "target", "debug");
 const NMH = join(DIR, "serene-nmh.exe");
 const APPDATA = process.env.APPDATA;
 const MANIFEST_PATH = join(APPDATA, "Serene", "nmh", "com.serene.nmh.json");

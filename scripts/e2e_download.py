@@ -9,7 +9,10 @@ import time
 
 from PIL import ImageGrab
 
-EXE = r"C:\Users\ornek\Desktop\serene\src-tauri\target\debug\serene.exe"
+# Baska bir derlemeyi denemek icin: SERENE_EXE=...\target\release\serene.exe
+EXE = os.environ.get("SERENE_EXE") or (
+    r"C:\Users\ornek\Desktop\serene\src-tauri\target\debug\serene.exe"
+)
 CWD = r"C:\Users\ornek\Desktop\serene\src-tauri"
 SHOT = r"C:\Users\ornek\Desktop\serene\artifacts\serene-download.png"
 URL = sys.argv[1] if len(sys.argv) > 1 else "https://proof.ovh.net/files/10Mb.dat"

@@ -17,7 +17,10 @@ import { createServer } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const DIR = "C:\\Users\\izzet\\Desktop\\serene\\src-tauri\\target\\debug";
+// Baska bir derlemeyi denemek icin: SERENE_TARGET_DIR=...\target\release
+const DIR =
+  process.env.SERENE_TARGET_DIR ||
+  "C:\\Users\\izzet\\Desktop\\serene\\src-tauri\\target\\debug";
 const NMH = join(DIR, "serene-nmh.exe");
 const EXE = join(DIR, "serene.exe");
 const APPDATA = process.env.APPDATA;

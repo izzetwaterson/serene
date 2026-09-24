@@ -22,7 +22,10 @@ import { join } from "node:path";
 import { connect as netConnect } from "node:net";
 import { createServer } from "node:http";
 
-const EXE = "C:\\Users\\izzet\\Desktop\\serene\\src-tauri\\target\\debug\\serene.exe";
+// Baska bir derlemeyi denemek icin: SERENE_EXE=...\target\release\serene.exe
+const EXE =
+  process.env.SERENE_EXE ||
+  "C:\\Users\\izzet\\Desktop\\serene\\src-tauri\\target\\debug\\serene.exe";
 const CWD = "C:\\Users\\izzet\\Desktop\\serene\\src-tauri";
 const IPC_PATH = join(process.env.APPDATA, "Serene", "ipc.json");
 const CAPTURES_PATH = join(process.env.APPDATA, "Serene", "captures.json");

@@ -11,7 +11,10 @@ import { execSync, spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const EXE = "C:\\Users\\izzet\\Desktop\\serene\\src-tauri\\target\\debug\\serene.exe";
+// Baska bir derlemeyi denemek icin: SERENE_EXE=...\target\release\serene.exe
+const EXE =
+  process.env.SERENE_EXE ||
+  "C:\\Users\\izzet\\Desktop\\serene\\src-tauri\\target\\debug\\serene.exe";
 const CWD = "C:\\Users\\izzet\\Desktop\\serene\\src-tauri";
 const ARTIFACTS = "C:\\Users\\izzet\\Desktop\\serene\\artifacts";
 const PORT = Number(process.env.SERENE_CDP_PORT || 9334);
@@ -174,12 +177,15 @@ async function main() {
     console.log(`arayuz hazir (baslik: ${ready.title})`);
 
     /* 1. Testin baslangici: ayar acik olsun. Onceki kosudan kalan durum
-       kapatma testini yanlis olcume goturur (kapaliyken kapatmak uygulamayi bitirir). */
+       kapatma testini yanlis olcume goturur (kapaliyken kapatmak uygulamayi bitirir).
+       Ayar arayuz uzerinden yazilir: dogrudan invoke ile yazmak arayuzun
+       bellekteki kopyasini tazelemez, 2. adim da anahtari eski kopyadan okur. */
     report.baseline = await cdp.evaluate(
       `(async () => {
-        const s = await window.__TAURI__.core.invoke("get_settings");
-        s.closeToTray = true;
-        await window.__TAURI__.core.invoke("update_settings", { settings: s });
+        document.getElementById("open-settings").click();
+        document.getElementById("set-tray").checked = true;
+        document.getElementById("save-settings").click();
+        await new Promise((r) => setTimeout(r, 900));
         const after = await window.__TAURI__.core.invoke("get_settings");
         return { closeToTray: after.closeToTray };
       })()`,

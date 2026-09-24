@@ -10,7 +10,10 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const EXE = "C:\\Users\\izzet\\Desktop\\serene\\src-tauri\\target\\debug\\serene.exe";
+// Baska bir derlemeyi denemek icin: SERENE_EXE=...\target\release\serene.exe
+const EXE =
+  process.env.SERENE_EXE ||
+  "C:\\Users\\izzet\\Desktop\\serene\\src-tauri\\target\\debug\\serene.exe";
 const CWD = "C:\\Users\\izzet\\Desktop\\serene\\src-tauri";
 const ARTIFACTS = "C:\\Users\\izzet\\Desktop\\serene\\artifacts";
 const PORT = Number(process.env.SERENE_CDP_PORT || 9333);
