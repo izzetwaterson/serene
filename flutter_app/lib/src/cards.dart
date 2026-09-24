@@ -274,7 +274,7 @@ class Hero extends StatelessWidget {
                     background: Serene.surfaceContainer,
                     hoverBackground: Serene.surfaceContainerHigh,
                     foreground: Serene.secondary,
-                    onTap: () => onNotice('Spike: klasör seçimi henüz bağlı değil'),
+                    onTap: () => onNotice('Klasör seçimi ayarlar penceresiyle gelecek'),
                   ),
                   const SizedBox(width: 12),
                   ValueListenableBuilder<TextEditingValue>(
@@ -310,7 +310,7 @@ class Hero extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           HoverSurface(
-            onTap: () => onNotice('Spike: klasör ayarı henüz bağlı değil'),
+            onTap: () => onNotice('Klasör ayarı ayarlar penceresiyle gelecek'),
             background: Colors.transparent,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
@@ -670,12 +670,14 @@ class CapturesPane extends StatelessWidget {
     super.key,
     required this.items,
     required this.notice,
-    required this.onNotice,
+    required this.onAction,
+    required this.onClear,
   });
 
   final List<CaptureItem> items;
   final String? notice;
-  final ValueChanged<String> onNotice;
+  final void Function(CaptureItem item, String action) onAction;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -690,7 +692,7 @@ class CapturesPane extends StatelessWidget {
             trailing: items.isEmpty
                 ? null
                 : HoverSurface(
-                    onTap: () => onNotice('Spike: toplu indirme motora bağlanmayı bekliyor'),
+                    onTap: onClear,
                     background: Colors.transparent,
                     padding: EdgeInsets.zero,
                     child: Text('Tümünü Temizle',
@@ -699,6 +701,20 @@ class CapturesPane extends StatelessWidget {
                   ),
           ),
           const SizedBox(height: 16),
+          if (notice != null) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Serene.errorContainer.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(notice!, style: body(12, color: Serene.onErrorContainer)),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (items.isEmpty)
             EmptyState(
               icon: 'travel_explore',
@@ -710,11 +726,7 @@ class CapturesPane extends StatelessWidget {
             Column(
               children: [
                 for (final item in items) ...[
-                  CaptureCard(
-                    item: item,
-                    onAction: (item, action) => onNotice(
-                        'Spike: "${captureName(item)}" için motor bağlı değil'),
-                  ),
+                  CaptureCard(item: item, onAction: onAction),
                   if (item != items.last) const SizedBox(height: 16),
                 ],
               ],

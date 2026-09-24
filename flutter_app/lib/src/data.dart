@@ -1,21 +1,11 @@
-import 'dart:convert';
-import 'dart:io';
+import 'rust/api/dto.dart' as engine;
 
-/// %APPDATA%\Serene altindaki durum dosyalari.
-class SerenePaths {
-  static String get appData {
-    final roaming = Platform.environment['APPDATA'];
-    if (roaming != null && roaming.isNotEmpty) return roaming;
-    return Directory.current.path;
-  }
-
-  static String get tasks => '$appData\\Serene\\tasks.json';
-  static String get captures => '$appData\\Serene\\captures.json';
-  static String get settings => '$appData\\Serene\\settings.json';
-  static String get ipc => '$appData\\Serene\\ipc.json';
-}
-
-/// Rust tarafindaki DownloadMeta ile ayni alanlar (snake_case).
+/// Arayuzin gordugu gorev kaydi.
+///
+/// Alanlar motorun FRB karsiligiyla ayni adlari tasir; tek fark durum,
+/// kategori ve tur Dart enumlari yerine eski web arayuzunun kullandigi
+/// kucuk harfli etiketlerle (`'downloading'`) saklanir. Boylece bicimlendirme
+/// yardimcilari `app.js` ile birebir ayni kalir.
 class Task {
   Task({
     required this.id,
@@ -47,8 +37,8 @@ class Task {
   final String? source;
   final bool resumable;
 
-  /// Durum alanlari spike icin yerinde degistirilebilir: ornek veri
-  /// duraklatilip devam ettirilebilsin. Gercek gorevler diskten okunur.
+  /// Durum alanlari yerinde degistirilebilir: demo gorevler duraklatilip
+  /// devam ettirilebilsin ve ilerleme paketleri yeni liste okumadan islenebilsin.
   int downloaded;
   String status;
   double speed;
@@ -63,6 +53,29 @@ class Task {
     final cut = dest.lastIndexOf(RegExp(r'[\\/]'));
     return cut > 0 ? dest.substring(0, cut) : dest;
   }
+
+  /// Motorun FRB karsiligidan arayuz kaydi uretir.
+  ///
+  /// `PlatformInt64` masaustunde `int`, webde `BigInt`'tir; `toInt()` ile
+  /// ikisinde de ayni okunur.
+  static Task fromEngine(engine.Task raw) => Task(
+        id: raw.id,
+        url: raw.url,
+        filename: raw.filename,
+        dest: raw.dest,
+        total: raw.total.toInt(),
+        downloaded: raw.downloaded.toInt(),
+        speed: raw.speed,
+        status: raw.status.name,
+        category: raw.category.name,
+        createdAt: raw.createdAt.toInt(),
+        error: raw.error,
+        finishedAt: raw.finishedAt?.toInt(),
+        kind: raw.kind.name,
+        source: raw.source,
+        pending: raw.pending,
+        resumable: raw.resumable,
+      );
 
   static Task fromJson(Map<String, dynamic> raw) => Task(
         id: raw['id'] as String? ?? '',
@@ -125,61 +138,27 @@ class CaptureItem {
   final String site;
   final int createdAt;
 
-  static CaptureItem fromJson(Map<String, dynamic> raw) => CaptureItem(
-        id: raw['id'] as String? ?? '',
-        url: raw['url'] as String? ?? '',
-        filename: raw['filename'] as String? ?? '',
-        size: (raw['size'] as num?)?.toInt() ?? 0,
-        contentType: raw['contentType'] as String? ?? '',
-        kind: raw['kind'] as String? ?? 'file',
-        site: raw['site'] as String? ?? '',
-        createdAt: (raw['createdAt'] as num?)?.toInt() ?? 0,
+  static CaptureItem fromEngine(engine.Capture raw) => CaptureItem(
+        id: raw.id,
+        url: raw.url,
+        filename: raw.filename,
+        size: raw.size.toInt(),
+        contentType: raw.contentType,
+        kind: raw.kind.name,
+        site: raw.site,
+        createdAt: raw.createdAt.toInt(),
       );
+
 }
 
 class Settings {
   Settings({required this.downloadDir, required this.confirmBrowserDownload});
 
+  static Settings fromEngine(engine.AppConfig raw) => Settings(
+        downloadDir: raw.downloadDir,
+        confirmBrowserDownload: raw.confirmBrowserDownload,
+      );
+
   final String downloadDir;
   final bool confirmBrowserDownload;
-
-  static Settings load() {
-    final fallback = Settings(
-      downloadDir: '${Platform.environment['USERPROFILE'] ?? ''}\\Downloads',
-      confirmBrowserDownload: true,
-    );
-    try {
-      final raw = readJson(SerenePaths.settings);
-      if (raw is! Map<String, dynamic>) return fallback;
-      return Settings(
-        downloadDir: raw['downloadDir'] as String? ?? fallback.downloadDir,
-        confirmBrowserDownload: raw['confirmBrowserDownload'] as bool? ?? true,
-      );
-    } catch (_) {
-      return fallback;
-    }
-  }
 }
-
-List<Map<String, dynamic>> readJsonList(String path) {
-  try {
-    final raw = readJson(path);
-    if (raw is! List) return const [];
-    return raw.whereType<Map<String, dynamic>>().toList();
-  } catch (_) {
-    return const [];
-  }
-}
-
-dynamic readJson(String path) {
-  final file = File(path);
-  if (!file.existsSync()) return null;
-  return jsonDecode(file.readAsStringSync());
-}
-
-/// Gercek gorevleri diskten okur.
-List<Task> loadTasks() =>
-    readJsonList(SerenePaths.tasks).map(Task.fromJson).toList();
-
-List<CaptureItem> loadCaptures() =>
-    readJsonList(SerenePaths.captures).map(CaptureItem.fromJson).toList();

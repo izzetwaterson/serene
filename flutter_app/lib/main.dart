@@ -78,6 +78,10 @@ Future<void> _selfcheck() async {
 }
 
 Future<void> _openMain({bool demo = false}) async {
+  // Motor pencereden once kurulur: ilk kare bos listeyle boyanmasın.
+  await RustLib.init();
+  await ffi.bootEngine();
+
   const options = WindowOptions(
     size: Size(1280, 880),
     minimumSize: Size(940, 620),

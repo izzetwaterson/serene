@@ -9,6 +9,9 @@ import 'cards.dart';
 import 'data.dart';
 import 'demo.dart';
 import 'format.dart';
+import 'rust/api/commands.dart' as ffi;
+import 'rust/api/dto.dart' as engine;
+import 'rust/api/events.dart' as ffi;
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -23,10 +26,15 @@ class MainWindow extends StatefulWidget {
 }
 
 class _MainWindowState extends State<MainWindow> with WindowListener {
+  /// Motorun tam listesi; demo acikken ust gosterilen sahte gorevler ayridir.
   List<Task> _real = [];
   final List<Task> _demo = demoTasks();
   List<CaptureItem> _captures = [];
-  final Settings _settings = Settings.load();
+
+  /// Ilerleme paketleri listeyi bastan cizmeden yerinde islenir.
+  final Map<String, Task> _byId = {};
+
+  late Settings _settings;
 
   String _filter = 'all';
   String? _category;
@@ -44,7 +52,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
 
   Timer? _clock;
   Timer? _noticeTimer;
-  bool _ticking = false;
+  final List<StreamSubscription<Object?>> _streams = [];
 
   List<Task> get _tasks => _demoOn ? [..._demo, ..._real] : _real;
 
@@ -53,16 +61,33 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     super.initState();
     _demoOn = widget.demoOn;
     windowManager.addListener(this);
-    _reload();
+
+    // Motor bu noktada ayaaga kalkmis olur: main() RustLib.init ve bootEngine
+    // icin bekletilmis bir Future'i bitirmeden pencereyi boyamaz.
+    _settings = Settings.fromEngine(ffi.getSettings());
+    _applyTasks(ffi.listTasks());
+    _applyCaptures(ffi.listCaptures());
+
+    _streams.add(ffi.watchTasks().listen(_applyTasks));
+    _streams.add(ffi.watchProgress().listen(_applyProgress));
+    _streams.add(ffi.watchCaptures().listen(_applyCaptures));
+
     _checkBridge();
+    _bridgeClock = Timer.periodic(const Duration(seconds: 2), (_) => _checkBridge());
     _loadDisk();
-    _clock = Timer.periodic(const Duration(milliseconds: 200), (_) => _tick());
+    _syncDemoClock();
   }
+
+  Timer? _bridgeClock;
 
   @override
   void dispose() {
     _clock?.cancel();
+    _bridgeClock?.cancel();
     _noticeTimer?.cancel();
+    for (final sub in _streams) {
+      sub.cancel();
+    }
     windowManager.removeListener(this);
     _search.dispose();
     _url.dispose();
@@ -75,71 +100,75 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
   @override
   void onWindowUnmaximize() => setState(() => _maximized = false);
 
-  void _reload() {
-    final tasks = loadTasks();
-    final captures = loadCaptures();
+  void _applyTasks(List<engine.Task> raw) {
     if (!mounted) return;
     setState(() {
-      _real = tasks;
-      _captures = captures;
+      _real = raw.map(Task.fromEngine).toList();
+      _byId
+        ..clear()
+        ..addAll({for (final task in _real) task.id: task});
     });
   }
 
-  void _tick() {
-    /* Dosya okuma ve yeniden cizim ayni karede ust uste binmesin. */
-    if (_ticking) return;
-    _ticking = true;
-    try {
-      if (_demoOn) tickDemoTasks(_demo, 0.2);
-      _reload();
-    } finally {
-      _ticking = false;
+  void _applyCaptures(List<engine.Capture> raw) {
+    if (!mounted) return;
+    setState(() => _captures = raw.map(CaptureItem.fromEngine).toList());
+  }
+
+  /// Ticker yalnizca inen gorevleri taşir; tam liste yeniden cizilmez.
+  void _applyProgress(List<engine.Progress> ticks) {
+    if (!mounted) return;
+    var changed = false;
+    for (final tick in ticks) {
+      final task = _byId[tick.id];
+      if (task == null) continue;
+      task
+        ..downloaded = tick.downloaded.toInt()
+        ..speed = tick.speed;
+      changed = true;
     }
+    if (changed) setState(() {});
+  }
+
+  /// Demo gorevler kendi kendine ilerler; motor kapaliyken de canli gorunsun
+  /// diye yalnizca demo acikken saat calisir.
+  void _syncDemoClock() {
+    _clock?.cancel();
+    _clock = null;
+    if (!_demoOn) return;
+    _clock = Timer.periodic(const Duration(milliseconds: 200), (_) {
+      if (!mounted) return;
+      setState(() => tickDemoTasks(_demo, 0.2));
+    });
   }
 
   Future<void> _checkBridge() async {
-    var up = false;
-    try {
-      final raw = readJson(SerenePaths.ipc);
-      if (raw is Map<String, dynamic>) {
-        final port = (raw['port'] as num?)?.toInt();
-        if (port != null) {
-          final socket = await Socket.connect('127.0.0.1', port,
-              timeout: const Duration(milliseconds: 400));
-          socket.destroy();
-          up = true;
-        }
-      }
-    } catch (_) {
-      up = false;
-    }
+    final status = ffi.bridgeStatus();
     if (!mounted) return;
-    setState(() => _bridgeUp = up);
+    setState(() => _bridgeUp = status.clients > 0);
   }
 
   Future<void> _loadDisk() async {
-    final drive = RegExp(r'^([A-Za-z]:)').firstMatch(_settings.downloadDir)?.group(1) ?? 'C:';
     try {
-      final result = await Process.run('powershell', [
-        '-NoProfile',
-        '-Command',
-        'Get-CimInstance Win32_LogicalDisk -Filter "DeviceID=\'$drive\'" | '
-            'Select-Object Size,FreeSpace | ConvertTo-Json -Compress',
-      ], runInShell: false);
-      final raw = jsonDecode((result.stdout as String).trim()) as Map<String, dynamic>;
-      final total = (raw['Size'] as num?)?.toInt() ?? 0;
-      final free = (raw['FreeSpace'] as num?)?.toInt() ?? 0;
-      if (total == 0) return;
+      final usage = await ffi.getDiskUsage();
       if (!mounted) return;
       setState(() {
-        _disk = DiskUsage(mount: drive, total: total, free: free, used: total - free);
+        _disk = DiskUsage(
+          // Motor hedef klasoru dondurur; kart eski arayuz gibi surucuyu yazar.
+          mount: RegExp(r'^([A-Za-z]:)').firstMatch(usage.mount)?.group(1) ?? usage.mount,
+          total: usage.total.toInt(),
+          free: usage.free.toInt(),
+          used: usage.used.toInt(),
+        );
       });
     } catch (_) {
-      /* disk bilgisi alinamazsa kart bos kalir */
+      /* disk okunamazsa kart bos kalir */
     }
   }
 
   void _notify(String message) {
+    // Cagrilari komutlarin ardindan gelir; pencere o sirada kapanmis olabilir.
+    if (!mounted) return;
     _noticeTimer?.cancel();
     setState(() => _notice = message);
     _noticeTimer = Timer(const Duration(milliseconds: 2600), () {
@@ -156,35 +185,87 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     return null;
   }
 
-  void _runAction(Task task, String action) {
+  Future<void> _runAction(Task task, String action) async {
     final live = _mutable(task.id);
-    if (live == null) {
-      _notify('Spike: indirme motoru bagli degil — ${task.filename}');
+    if (live != null) {
+      setState(() {
+        switch (action) {
+          case 'pause':
+            live.status = 'paused';
+            live.speed = 0;
+          case 'resume':
+            live.status = 'downloading';
+            live.speed = 2 * 1024 * 1024;
+            live.pending = false;
+          case 'remove':
+            _demo.removeWhere((item) => item.id == live.id);
+          case 'retry':
+            live.status = 'downloading';
+            live.speed = 1024 * 1024;
+            live.error = null;
+          case 'info':
+            _openHandoff(live);
+          default:
+            _notify('"$action" islemi taninmiyor');
+        }
+      });
       return;
     }
 
-    setState(() {
+    try {
       switch (action) {
         case 'pause':
-          live.status = 'paused';
-          live.speed = 0;
+          await ffi.pauseDownload(id: task.id);
         case 'resume':
-          live.status = 'downloading';
-          live.speed = 2 * 1024 * 1024;
-          live.pending = false;
-        case 'remove':
-          _demo.removeWhere((item) => item.id == live.id);
+          await ffi.resumeDownload(id: task.id);
         case 'retry':
-          live.status = 'downloading';
-          live.speed = 1024 * 1024;
-          live.error = null;
+          await ffi.retryDownload(id: task.id);
+        case 'remove':
+          await ffi.removeDownload(id: task.id, deleteFile: false);
+        case 'open':
+          await ffi.openTaskFile(id: task.id);
+        case 'reveal':
+          await ffi.revealTaskFile(id: task.id);
         case 'info':
-          _openHandoff(live);
+          _openHandoff(task);
         default:
-          _notify('Spike: "$action" islemi motora baglanmayi bekliyor');
+          _notify('"$action" islemi taninmiyor');
       }
-    });
+    } catch (error) {
+      _notify(_reason(error));
+    }
   }
+
+  Future<void> _runCaptureAction(CaptureItem item, String action) async {
+    try {
+      switch (action) {
+        case 'download':
+          await ffi.downloadCapture(id: item.id, destDir: null);
+          if (!mounted) return;
+          // Kart listesinin oldugu yere don: yakalama artik goreve donusti.
+          setState(() => _view = 'tasks');
+        case 'dismiss':
+          await ffi.dismissCapture(id: item.id);
+        default:
+          _notify('"$action" islemi taninmiyor');
+      }
+    } catch (error) {
+      _notify(_reason(error));
+    }
+  }
+
+  Future<void> _clearCaptures() async {
+    try {
+      final count = await ffi.clearCaptures();
+      _notify('$count yakalama temizlendi');
+    } catch (error) {
+      _notify(_reason(error));
+    }
+  }
+
+  /// FFI hatalari Dart'ta istisna olarak karsiliga cikar; kullaniciya Rust
+  /// tarafindaki Turkce kisa aciklama gosterilir.
+  String _reason(Object error) => error.toString().replaceFirst('Exception: ', '');
 
   void _openHandoff(Task task) {
     final payload = base64Url.encode(utf8.encode(jsonEncode(task.toJson())));
@@ -192,11 +273,23 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
         mode: ProcessStartMode.detached);
   }
 
-  void _submitUrl() {
+  Future<void> _submitUrl() async {
     final value = _url.text.trim();
     if (value.isEmpty) return;
     _url.clear();
-    _notify('Spike: indirme motoru bagli degil — "$value" baslatilamadi');
+    try {
+      await ffi.addDownload(
+        url: value,
+        destDir: null,
+        referer: null,
+        cookie: null,
+        userAgent: null,
+        kind: null,
+        source: 'flutter',
+      );
+    } catch (error) {
+      _notify(_reason(error));
+    }
   }
 
   @override
@@ -218,7 +311,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
                 maximized: _maximized,
                 search: _search,
                 onQuery: (value) => setState(() => _query = value),
-                onSettings: () => _notify('Spike: ayarlar penceresi henuz yok'),
+                onSettings: () => _notify('Ayarlar penceresi henüz bağlı değil'),
                 onMinimize: windowManager.minimize,
                 onMaximize: () async {
                   if (await windowManager.isMaximized()) {
@@ -248,7 +341,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
                             view: _view,
                             demoOn: _demoOn,
                             onNewDownload: () => _url.text.isEmpty
-                                ? _notify('Spike: baglanti alanina bir adres yapistirin')
+                                ? _notify('Bağlantı alanına bir adres yapıştırın')
                                 : _submitUrl(),
                             onFilter: (value) => setState(() {
                               _filter = value;
@@ -260,7 +353,10 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
                               _view = 'tasks';
                             }),
                             onCaptures: () => setState(() => _view = 'captures'),
-                            onDemo: (value) => setState(() => _demoOn = value),
+                            onDemo: (value) {
+                              setState(() => _demoOn = value);
+                              _syncDemoClock();
+                            },
                           ),
                           const SizedBox(width: 24),
                           Expanded(
@@ -268,7 +364,8 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
                                 ? CapturesPane(
                                     items: _captures,
                                     notice: _notice,
-                                    onNotice: _notify,
+                                    onAction: _runCaptureAction,
+                                    onClear: _clearCaptures,
                                   )
                                 : TaskPane(
                                     tasks: tasks,
