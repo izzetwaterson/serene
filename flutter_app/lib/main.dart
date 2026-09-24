@@ -80,6 +80,13 @@ Future<void> _selfcheck() async {
 Future<void> _openMain({bool demo = false}) async {
   // Motor pencereden once kurulur: ilk kare bos listeyle boyanmasın.
   await RustLib.init();
+
+  // Tek ornek: calisan bir Serene varsa onun penceresi one gelir ve bu surec
+  // hic motor kurmadan cikar; iki motor ayni gorev listesine yazamaz.
+  // Cikis `exit` ile: Windows kosucusu Dart main'den once pencereyi acar,
+  // yalnizca donmek bos bir pencere birakirdi.
+  if (ffi.handOffToRunning()) exit(0);
+
   await ffi.bootEngine();
 
   const options = WindowOptions(
@@ -99,6 +106,15 @@ Future<void> _openMain({bool demo = false}) async {
   });
 
   runApp(SereneApp(demo: demo));
+
+  // Firefox native messaging kaydi ikilinin yolunu gosterir; surum
+  // yukseltmesinde degistigi icin her acilista tazele. Gelistirme derlemesinin
+  // yaninda serene-nmh.exe yoktur, kayit defterine dokunmadan basarisiz olur.
+  try {
+    ffi.registerBrowserHost();
+  } catch (_) {
+    /* kayit zorunlu degil: eklenti olmadan da indirme baslar */
+  }
 }
 
 Future<void> _openHandoff(Task task) async {

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'cards.dart';
@@ -12,6 +13,7 @@ import 'format.dart';
 import 'rust/api/commands.dart' as ffi;
 import 'rust/api/dto.dart' as engine;
 import 'rust/api/events.dart' as ffi;
+import 'rust/api/lifecycle.dart' as ffi;
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -54,6 +56,11 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
   Timer? _noticeTimer;
   final List<StreamSubscription<Object?>> _streams = [];
 
+  TrayIcon? _tray;
+
+  /// "Cikis" secildiginde pencere X'e basilmis gibi tepsiye gizlenmesin.
+  bool _quitting = false;
+
   List<Task> get _tasks => _demoOn ? [..._demo, ..._real] : _real;
 
   @override
@@ -71,7 +78,10 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     _streams.add(ffi.watchTasks().listen(_applyTasks));
     _streams.add(ffi.watchProgress().listen(_applyProgress));
     _streams.add(ffi.watchCaptures().listen(_applyCaptures));
+    // Ikinci acilis ya da eklentideki "Serene'yi Ac": pencere one gelir.
+    _streams.add(ffi.watchPresent().listen((_) => _present()));
 
+    _setupShell();
     _checkBridge();
     _bridgeClock = Timer.periodic(const Duration(seconds: 2), (_) => _checkBridge());
     _loadDisk();
@@ -79,6 +89,79 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
   }
 
   Timer? _bridgeClock;
+
+  /// Pencereyi tepsiyle konusur hale getirir.
+  Future<void> _setupShell() async {
+    // Kapanma istegini biz yonlendirelim: aksa Windows pencereyi hemen yok eder.
+    await windowManager.setPreventClose(true);
+    _setupTray();
+  }
+
+  void _setupTray() {
+    final icon = TrayIcon.create();
+    if (icon == null) return;
+
+    icon.icon = ImageAsset.fromAsset('assets/icons/serene_tray.png');
+    icon.setTooltip('Serene');
+
+    final menu = Menu.create();
+    if (menu != null) {
+      menu.addItem(_trayItem('Pencereyi Göster', _present));
+      menu.addItem(_trayItem('Tümünü Duraklat', () async {
+        ffi.pauseAllDownloads();
+        await _present();
+      }));
+      menu.addItem(_trayItem('Ayarlar', () async {
+        await _present();
+        _notify('Ayarlar penceresi henüz bağlı değil');
+      }));
+      menu.addSeparator();
+      menu.addItem(_trayItem('Çıkış', _quit));
+      icon.setContextMenu(menu);
+    }
+
+    icon.addListener((event) {
+      if (event is TrayIconClickedEvent) _present();
+    });
+    icon.setVisible(true);
+    _tray = icon;
+  }
+
+  MenuItem? _trayItem(String label, Future<void> Function() onTap) {
+    final item = MenuItem.createWithLabelAndType(label, MenuItemType.normal);
+    item?.addListener((event) {
+      if (event is MenuItemClickedEvent) onTap();
+    });
+    return item;
+  }
+
+  Future<void> _present() async {
+    // restore() kucultulmus pencereyi geri alir; buyutulmus pencereyi de
+    // eski boyutuna dusurdugu icin yalnizca kucuk durumda cagrilir.
+    if (await windowManager.isMinimized()) await windowManager.restore();
+    await windowManager.show();
+    await windowManager.focus();
+  }
+
+  /// Gercek kapanis: kopru kaydini sil, sonra pencereyi yok et.
+  Future<void> _quit() async {
+    _quitting = true;
+    ffi.stopBridge();
+    await windowManager.setPreventClose(false);
+    await windowManager.destroy();
+    exit(0);
+  }
+
+  @override
+  Future<void> onWindowClose() async {
+    if (_quitting) return;
+    if (!_settings.closeToTray) {
+      await _quit();
+      return;
+    }
+    // Tepsiye gizle: indirmeler surer, pencere simgeden geri gelir.
+    await windowManager.hide();
+  }
 
   @override
   void dispose() {
@@ -88,6 +171,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     for (final sub in _streams) {
       sub.cancel();
     }
+    _tray?.setVisible(false);
     windowManager.removeListener(this);
     _search.dispose();
     _url.dispose();

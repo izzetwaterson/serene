@@ -227,6 +227,57 @@ pub fn cleanup(path: &Path) {
     let _ = std::fs::remove_file(path);
 }
 
+/// `ipc.json`'daki kopruye tek bir istek yollar ve yanitini okur. Kabugun
+/// kendi motorunu kurmadan calisan ornege seslenmesi icin: tek ornek
+/// korumasinda `notify_running("show")` mevcut pencereyi one getirir.
+///
+/// Bloklayicidir; 1 sn'de yanit gelmezse `false` doner. Kayit yoksa, port
+/// oluksa ya da token tutmuyorsa da `false` — yani "baska ornek yok".
+pub fn notify_running(op: &str) -> bool {
+    use std::io::{BufRead, Write};
+
+    let file = match std::fs::File::open(store::data_dir().join(IPC_FILE)) {
+        Ok(file) => file,
+        Err(_) => return false,
+    };
+    let Ok(info) = serde_json::from_reader::<_, IpcInfo>(file) else {
+        return false;
+    };
+
+    let timeout = Some(std::time::Duration::from_secs(1));
+    let Ok(stream) = std::net::TcpStream::connect(("127.0.0.1", info.port)) else {
+        return false;
+    };
+    let _ = stream.set_read_timeout(timeout);
+    let _ = stream.set_write_timeout(timeout);
+
+    let hello = serde_json::json!({ "type": "hello", "token": info.token });
+    let request = serde_json::json!({ "type": op });
+
+    let mut writer = &stream;
+    if writeln!(writer, "{hello}").is_err() || writeln!(writer, "{request}").is_err() {
+        return false;
+    }
+
+    let mut reader = std::io::BufReader::new(&stream);
+    let mut line = String::new();
+    loop {
+        line.clear();
+        match reader.read_line(&mut line) {
+            Ok(0) | Err(_) => return false,
+            Ok(_) => {}
+        }
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&line) else {
+            continue;
+        };
+        match value.get("type").and_then(|kind| kind.as_str()) {
+            Some("ok") | Some("pong") => return true,
+            Some("error") => return false,
+            _ => {}
+        }
+    }
+}
+
 async fn serve(
     bridge: Arc<Bridge>,
     bus: EventBus,

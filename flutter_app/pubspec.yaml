@@ -38,6 +38,7 @@ dependencies:
   flutter_rust_bridge: 2.13.0
   rust_lib_serene:
     path: rust_builder
+  tray_manager: 0.7.0
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +61,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Tepsi simgesi: Tauri kabugundaki 32x32 ikiliyle ayni gorunum.
+  assets:
+    - assets/icons/
 
   # Tema, src/fonts altindaki woff2 parcalarindan uretilir:
   # once "python scripts/fonts_to_ttf.py" calistirin.

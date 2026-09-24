@@ -119,6 +119,15 @@ pub async fn pause_download(id: String) -> Result<(), String> {
     manager()?.pause(&id)
 }
 
+/// Tepsideki "Tumunu Duraklat": inen gorevleri duraklatir, sayisini doner.
+#[flutter_rust_bridge::frb(sync)]
+pub fn pause_all_downloads() -> i32 {
+    match manager() {
+        Ok(manager) => manager.pause_all() as i32,
+        Err(_) => 0,
+    }
+}
+
 pub async fn resume_download(id: String) -> Result<(), String> {
     manager()?.resume(&id)
 }

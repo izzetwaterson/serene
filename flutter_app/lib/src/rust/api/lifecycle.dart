@@ -11,6 +11,18 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 /// Ana pencere disindaki sureciler (onay penceresi) bunu cagirmaz.
 Future<void> bootEngine() => RustLib.instance.api.crateApiLifecycleBootEngine();
 
+/// Calisan bir Serene ornegi varsa penceresini one getirir ve `true` doner.
+/// Cagiran taraf o zaman kendi motorunu kurmadan cikmali; iki surec ayni
+/// tasks.json'a yazmasin.
+bool handOffToRunning() =>
+    RustLib.instance.api.crateApiLifecycleHandOffToRunning();
+
+/// Firefox native messaging kaydini tazele; ikilinin yolunu kaydeder.
+/// `--selfcheck` ve gelistirme derlemesi bu cagriya hic bakmaz, boylece
+/// kosumlar kullaniciyin tarayici kaydiyla oynamiyor.
+String registerBrowserHost() =>
+    RustLib.instance.api.crateApiLifecycleRegisterBrowserHost();
+
 /// Kapanirken yerel kopru kaydini (`ipc.json`) siler. Kalan dosya, tarayici
 /// yanlislikla kapali bir uygulamaya baglanmaya calistirir.
 void stopBridge() => RustLib.instance.api.crateApiLifecycleStopBridge();

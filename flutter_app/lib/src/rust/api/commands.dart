@@ -48,6 +48,10 @@ Future<Task> downloadCapture({required String id, String? destDir}) => RustLib
 Future<void> pauseDownload({required String id}) =>
     RustLib.instance.api.crateApiCommandsPauseDownload(id: id);
 
+/// Tepsideki "Tumunu Duraklat": inen gorevleri duraklatir, sayisini doner.
+int pauseAllDownloads() =>
+    RustLib.instance.api.crateApiCommandsPauseAllDownloads();
+
 Future<void> resumeDownload({required String id}) =>
     RustLib.instance.api.crateApiCommandsResumeDownload(id: id);
 

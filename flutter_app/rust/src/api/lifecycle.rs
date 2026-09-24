@@ -18,6 +18,23 @@ pub async fn boot_engine() -> Result<(), String> {
     Ok(())
 }
 
+/// Calisan bir Serene ornegi varsa penceresini one getirir ve `true` doner.
+/// Cagiran taraf o zaman kendi motorunu kurmadan cikmali; iki surec ayni
+/// tasks.json'a yazmasin.
+#[flutter_rust_bridge::frb(sync)]
+pub fn hand_off_to_running() -> bool {
+    bridge::notify_running("show")
+}
+
+/// Firefox native messaging kaydini tazele; ikilinin yolunu kaydeder.
+/// `--selfcheck` ve gelistirme derlemesi bu cagriya hic bakmaz, boylece
+/// kosumlar kullaniciyin tarayici kaydiyla oynamiyor.
+#[flutter_rust_bridge::frb(sync)]
+pub fn register_browser_host() -> Result<String, String> {
+    serene_native_host::register()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
 /// Kapanirken yerel kopru kaydini (`ipc.json`) siler. Kalan dosya, tarayici
 /// yanlislikla kapali bir uygulamaya baglanmaya calistirir.
 #[flutter_rust_bridge::frb(sync)]

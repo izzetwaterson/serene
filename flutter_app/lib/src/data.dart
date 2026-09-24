@@ -152,13 +152,19 @@ class CaptureItem {
 }
 
 class Settings {
-  Settings({required this.downloadDir, required this.confirmBrowserDownload});
+  Settings({
+    required this.downloadDir,
+    required this.confirmBrowserDownload,
+    required this.closeToTray,
+  });
 
   static Settings fromEngine(engine.AppConfig raw) => Settings(
         downloadDir: raw.downloadDir,
         confirmBrowserDownload: raw.confirmBrowserDownload,
+        closeToTray: raw.closeToTray,
       );
 
   final String downloadDir;
   final bool confirmBrowserDownload;
+  final bool closeToTray;
 }

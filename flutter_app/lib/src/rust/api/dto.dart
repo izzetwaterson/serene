@@ -127,7 +127,7 @@ class DiskSpace {
 
 enum FileCategory { video, audio, image, document, software, archive, other }
 
-/// Tarayici kopruyunun arayuz gostergesi.
+/// Tarayici kopruyunun arayuz gostergesi. Kurulmamis kopru sifirlarla gelir.
 class LinkStatus {
   final int port;
   final String version;
@@ -138,6 +138,9 @@ class LinkStatus {
     required this.version,
     required this.clients,
   });
+
+  static Future<LinkStatus> default_() =>
+      RustLib.instance.api.crateApiDtoLinkStatusDefault();
 
   @override
   int get hashCode => port.hashCode ^ version.hashCode ^ clients.hashCode;
