@@ -7,7 +7,11 @@ import 'package:window_manager/window_manager.dart';
 import 'src/data.dart';
 import 'src/handoff_window.dart';
 import 'src/main_window.dart';
-import 'src/rust/api/demo.dart';
+// Motor koprusu; `Task` adi eskiden dosya okuyan katmanla carpistigi icin
+// simdilik onekli cagriliyor. Arayüz tamamen FFI'ye gecince ek kalkacak.
+import 'src/rust/api/commands.dart' as ffi;
+import 'src/rust/api/events.dart' as ffi;
+import 'src/rust/api/lifecycle.dart' as ffi;
 import 'src/rust/frb_generated.dart';
 import 'src/theme.dart';
 
@@ -36,15 +40,41 @@ Future<void> main(List<String> args) async {
   await _openMain(demo: args.contains('--demo'));
 }
 
-/// Köprü yoklaması: Derlenen Rust kütüphanesi yüklenebiliyor mu ve Rust'tan
-/// Dart'a olay akışı geliyor mu? Koşumlar bu satırı ve sıfır çıkış kodunu bekler.
+/// Köprü yoklaması: derlenen Rust kütüphanesi yükleniyor mu, motor kendi
+/// verisi olmadan ayağa kalkıyor mu, bir komut gidip geliyor mu ve çekirdek
+/// olayı Dart'a ulaşıyor mu? Koşum bu satırı ve sıfır çıkış kodunu bekler.
+///
+/// Yoklama gerçek görev listesine dokunmasın diye yalıtılmış bir veri klasörü
+/// zorunludur; motor orada boş bir listeyle kurulur.
 Future<void> _selfcheck() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await RustLib.init();
-  final ticks = await tickStream().toList();
-  final version = engineVersion();
-  stdout.writeln('KOPRU motor=$version ticks=$ticks');
-  exit(ticks.length == 3 && version.isNotEmpty ? 0 : 1);
+
+  final dataDir = Platform.environment['SERENE_DATA_DIR'];
+  if (dataDir == null || dataDir.isEmpty) {
+    stderr.writeln('KOPRU HATA: SERENE_DATA_DIR tanımlı değil (yalıtılmış yoklama)');
+    exit(2);
+  }
+
+  try {
+    await RustLib.init();
+    await ffi.bootEngine();
+
+    final version = ffi.engineVersion();
+    // Abone olunduktan sonra yayınlanan ilk olay, akışın canlı olduğunu kanıtlar:
+    // aynı ayarları yeniden yazmak her seferinde tam liste yayını tetikler.
+    final events = ffi.watchTasks();
+    final config = await ffi.updateSettings(settings: ffi.getSettings());
+    final tasks = await events.first.timeout(const Duration(seconds: 5));
+
+    ffi.stopBridge();
+    stdout.writeln(
+      'KOPRU motor=$version gorev=${tasks.length} eszamanli=${config.maxConcurrent}',
+    );
+    exit(0);
+  } catch (error) {
+    stderr.writeln('KOPRU HATA: $error');
+    exit(1);
+  }
 }
 
 Future<void> _openMain({bool demo = false}) async {

@@ -70,8 +70,18 @@ pub fn save_settings(path: &Path, settings: &Settings) {
     let _ = write_json(path, settings);
 }
 
-/// Kullanici verisi klasoru (kalici gorev listesi + ayarlar).
+/// Kullanici verisi klasoru (kalici gorev listesi + ayarlar + kopru kaydi).
+///
+/// `SERENE_DATA_DIR` verildiginde orasi kullanilir: kosumlar ve birim testleri
+/// gercek listede indirme baslatmadan yaliniz bir motor kurabilsin diye.
+/// Tarayici host'u bu degiskeni bilmez; bu yuzden yalnizca yoklama icin verilir.
 pub fn data_dir() -> PathBuf {
+    if let Some(override_dir) = std::env::var_os("SERENE_DATA_DIR") {
+        let dir = PathBuf::from(override_dir);
+        if !dir.as_os_str().is_empty() {
+            return dir;
+        }
+    }
     dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("Serene")

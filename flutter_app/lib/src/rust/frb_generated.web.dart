@@ -6,7 +6,10 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
-import 'api/demo.dart';
+import 'api/commands.dart';
+import 'api/dto.dart';
+import 'api/events.dart';
+import 'api/lifecycle.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -27,13 +30,104 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnyhowException dco_decode_AnyhowException(dynamic raw);
 
   @protected
+  RustStreamSink<String> dco_decode_StreamSink_String_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<List<Capture>> dco_decode_StreamSink_list_capture_Sse(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<List<Progress>> dco_decode_StreamSink_list_progress_Sse(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<List<Task>> dco_decode_StreamSink_list_task_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<Task> dco_decode_StreamSink_task_Sse(dynamic raw);
+
+  @protected
   RustStreamSink<int> dco_decode_StreamSink_u_32_Sse(dynamic raw);
 
   @protected
   String dco_decode_String(dynamic raw);
 
   @protected
+  AppConfig dco_decode_app_config(dynamic raw);
+
+  @protected
+  bool dco_decode_bool(dynamic raw);
+
+  @protected
+  AppConfig dco_decode_box_autoadd_app_config(dynamic raw);
+
+  @protected
+  PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
+
+  @protected
+  MediaKind dco_decode_box_autoadd_media_kind(dynamic raw);
+
+  @protected
+  Capture dco_decode_capture(dynamic raw);
+
+  @protected
+  DiskSpace dco_decode_disk_space(dynamic raw);
+
+  @protected
+  double dco_decode_f_64(dynamic raw);
+
+  @protected
+  FileCategory dco_decode_file_category(dynamic raw);
+
+  @protected
+  int dco_decode_i_32(dynamic raw);
+
+  @protected
+  PlatformInt64 dco_decode_i_64(dynamic raw);
+
+  @protected
+  LinkStatus dco_decode_link_status(dynamic raw);
+
+  @protected
+  List<Capture> dco_decode_list_capture(dynamic raw);
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<Progress> dco_decode_list_progress(dynamic raw);
+
+  @protected
+  List<Segment> dco_decode_list_segment(dynamic raw);
+
+  @protected
+  List<Task> dco_decode_list_task(dynamic raw);
+
+  @protected
+  MediaKind dco_decode_media_kind(dynamic raw);
+
+  @protected
+  String? dco_decode_opt_String(dynamic raw);
+
+  @protected
+  PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
+
+  @protected
+  MediaKind? dco_decode_opt_box_autoadd_media_kind(dynamic raw);
+
+  @protected
+  Progress dco_decode_progress(dynamic raw);
+
+  @protected
+  Segment dco_decode_segment(dynamic raw);
+
+  @protected
+  Task dco_decode_task(dynamic raw);
+
+  @protected
+  TaskStatus dco_decode_task_status(dynamic raw);
 
   @protected
   int dco_decode_u_32(dynamic raw);
@@ -48,6 +142,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
+  RustStreamSink<String> sse_decode_StreamSink_String_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<List<Capture>> sse_decode_StreamSink_list_capture_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<List<Progress>> sse_decode_StreamSink_list_progress_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<List<Task>> sse_decode_StreamSink_list_task_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<Task> sse_decode_StreamSink_task_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<int> sse_decode_StreamSink_u_32_Sse(
     SseDeserializer deserializer,
   );
@@ -56,7 +175,81 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  AppConfig sse_decode_app_config(SseDeserializer deserializer);
+
+  @protected
+  bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  AppConfig sse_decode_box_autoadd_app_config(SseDeserializer deserializer);
+
+  @protected
+  PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
+  MediaKind sse_decode_box_autoadd_media_kind(SseDeserializer deserializer);
+
+  @protected
+  Capture sse_decode_capture(SseDeserializer deserializer);
+
+  @protected
+  DiskSpace sse_decode_disk_space(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_f_64(SseDeserializer deserializer);
+
+  @protected
+  FileCategory sse_decode_file_category(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_i_32(SseDeserializer deserializer);
+
+  @protected
+  PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
+
+  @protected
+  LinkStatus sse_decode_link_status(SseDeserializer deserializer);
+
+  @protected
+  List<Capture> sse_decode_list_capture(SseDeserializer deserializer);
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  List<Progress> sse_decode_list_progress(SseDeserializer deserializer);
+
+  @protected
+  List<Segment> sse_decode_list_segment(SseDeserializer deserializer);
+
+  @protected
+  List<Task> sse_decode_list_task(SseDeserializer deserializer);
+
+  @protected
+  MediaKind sse_decode_media_kind(SseDeserializer deserializer);
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
+  MediaKind? sse_decode_opt_box_autoadd_media_kind(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Progress sse_decode_progress(SseDeserializer deserializer);
+
+  @protected
+  Segment sse_decode_segment(SseDeserializer deserializer);
+
+  @protected
+  Task sse_decode_task(SseDeserializer deserializer);
+
+  @protected
+  TaskStatus sse_decode_task_status(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_32(SseDeserializer deserializer);
@@ -68,14 +261,38 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
-  int sse_decode_i_32(SseDeserializer deserializer);
-
-  @protected
-  bool sse_decode_bool(SseDeserializer deserializer);
-
-  @protected
   void sse_encode_AnyhowException(
     AnyhowException self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_String_Sse(
+    RustStreamSink<String> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_list_capture_Sse(
+    RustStreamSink<List<Capture>> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_list_progress_Sse(
+    RustStreamSink<List<Progress>> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_list_task_Sse(
+    RustStreamSink<List<Task>> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_task_Sse(
+    RustStreamSink<Task> self,
     SseSerializer serializer,
   );
 
@@ -89,10 +306,97 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_app_config(AppConfig self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_app_config(
+    AppConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_i_64(
+    PlatformInt64 self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_media_kind(
+    MediaKind self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_capture(Capture self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_disk_space(DiskSpace self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_f_64(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_file_category(FileCategory self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_link_status(LinkStatus self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_capture(List<Capture> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_list_progress(List<Progress> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_segment(List<Segment> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_task(List<Task> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_media_kind(MediaKind self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_i_64(
+    PlatformInt64? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_media_kind(
+    MediaKind? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_progress(Progress self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_segment(Segment self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_task(Task self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_task_status(TaskStatus self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_32(int self, SseSerializer serializer);
@@ -102,12 +406,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_i_32(int self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer);
 }
 
 // Section: wire_class

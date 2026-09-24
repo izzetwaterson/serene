@@ -3,7 +3,10 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'api/demo.dart';
+import 'api/commands.dart';
+import 'api/dto.dart';
+import 'api/events.dart';
+import 'api/lifecycle.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -58,7 +61,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
   @override
   Future<void> executeRustInitializers() async {
-    await api.crateApiDemoInitApp();
+    await api.crateApiLifecycleInitApp();
   }
 
   @override
@@ -69,7 +72,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -62397974;
+  int get rustContentHash => -1913232413;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -81,11 +84,83 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  String crateApiDemoEngineVersion();
+  Future<Task> crateApiCommandsAddDownload({
+    required String url,
+    String? destDir,
+    String? referer,
+    String? cookie,
+    String? userAgent,
+    MediaKind? kind,
+    String? source,
+  });
 
-  Future<void> crateApiDemoInitApp();
+  Future<void> crateApiLifecycleBootEngine();
 
-  Stream<int> crateApiDemoTickStream();
+  LinkStatus crateApiCommandsBridgeStatus();
+
+  Future<int> crateApiCommandsClearCaptures();
+
+  Future<int> crateApiCommandsClearCompleted();
+
+  Future<void> crateApiCommandsDismissCapture({required String id});
+
+  Future<Task> crateApiCommandsDownloadCapture({
+    required String id,
+    String? destDir,
+  });
+
+  String crateApiLifecycleEngineVersion();
+
+  Future<DiskSpace> crateApiCommandsGetDiskUsage();
+
+  AppConfig crateApiCommandsGetSettings();
+
+  Future<void> crateApiLifecycleInitApp();
+
+  List<Capture> crateApiCommandsListCaptures();
+
+  List<Task> crateApiCommandsListTasks();
+
+  Future<MediaKind> crateApiDtoMediaKindDefault();
+
+  Future<void> crateApiCommandsOpenTaskFile({required String id});
+
+  Future<void> crateApiCommandsPauseDownload({required String id});
+
+  Future<void> crateApiCommandsRemoveDownload({
+    required String id,
+    required bool deleteFile,
+  });
+
+  Future<void> crateApiCommandsResumeDownload({required String id});
+
+  Future<void> crateApiCommandsRetryDownload({required String id});
+
+  Future<void> crateApiCommandsRevealTaskFile({required String id});
+
+  Future<Task> crateApiCommandsSetTaskDest({
+    required String id,
+    required String destDir,
+    required String filename,
+  });
+
+  void crateApiLifecycleStopBridge();
+
+  Future<AppConfig> crateApiCommandsUpdateSettings({
+    required AppConfig settings,
+  });
+
+  Stream<List<Capture>> crateApiEventsWatchCaptures();
+
+  Stream<String> crateApiEventsWatchClipboard();
+
+  Stream<Task> crateApiEventsWatchHandoff();
+
+  Stream<int> crateApiEventsWatchPresent();
+
+  Stream<List<Progress>> crateApiEventsWatchProgress();
+
+  Stream<List<Task>> crateApiEventsWatchTasks();
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -97,29 +172,60 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  String crateApiDemoEngineVersion() {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
+  Future<Task> crateApiCommandsAddDownload({
+    required String url,
+    String? destDir,
+    String? referer,
+    String? cookie,
+    String? userAgent,
+    MediaKind? kind,
+    String? source,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1)!;
+          sse_encode_String(url, serializer);
+          sse_encode_opt_String(destDir, serializer);
+          sse_encode_opt_String(referer, serializer);
+          sse_encode_opt_String(cookie, serializer);
+          sse_encode_opt_String(userAgent, serializer);
+          sse_encode_opt_box_autoadd_media_kind(kind, serializer);
+          sse_encode_opt_String(source, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 1,
+            port: port_,
+          );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
-          decodeErrorData: null,
+          decodeSuccessData: sse_decode_task,
+          decodeErrorData: sse_decode_String,
         ),
-        constMeta: kCrateApiDemoEngineVersionConstMeta,
-        argValues: [],
+        constMeta: kCrateApiCommandsAddDownloadConstMeta,
+        argValues: [url, destDir, referer, cookie, userAgent, kind, source],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiDemoEngineVersionConstMeta =>
-      const TaskConstMeta(debugName: "engine_version", argNames: []);
+  TaskConstMeta get kCrateApiCommandsAddDownloadConstMeta =>
+      const TaskConstMeta(
+        debugName: "add_download",
+        argNames: [
+          "url",
+          "destDir",
+          "referer",
+          "cookie",
+          "userAgent",
+          "kind",
+          "source",
+        ],
+      );
 
   @override
-  Future<void> crateApiDemoInitApp() {
+  Future<void> crateApiLifecycleBootEngine() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -133,20 +239,688 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
-          decodeErrorData: null,
+          decodeErrorData: sse_decode_String,
         ),
-        constMeta: kCrateApiDemoInitAppConstMeta,
+        constMeta: kCrateApiLifecycleBootEngineConstMeta,
         argValues: [],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiDemoInitAppConstMeta =>
+  TaskConstMeta get kCrateApiLifecycleBootEngineConstMeta =>
+      const TaskConstMeta(debugName: "boot_engine", argNames: []);
+
+  @override
+  LinkStatus crateApiCommandsBridgeStatus() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 3)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_link_status,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiCommandsBridgeStatusConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsBridgeStatusConstMeta =>
+      const TaskConstMeta(debugName: "bridge_status", argNames: []);
+
+  @override
+  Future<int> crateApiCommandsClearCaptures() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 4,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_i_32,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsClearCapturesConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsClearCapturesConstMeta =>
+      const TaskConstMeta(debugName: "clear_captures", argNames: []);
+
+  @override
+  Future<int> crateApiCommandsClearCompleted() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 5,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_i_32,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsClearCompletedConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsClearCompletedConstMeta =>
+      const TaskConstMeta(debugName: "clear_completed", argNames: []);
+
+  @override
+  Future<void> crateApiCommandsDismissCapture({required String id}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 6,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsDismissCaptureConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsDismissCaptureConstMeta =>
+      const TaskConstMeta(debugName: "dismiss_capture", argNames: ["id"]);
+
+  @override
+  Future<Task> crateApiCommandsDownloadCapture({
+    required String id,
+    String? destDir,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          sse_encode_opt_String(destDir, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 7,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_task,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsDownloadCaptureConstMeta,
+        argValues: [id, destDir],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsDownloadCaptureConstMeta =>
+      const TaskConstMeta(
+        debugName: "download_capture",
+        argNames: ["id", "destDir"],
+      );
+
+  @override
+  String crateApiLifecycleEngineVersion() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiLifecycleEngineVersionConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiLifecycleEngineVersionConstMeta =>
+      const TaskConstMeta(debugName: "engine_version", argNames: []);
+
+  @override
+  Future<DiskSpace> crateApiCommandsGetDiskUsage() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 9,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_disk_space,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsGetDiskUsageConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsGetDiskUsageConstMeta =>
+      const TaskConstMeta(debugName: "get_disk_usage", argNames: []);
+
+  @override
+  AppConfig crateApiCommandsGetSettings() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_app_config,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiCommandsGetSettingsConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsGetSettingsConstMeta =>
+      const TaskConstMeta(debugName: "get_settings", argNames: []);
+
+  @override
+  Future<void> crateApiLifecycleInitApp() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 11,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiLifecycleInitAppConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiLifecycleInitAppConstMeta =>
       const TaskConstMeta(debugName: "init_app", argNames: []);
 
   @override
-  Stream<int> crateApiDemoTickStream() {
+  List<Capture> crateApiCommandsListCaptures() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_capture,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiCommandsListCapturesConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsListCapturesConstMeta =>
+      const TaskConstMeta(debugName: "list_captures", argNames: []);
+
+  @override
+  List<Task> crateApiCommandsListTasks() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_task,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiCommandsListTasksConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsListTasksConstMeta =>
+      const TaskConstMeta(debugName: "list_tasks", argNames: []);
+
+  @override
+  Future<MediaKind> crateApiDtoMediaKindDefault() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 14,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_media_kind,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiDtoMediaKindDefaultConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDtoMediaKindDefaultConstMeta =>
+      const TaskConstMeta(debugName: "media_kind_default", argNames: []);
+
+  @override
+  Future<void> crateApiCommandsOpenTaskFile({required String id}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 15,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsOpenTaskFileConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsOpenTaskFileConstMeta =>
+      const TaskConstMeta(debugName: "open_task_file", argNames: ["id"]);
+
+  @override
+  Future<void> crateApiCommandsPauseDownload({required String id}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 16,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsPauseDownloadConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsPauseDownloadConstMeta =>
+      const TaskConstMeta(debugName: "pause_download", argNames: ["id"]);
+
+  @override
+  Future<void> crateApiCommandsRemoveDownload({
+    required String id,
+    required bool deleteFile,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          sse_encode_bool(deleteFile, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 17,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsRemoveDownloadConstMeta,
+        argValues: [id, deleteFile],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsRemoveDownloadConstMeta =>
+      const TaskConstMeta(
+        debugName: "remove_download",
+        argNames: ["id", "deleteFile"],
+      );
+
+  @override
+  Future<void> crateApiCommandsResumeDownload({required String id}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 18,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsResumeDownloadConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsResumeDownloadConstMeta =>
+      const TaskConstMeta(debugName: "resume_download", argNames: ["id"]);
+
+  @override
+  Future<void> crateApiCommandsRetryDownload({required String id}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 19,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsRetryDownloadConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsRetryDownloadConstMeta =>
+      const TaskConstMeta(debugName: "retry_download", argNames: ["id"]);
+
+  @override
+  Future<void> crateApiCommandsRevealTaskFile({required String id}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 20,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsRevealTaskFileConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsRevealTaskFileConstMeta =>
+      const TaskConstMeta(debugName: "reveal_task_file", argNames: ["id"]);
+
+  @override
+  Future<Task> crateApiCommandsSetTaskDest({
+    required String id,
+    required String destDir,
+    required String filename,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          sse_encode_String(destDir, serializer);
+          sse_encode_String(filename, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 21,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_task,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsSetTaskDestConstMeta,
+        argValues: [id, destDir, filename],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsSetTaskDestConstMeta =>
+      const TaskConstMeta(
+        debugName: "set_task_dest",
+        argNames: ["id", "destDir", "filename"],
+      );
+
+  @override
+  void crateApiLifecycleStopBridge() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiLifecycleStopBridgeConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiLifecycleStopBridgeConstMeta =>
+      const TaskConstMeta(debugName: "stop_bridge", argNames: []);
+
+  @override
+  Future<AppConfig> crateApiCommandsUpdateSettings({
+    required AppConfig settings,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_app_config(settings, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 23,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_app_config,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiCommandsUpdateSettingsConstMeta,
+        argValues: [settings],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCommandsUpdateSettingsConstMeta =>
+      const TaskConstMeta(debugName: "update_settings", argNames: ["settings"]);
+
+  @override
+  Stream<List<Capture>> crateApiEventsWatchCaptures() {
+    final sink = RustStreamSink<List<Capture>>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_StreamSink_list_capture_Sse(sink, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 24,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData: sse_decode_unit,
+            decodeErrorData: sse_decode_String,
+          ),
+          constMeta: kCrateApiEventsWatchCapturesConstMeta,
+          argValues: [sink],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiEventsWatchCapturesConstMeta =>
+      const TaskConstMeta(debugName: "watch_captures", argNames: ["sink"]);
+
+  @override
+  Stream<String> crateApiEventsWatchClipboard() {
+    final sink = RustStreamSink<String>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_StreamSink_String_Sse(sink, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 25,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData: sse_decode_unit,
+            decodeErrorData: sse_decode_String,
+          ),
+          constMeta: kCrateApiEventsWatchClipboardConstMeta,
+          argValues: [sink],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiEventsWatchClipboardConstMeta =>
+      const TaskConstMeta(debugName: "watch_clipboard", argNames: ["sink"]);
+
+  @override
+  Stream<Task> crateApiEventsWatchHandoff() {
+    final sink = RustStreamSink<Task>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_StreamSink_task_Sse(sink, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 26,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData: sse_decode_unit,
+            decodeErrorData: sse_decode_String,
+          ),
+          constMeta: kCrateApiEventsWatchHandoffConstMeta,
+          argValues: [sink],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiEventsWatchHandoffConstMeta =>
+      const TaskConstMeta(debugName: "watch_handoff", argNames: ["sink"]);
+
+  @override
+  Stream<int> crateApiEventsWatchPresent() {
     final sink = RustStreamSink<int>();
     unawaited(
       handler.executeNormal(
@@ -157,15 +931,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 3,
+              funcId: 27,
               port: port_,
             );
           },
           codec: SseCodec(
             decodeSuccessData: sse_decode_unit,
-            decodeErrorData: null,
+            decodeErrorData: sse_decode_String,
           ),
-          constMeta: kCrateApiDemoTickStreamConstMeta,
+          constMeta: kCrateApiEventsWatchPresentConstMeta,
           argValues: [sink],
           apiImpl: this,
         ),
@@ -174,13 +948,111 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return sink.stream;
   }
 
-  TaskConstMeta get kCrateApiDemoTickStreamConstMeta =>
-      const TaskConstMeta(debugName: "tick_stream", argNames: ["sink"]);
+  TaskConstMeta get kCrateApiEventsWatchPresentConstMeta =>
+      const TaskConstMeta(debugName: "watch_present", argNames: ["sink"]);
+
+  @override
+  Stream<List<Progress>> crateApiEventsWatchProgress() {
+    final sink = RustStreamSink<List<Progress>>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_StreamSink_list_progress_Sse(sink, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 28,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData: sse_decode_unit,
+            decodeErrorData: sse_decode_String,
+          ),
+          constMeta: kCrateApiEventsWatchProgressConstMeta,
+          argValues: [sink],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiEventsWatchProgressConstMeta =>
+      const TaskConstMeta(debugName: "watch_progress", argNames: ["sink"]);
+
+  @override
+  Stream<List<Task>> crateApiEventsWatchTasks() {
+    final sink = RustStreamSink<List<Task>>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_StreamSink_list_task_Sse(sink, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 29,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData: sse_decode_unit,
+            decodeErrorData: sse_decode_String,
+          ),
+          constMeta: kCrateApiEventsWatchTasksConstMeta,
+          argValues: [sink],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiEventsWatchTasksConstMeta =>
+      const TaskConstMeta(debugName: "watch_tasks", argNames: ["sink"]);
 
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return AnyhowException(raw as String);
+  }
+
+  @protected
+  RustStreamSink<String> dco_decode_StreamSink_String_Sse(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
+  RustStreamSink<List<Capture>> dco_decode_StreamSink_list_capture_Sse(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
+  RustStreamSink<List<Progress>> dco_decode_StreamSink_list_progress_Sse(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
+  RustStreamSink<List<Task>> dco_decode_StreamSink_list_task_Sse(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
+  RustStreamSink<Task> dco_decode_StreamSink_task_Sse(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
   }
 
   @protected
@@ -196,9 +1068,232 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  AppConfig dco_decode_app_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return AppConfig(
+      downloadDir: dco_decode_String(arr[0]),
+      maxConcurrent: dco_decode_i_32(arr[1]),
+      connections: dco_decode_i_32(arr[2]),
+      watchClipboard: dco_decode_bool(arr[3]),
+      closeToTray: dco_decode_bool(arr[4]),
+      confirmBrowserDownload: dco_decode_bool(arr[5]),
+    );
+  }
+
+  @protected
+  bool dco_decode_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as bool;
+  }
+
+  @protected
+  AppConfig dco_decode_box_autoadd_app_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_app_config(raw);
+  }
+
+  @protected
+  PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_i_64(raw);
+  }
+
+  @protected
+  MediaKind dco_decode_box_autoadd_media_kind(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_media_kind(raw);
+  }
+
+  @protected
+  Capture dco_decode_capture(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return Capture(
+      id: dco_decode_String(arr[0]),
+      url: dco_decode_String(arr[1]),
+      filename: dco_decode_String(arr[2]),
+      size: dco_decode_i_64(arr[3]),
+      contentType: dco_decode_String(arr[4]),
+      kind: dco_decode_media_kind(arr[5]),
+      site: dco_decode_String(arr[6]),
+      createdAt: dco_decode_i_64(arr[7]),
+    );
+  }
+
+  @protected
+  DiskSpace dco_decode_disk_space(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return DiskSpace(
+      mount: dco_decode_String(arr[0]),
+      total: dco_decode_i_64(arr[1]),
+      free: dco_decode_i_64(arr[2]),
+      used: dco_decode_i_64(arr[3]),
+    );
+  }
+
+  @protected
+  double dco_decode_f_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as double;
+  }
+
+  @protected
+  FileCategory dco_decode_file_category(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return FileCategory.values[raw as int];
+  }
+
+  @protected
+  int dco_decode_i_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  PlatformInt64 dco_decode_i_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeI64(raw);
+  }
+
+  @protected
+  LinkStatus dco_decode_link_status(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return LinkStatus(
+      port: dco_decode_i_32(arr[0]),
+      version: dco_decode_String(arr[1]),
+      clients: dco_decode_i_32(arr[2]),
+    );
+  }
+
+  @protected
+  List<Capture> dco_decode_list_capture(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_capture).toList();
+  }
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  List<Progress> dco_decode_list_progress(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_progress).toList();
+  }
+
+  @protected
+  List<Segment> dco_decode_list_segment(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_segment).toList();
+  }
+
+  @protected
+  List<Task> dco_decode_list_task(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_task).toList();
+  }
+
+  @protected
+  MediaKind dco_decode_media_kind(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MediaKind.values[raw as int];
+  }
+
+  @protected
+  String? dco_decode_opt_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_String(raw);
+  }
+
+  @protected
+  PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_i_64(raw);
+  }
+
+  @protected
+  MediaKind? dco_decode_opt_box_autoadd_media_kind(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_media_kind(raw);
+  }
+
+  @protected
+  Progress dco_decode_progress(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return Progress(
+      id: dco_decode_String(arr[0]),
+      downloaded: dco_decode_i_64(arr[1]),
+      total: dco_decode_i_64(arr[2]),
+      speed: dco_decode_f_64(arr[3]),
+    );
+  }
+
+  @protected
+  Segment dco_decode_segment(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return Segment(
+      index: dco_decode_i_32(arr[0]),
+      start: dco_decode_i_64(arr[1]),
+      end: dco_decode_i_64(arr[2]),
+      downloaded: dco_decode_i_64(arr[3]),
+    );
+  }
+
+  @protected
+  Task dco_decode_task(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 22)
+      throw Exception('unexpected arr length: expect 22 but see ${arr.length}');
+    return Task(
+      id: dco_decode_String(arr[0]),
+      url: dco_decode_String(arr[1]),
+      filename: dco_decode_String(arr[2]),
+      dest: dco_decode_String(arr[3]),
+      tempDir: dco_decode_String(arr[4]),
+      total: dco_decode_i_64(arr[5]),
+      downloaded: dco_decode_i_64(arr[6]),
+      speed: dco_decode_f_64(arr[7]),
+      status: dco_decode_task_status(arr[8]),
+      error: dco_decode_opt_String(arr[9]),
+      category: dco_decode_file_category(arr[10]),
+      resumable: dco_decode_bool(arr[11]),
+      segments: dco_decode_list_segment(arr[12]),
+      createdAt: dco_decode_i_64(arr[13]),
+      finishedAt: dco_decode_opt_box_autoadd_i_64(arr[14]),
+      etag: dco_decode_opt_String(arr[15]),
+      referer: dco_decode_opt_String(arr[16]),
+      cookie: dco_decode_opt_String(arr[17]),
+      userAgent: dco_decode_opt_String(arr[18]),
+      kind: dco_decode_media_kind(arr[19]),
+      source: dco_decode_opt_String(arr[20]),
+      pending: dco_decode_bool(arr[21]),
+    );
+  }
+
+  @protected
+  TaskStatus dco_decode_task_status(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return TaskStatus.values[raw as int];
   }
 
   @protected
@@ -227,6 +1322,46 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RustStreamSink<String> sse_decode_StreamSink_String_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
+  RustStreamSink<List<Capture>> sse_decode_StreamSink_list_capture_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
+  RustStreamSink<List<Progress>> sse_decode_StreamSink_list_progress_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
+  RustStreamSink<List<Task>> sse_decode_StreamSink_list_task_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
+  RustStreamSink<Task> sse_decode_StreamSink_task_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
   RustStreamSink<int> sse_decode_StreamSink_u_32_Sse(
     SseDeserializer deserializer,
   ) {
@@ -242,10 +1377,307 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  AppConfig sse_decode_app_config(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_downloadDir = sse_decode_String(deserializer);
+    var var_maxConcurrent = sse_decode_i_32(deserializer);
+    var var_connections = sse_decode_i_32(deserializer);
+    var var_watchClipboard = sse_decode_bool(deserializer);
+    var var_closeToTray = sse_decode_bool(deserializer);
+    var var_confirmBrowserDownload = sse_decode_bool(deserializer);
+    return AppConfig(
+      downloadDir: var_downloadDir,
+      maxConcurrent: var_maxConcurrent,
+      connections: var_connections,
+      watchClipboard: var_watchClipboard,
+      closeToTray: var_closeToTray,
+      confirmBrowserDownload: var_confirmBrowserDownload,
+    );
+  }
+
+  @protected
+  bool sse_decode_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint8() != 0;
+  }
+
+  @protected
+  AppConfig sse_decode_box_autoadd_app_config(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_app_config(deserializer));
+  }
+
+  @protected
+  PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_i_64(deserializer));
+  }
+
+  @protected
+  MediaKind sse_decode_box_autoadd_media_kind(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_media_kind(deserializer));
+  }
+
+  @protected
+  Capture sse_decode_capture(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_url = sse_decode_String(deserializer);
+    var var_filename = sse_decode_String(deserializer);
+    var var_size = sse_decode_i_64(deserializer);
+    var var_contentType = sse_decode_String(deserializer);
+    var var_kind = sse_decode_media_kind(deserializer);
+    var var_site = sse_decode_String(deserializer);
+    var var_createdAt = sse_decode_i_64(deserializer);
+    return Capture(
+      id: var_id,
+      url: var_url,
+      filename: var_filename,
+      size: var_size,
+      contentType: var_contentType,
+      kind: var_kind,
+      site: var_site,
+      createdAt: var_createdAt,
+    );
+  }
+
+  @protected
+  DiskSpace sse_decode_disk_space(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_mount = sse_decode_String(deserializer);
+    var var_total = sse_decode_i_64(deserializer);
+    var var_free = sse_decode_i_64(deserializer);
+    var var_used = sse_decode_i_64(deserializer);
+    return DiskSpace(
+      mount: var_mount,
+      total: var_total,
+      free: var_free,
+      used: var_used,
+    );
+  }
+
+  @protected
+  double sse_decode_f_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getFloat64();
+  }
+
+  @protected
+  FileCategory sse_decode_file_category(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return FileCategory.values[inner];
+  }
+
+  @protected
+  int sse_decode_i_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getInt32();
+  }
+
+  @protected
+  PlatformInt64 sse_decode_i_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getPlatformInt64();
+  }
+
+  @protected
+  LinkStatus sse_decode_link_status(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_port = sse_decode_i_32(deserializer);
+    var var_version = sse_decode_String(deserializer);
+    var var_clients = sse_decode_i_32(deserializer);
+    return LinkStatus(
+      port: var_port,
+      version: var_version,
+      clients: var_clients,
+    );
+  }
+
+  @protected
+  List<Capture> sse_decode_list_capture(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Capture>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_capture(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<Progress> sse_decode_list_progress(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Progress>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_progress(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<Segment> sse_decode_list_segment(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Segment>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_segment(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<Task> sse_decode_list_task(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Task>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_task(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  MediaKind sse_decode_media_kind(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return MediaKind.values[inner];
+  }
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_i_64(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  MediaKind? sse_decode_opt_box_autoadd_media_kind(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_media_kind(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  Progress sse_decode_progress(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_downloaded = sse_decode_i_64(deserializer);
+    var var_total = sse_decode_i_64(deserializer);
+    var var_speed = sse_decode_f_64(deserializer);
+    return Progress(
+      id: var_id,
+      downloaded: var_downloaded,
+      total: var_total,
+      speed: var_speed,
+    );
+  }
+
+  @protected
+  Segment sse_decode_segment(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_index = sse_decode_i_32(deserializer);
+    var var_start = sse_decode_i_64(deserializer);
+    var var_end = sse_decode_i_64(deserializer);
+    var var_downloaded = sse_decode_i_64(deserializer);
+    return Segment(
+      index: var_index,
+      start: var_start,
+      end: var_end,
+      downloaded: var_downloaded,
+    );
+  }
+
+  @protected
+  Task sse_decode_task(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_url = sse_decode_String(deserializer);
+    var var_filename = sse_decode_String(deserializer);
+    var var_dest = sse_decode_String(deserializer);
+    var var_tempDir = sse_decode_String(deserializer);
+    var var_total = sse_decode_i_64(deserializer);
+    var var_downloaded = sse_decode_i_64(deserializer);
+    var var_speed = sse_decode_f_64(deserializer);
+    var var_status = sse_decode_task_status(deserializer);
+    var var_error = sse_decode_opt_String(deserializer);
+    var var_category = sse_decode_file_category(deserializer);
+    var var_resumable = sse_decode_bool(deserializer);
+    var var_segments = sse_decode_list_segment(deserializer);
+    var var_createdAt = sse_decode_i_64(deserializer);
+    var var_finishedAt = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_etag = sse_decode_opt_String(deserializer);
+    var var_referer = sse_decode_opt_String(deserializer);
+    var var_cookie = sse_decode_opt_String(deserializer);
+    var var_userAgent = sse_decode_opt_String(deserializer);
+    var var_kind = sse_decode_media_kind(deserializer);
+    var var_source = sse_decode_opt_String(deserializer);
+    var var_pending = sse_decode_bool(deserializer);
+    return Task(
+      id: var_id,
+      url: var_url,
+      filename: var_filename,
+      dest: var_dest,
+      tempDir: var_tempDir,
+      total: var_total,
+      downloaded: var_downloaded,
+      speed: var_speed,
+      status: var_status,
+      error: var_error,
+      category: var_category,
+      resumable: var_resumable,
+      segments: var_segments,
+      createdAt: var_createdAt,
+      finishedAt: var_finishedAt,
+      etag: var_etag,
+      referer: var_referer,
+      cookie: var_cookie,
+      userAgent: var_userAgent,
+      kind: var_kind,
+      source: var_source,
+      pending: var_pending,
+    );
+  }
+
+  @protected
+  TaskStatus sse_decode_task_status(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return TaskStatus.values[inner];
   }
 
   @protected
@@ -266,24 +1698,97 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  int sse_decode_i_32(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getInt32();
-  }
-
-  @protected
-  bool sse_decode_bool(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getUint8() != 0;
-  }
-
-  @protected
   void sse_encode_AnyhowException(
     AnyhowException self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.message, serializer);
+  }
+
+  @protected
+  void sse_encode_StreamSink_String_Sse(
+    RustStreamSink<String> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_StreamSink_list_capture_Sse(
+    RustStreamSink<List<Capture>> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_capture,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_StreamSink_list_progress_Sse(
+    RustStreamSink<List<Progress>> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_progress,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_StreamSink_list_task_Sse(
+    RustStreamSink<List<Task>> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_task,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_StreamSink_task_Sse(
+    RustStreamSink<Task> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_task,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
   }
 
   @protected
@@ -310,6 +1815,113 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_app_config(AppConfig self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.downloadDir, serializer);
+    sse_encode_i_32(self.maxConcurrent, serializer);
+    sse_encode_i_32(self.connections, serializer);
+    sse_encode_bool(self.watchClipboard, serializer);
+    sse_encode_bool(self.closeToTray, serializer);
+    sse_encode_bool(self.confirmBrowserDownload, serializer);
+  }
+
+  @protected
+  void sse_encode_bool(bool self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint8(self ? 1 : 0);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_app_config(
+    AppConfig self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_app_config(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_i_64(
+    PlatformInt64 self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_64(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_media_kind(
+    MediaKind self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_media_kind(self, serializer);
+  }
+
+  @protected
+  void sse_encode_capture(Capture self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.url, serializer);
+    sse_encode_String(self.filename, serializer);
+    sse_encode_i_64(self.size, serializer);
+    sse_encode_String(self.contentType, serializer);
+    sse_encode_media_kind(self.kind, serializer);
+    sse_encode_String(self.site, serializer);
+    sse_encode_i_64(self.createdAt, serializer);
+  }
+
+  @protected
+  void sse_encode_disk_space(DiskSpace self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.mount, serializer);
+    sse_encode_i_64(self.total, serializer);
+    sse_encode_i_64(self.free, serializer);
+    sse_encode_i_64(self.used, serializer);
+  }
+
+  @protected
+  void sse_encode_f_64(double self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putFloat64(self);
+  }
+
+  @protected
+  void sse_encode_file_category(FileCategory self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putInt32(self);
+  }
+
+  @protected
+  void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putPlatformInt64(self);
+  }
+
+  @protected
+  void sse_encode_link_status(LinkStatus self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.port, serializer);
+    sse_encode_String(self.version, serializer);
+    sse_encode_i_32(self.clients, serializer);
+  }
+
+  @protected
+  void sse_encode_list_capture(List<Capture> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_capture(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
     SseSerializer serializer,
@@ -317,6 +1929,126 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_list_progress(List<Progress> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_progress(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_segment(List<Segment> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_segment(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_task(List<Task> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_task(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_media_kind(MediaKind self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_String(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_i_64(
+    PlatformInt64? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_i_64(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_media_kind(
+    MediaKind? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_media_kind(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_progress(Progress self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_i_64(self.downloaded, serializer);
+    sse_encode_i_64(self.total, serializer);
+    sse_encode_f_64(self.speed, serializer);
+  }
+
+  @protected
+  void sse_encode_segment(Segment self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+    sse_encode_i_64(self.start, serializer);
+    sse_encode_i_64(self.end, serializer);
+    sse_encode_i_64(self.downloaded, serializer);
+  }
+
+  @protected
+  void sse_encode_task(Task self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.url, serializer);
+    sse_encode_String(self.filename, serializer);
+    sse_encode_String(self.dest, serializer);
+    sse_encode_String(self.tempDir, serializer);
+    sse_encode_i_64(self.total, serializer);
+    sse_encode_i_64(self.downloaded, serializer);
+    sse_encode_f_64(self.speed, serializer);
+    sse_encode_task_status(self.status, serializer);
+    sse_encode_opt_String(self.error, serializer);
+    sse_encode_file_category(self.category, serializer);
+    sse_encode_bool(self.resumable, serializer);
+    sse_encode_list_segment(self.segments, serializer);
+    sse_encode_i_64(self.createdAt, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.finishedAt, serializer);
+    sse_encode_opt_String(self.etag, serializer);
+    sse_encode_opt_String(self.referer, serializer);
+    sse_encode_opt_String(self.cookie, serializer);
+    sse_encode_opt_String(self.userAgent, serializer);
+    sse_encode_media_kind(self.kind, serializer);
+    sse_encode_opt_String(self.source, serializer);
+    sse_encode_bool(self.pending, serializer);
+  }
+
+  @protected
+  void sse_encode_task_status(TaskStatus self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
   }
 
   @protected
@@ -334,17 +2066,5 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_encode_unit(void self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-  }
-
-  @protected
-  void sse_encode_i_32(int self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putInt32(self);
-  }
-
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putUint8(self ? 1 : 0);
   }
 }

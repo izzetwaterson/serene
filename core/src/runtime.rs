@@ -27,3 +27,17 @@ where
 {
     runtime().spawn(task)
 }
+
+/// Motorun kendi havuzunda bir gelecegi bekletmeden bitirene kadar sur.
+/// Kabugun ipliğinde calisan kurulum kodu (Tauri `setup`, FFI baslangici)
+/// async bir hazirlik yapacagi zaman bunu kullanir.
+pub fn block_on<T: Send + 'static>(
+    task: impl std::future::Future<Output = T> + Send + 'static,
+) -> T {
+    // Handle::block_on bu ipligi bir calisma zamani baglamina sokmaz; bu yuzden
+    // runtime'in kendisi cagrilir.
+    std::thread::scope(|scope| {
+        let handle = scope.spawn(|| runtime().block_on(task));
+        handle.join().expect("kurulum gorevi panic ile sonlandi")
+    })
+}
