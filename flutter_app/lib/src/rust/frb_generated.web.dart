@@ -9,6 +9,7 @@
 import 'api/commands.dart';
 import 'api/dto.dart';
 import 'api/events.dart';
+import 'api/handoff.dart';
 import 'api/lifecycle.dart';
 
 import 'dart:async';

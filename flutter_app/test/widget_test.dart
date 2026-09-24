@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:serene_app/src/data.dart';
 import 'package:serene_app/src/format.dart';
+import 'package:serene_app/src/handoff.dart';
 import 'package:serene_app/src/rust/api/dto.dart' as engine;
 
 void main() {
@@ -68,5 +69,46 @@ void main() {
     ));
     expect(item.size, 4096);
     expect(captureKindLabel(item.kind), 'HLS');
+  });
+
+  test('onay sirasi tek pencere gosterir', () {
+    final queue = HandoffQueue();
+    queue.request('a');
+    queue.request('b');
+    queue.request('a'); // ayni gorev iki kez siralanmaz
+
+    expect(queue.take(), 'a');
+    expect(queue.take(), isNull); // 'a'nin penceresi henuz kapanmadi
+    expect(queue.sync(['a', 'b']), isNull);
+
+    queue.close('a');
+    expect(queue.take(), 'b');
+  });
+
+  test('onay sirasi listeyi izler', () {
+    final queue = HandoffQueue();
+    queue.request('a');
+    queue.request('b');
+    queue.take(); // 'a' penceresi acik
+
+    // 'a' baska bir yerden onaylandi: yetim kalan pencere bildirilir.
+    expect(queue.sync(['b']), 'a');
+    expect(queue.shown, isNull);
+    // Kapanis haberi gecikse bile siradakinin yerini almaz.
+    queue.close('a');
+    expect(queue.take(), 'b');
+
+    queue.request('c');
+    // Gorev listeden dustu: pencere kapanir, sira bosalmis olur.
+    expect(queue.sync(['b', 'c']), isNull);
+    queue.close('b');
+    expect(queue.take(), 'c');
+    // Eski pencerenin gec kapanis haberi yeniyi dusurmez.
+    queue.close('b');
+    expect(queue.shown, 'c');
+  });
+
+  test('kopru hatasinin kisa aciklamasi', () {
+    expect(engineReason(Exception('Gorev bulunamadi')), 'Gorev bulunamadi');
   });
 }

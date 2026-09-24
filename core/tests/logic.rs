@@ -2,6 +2,8 @@
 //! HLS/DASH playlist planlama, depo ve bekletme karari.
 
 use reqwest::header::{COOKIE, REFERER, USER_AGENT as UA_HEADER};
+use serene_core::bridge;
+use serene_core::bus::EventBus;
 use serene_core::category::classify;
 use serene_core::clipboard::extract_url;
 use serene_core::enqueue::{normalize_url, should_hold};
@@ -12,6 +14,8 @@ use serene_core::engine::{
     build_client, build_request, filename_from_url, plan_segments, sanitize_filename, USER_AGENT,
 };
 use serene_core::hls::{aes_key_for, plan_segments as hls_plan, resolve_uri, select_variant};
+use serene_core::manager::DownloadManager;
+use serene_core::runtime;
 use serene_core::models::{Category, CaptureItem, DownloadKind, DownloadMeta, Settings};
 use serene_core::store::{load_captures, save_captures, upsert_capture};
 
@@ -661,4 +665,64 @@ fn dash_rejects_unsupported_structures() {
     let no_duration = r#"<MPD><Period><AdaptationSet mimeType="video/mp4"><Representation id="v1" bandwidth="1">
       <SegmentTemplate media="s$Number$.m4s"/></Representation></AdaptationSet></Period></MPD>"#;
     assert!(dash_plan(no_duration, &base_url()).is_err());
+}
+
+/// Onay penceresi kendi motorunu kurmaz: karari `ipc.json` uzerinden calisan
+/// ornegin koprusune yazar. Bu test yalitilmis bir veri klasoru acar (kosumlar
+/// gibi `SERENE_DATA_DIR` ile) ve iki kararin yolunu ucdan uca yoklar.
+#[test]
+fn handoff_decision_travels_over_the_local_bridge() {
+    let dir = std::env::temp_dir().join(format!("serene-handoff-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let downloads = dir.join("indir");
+    std::fs::create_dir_all(&downloads).expect("gecici indirme klasoru");
+    // `store::data_dir` her okumada degiskene bakar; baska test klasore
+    // dokunmadigi icin paralel kosumda bir sey bozulmaz.
+    std::env::set_var("SERENE_DATA_DIR", &dir);
+
+    let bus = EventBus::default();
+    let manager = DownloadManager::new(bus.clone()).expect("motor");
+    let held: DownloadMeta = serde_json::from_str(&format!(
+        r#"{{
+            "id": "hf-1",
+            "url": "https://ornek/ilk.bin",
+            "filename": "ilk.bin",
+            "dest": "{}",
+            "temp_dir": "{}",
+            "total": 1024,
+            "downloaded": 0,
+            "speed": 0.0,
+            "status": "paused",
+            "error": null,
+            "category": "other",
+            "resumable": true,
+            "segments": [],
+            "created_at": 1,
+            "finished_at": null,
+            "pending": true,
+            "source": "download"
+        }}"#,
+        downloads.join("ilk.bin").to_string_lossy().replace('\\', "\\\\"),
+        dir.join("tmp").to_string_lossy().replace('\\', "\\\\"),
+    ))
+    .expect("bekleyen gorev");
+    manager.insert(held);
+
+    let bridge = runtime::block_on(bridge::start(bus, manager.clone())).expect("kopru");
+    assert!(dir.join(bridge::IPC_FILE).exists(), "kopru kaydi yazilmali");
+
+    bridge::handoff_confirm("hf-1", &downloads.to_string_lossy(), "ikinci.bin", false)
+        .expect("yerlestirme");
+    let entry = manager.find("hf-1").expect("gorev yerinde kalmali");
+    let moved = entry.meta.lock().unwrap().clone();
+    assert!(!moved.pending, "karar onay beklemeyi bitirir");
+    assert!(moved.dest.ends_with("ikinci.bin"), "kayit yeri: {}", moved.dest);
+
+    bridge::handoff_cancel("hf-1").expect("vazgec");
+    assert!(manager.find("hf-1").is_none(), "gorev listeden cikmali");
+
+    bridge::cleanup(bridge.path());
+    drop(manager);
+    let _ = std::env::remove_var("SERENE_DATA_DIR");
+    let _ = std::fs::remove_dir_all(&dir);
 }

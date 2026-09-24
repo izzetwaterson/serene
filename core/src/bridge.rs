@@ -18,9 +18,10 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc};
 
 use crate::bus::{CoreEvent, EventBus};
+use crate::engine;
 use crate::enqueue;
 use crate::manager::DownloadManager;
-use crate::models::{now_secs, CaptureItem, DownloadKind};
+use crate::models::{now_secs, CaptureItem, DownloadKind, DownloadMeta};
 use crate::runtime;
 use crate::store;
 
@@ -227,53 +228,129 @@ pub fn cleanup(path: &Path) {
     let _ = std::fs::remove_file(path);
 }
 
-/// `ipc.json`'daki kopruye tek bir istek yollar ve yanitini okur. Kabugun
-/// kendi motorunu kurmadan calisan ornege seslenmesi icin: tek ornek
-/// korumasinda `notify_running("show")` mevcut pencereyi one getirir.
+/// `ipc.json`'daki kopruye tek bir istek yollar ve eslesen yaniti donerir.
+/// Kabugun kendi motorunu kurmadan calisan ornege seslenmesi icin: tek ornek
+/// korumasinda `show`, onay penceresinde `set_dest` ve `resume`.
 ///
-/// Bloklayicidir; 1 sn'de yanit gelmezse `false` doner. Kayit yoksa, port
-/// oluksa ya da token tutmuyorsa da `false` — yani "baska ornek yok".
-pub fn notify_running(op: &str) -> bool {
+/// Bloklayicidir; iki saniyede yanit gelmezse hata doner. Kayit yoksa, port
+/// oluksa ya da token tutmuyorsa da hata — yani "baska ornek yok".
+pub fn request(op: &str, args: &serde_json::Value) -> Result<serde_json::Value, String> {
     use std::io::{BufRead, Write};
 
-    let file = match std::fs::File::open(store::data_dir().join(IPC_FILE)) {
-        Ok(file) => file,
-        Err(_) => return false,
-    };
-    let Ok(info) = serde_json::from_reader::<_, IpcInfo>(file) else {
-        return false;
-    };
-
-    let timeout = Some(std::time::Duration::from_secs(1));
-    let Ok(stream) = std::net::TcpStream::connect(("127.0.0.1", info.port)) else {
-        return false;
-    };
+    let info = read_ipc().ok_or("Calisan bir Serene ornegi bulunamadi")?;
+    let stream = std::net::TcpStream::connect(("127.0.0.1", info.port))
+        .map_err(|_| "Calisan ornege baglanilamadi".to_string())?;
+    let timeout = Some(std::time::Duration::from_secs(2));
     let _ = stream.set_read_timeout(timeout);
     let _ = stream.set_write_timeout(timeout);
 
+    let req_id = uuid::Uuid::new_v4().simple().to_string();
+    let mut request = serde_json::json!({ "type": op, "reqId": req_id });
+    if let (Some(fields), Some(object)) = (args.as_object(), request.as_object_mut()) {
+        object.extend(fields.clone());
+    }
     let hello = serde_json::json!({ "type": "hello", "token": info.token });
-    let request = serde_json::json!({ "type": op });
 
     let mut writer = &stream;
-    if writeln!(writer, "{hello}").is_err() || writeln!(writer, "{request}").is_err() {
-        return false;
-    }
+    writeln!(writer, "{hello}")
+        .and_then(|_| writeln!(writer, "{request}"))
+        .map_err(|_| "Istek gonderilemedi".to_string())?;
 
+    // Abonelikli baglantilarda kendi yanitimizdan once bildim gelebilir;
+    // yalnizca `reqId` eslesen satir sonucu tasir.
     let mut reader = std::io::BufReader::new(&stream);
     let mut line = String::new();
     loop {
         line.clear();
         match reader.read_line(&mut line) {
-            Ok(0) | Err(_) => return false,
+            Ok(0) => return Err("Ornek yanit vermeden baglantiyi kapatti".into()),
             Ok(_) => {}
+            Err(_) => return Err("Ornekten yanit alinamadi".into()),
         }
         let Ok(value) = serde_json::from_str::<serde_json::Value>(&line) else {
             continue;
         };
-        match value.get("type").and_then(|kind| kind.as_str()) {
-            Some("ok") | Some("pong") => return true,
-            Some("error") => return false,
-            _ => {}
+        if value.get("reqId").and_then(|id| id.as_str()) != Some(req_id.as_str()) {
+            continue;
+        }
+        return match value.get("type").and_then(|kind| kind.as_str()) {
+            Some("error") => Err(value
+                .pointer("/payload/message")
+                .and_then(|message| message.as_str())
+                .unwrap_or("Ornek istegi reddetti")
+                .to_string()),
+            Some("ok" | "ack" | "pong" | "tasks") => {
+                Ok(value.get("payload").cloned().unwrap_or_default())
+            }
+            _ => continue,
+        };
+    }
+}
+
+/// Calisan ornegin kopru kaydi; yoksa ya da bozuksa `None`.
+fn read_ipc() -> Option<IpcInfo> {
+    let file = std::fs::File::open(store::data_dir().join(IPC_FILE)).ok()?;
+    serde_json::from_reader::<_, IpcInfo>(file).ok()
+}
+
+/// Calisan ornek tek bir komut isledi mi? Pencereyi one getirmek gibi
+/// yaniti umursamayan cagrilar icin.
+pub fn notify_running(op: &str) -> bool {
+    request(op, &serde_json::Value::Null).is_ok()
+}
+
+/// Onay penceresinin "baslat" karari: kayit yeri ve ad yazilir (gorev boylece
+/// onaylanmis olur), `start` ile indirme hemen kuyruga alinir.
+pub fn handoff_confirm(
+    id: &str,
+    dest_dir: &str,
+    filename: &str,
+    start: bool,
+) -> Result<(), String> {
+    request(
+        "set_dest",
+        &serde_json::json!({ "id": id, "destDir": dest_dir, "filename": filename }),
+    )?;
+    if start {
+        request("resume", &serde_json::json!({ "id": id }))?;
+    }
+    Ok(())
+}
+
+/// Onay penceresinin "vazgec" karari: devralma listeden cikarilir.
+pub fn handoff_cancel(id: &str) -> Result<(), String> {
+    request("remove", &serde_json::json!({ "id": id })).map(|_| ())
+}
+
+/// Onay penceresinin kayit yeri/adi kararini motora uygular. Arayuzdeki
+/// `set_task_dest` ile ayni dogrulamalari yineler: iki kabuk tek kural.
+fn relocate(manager: &Arc<DownloadManager>, msg: &Incoming) -> Result<DownloadMeta, String> {
+    let id = msg.id.clone().ok_or("id eksik")?;
+    let dir = msg.dest_dir.clone().unwrap_or_default();
+    let dir = dir.trim();
+    if dir.is_empty() {
+        return Err("Klasor yolu bos olamaz".into());
+    }
+    let name = engine::sanitize_filename(msg.filename.clone().unwrap_or_default().trim())
+        .ok_or("Gecersiz dosya adi")?;
+    manager.relocate(&id, Path::new(dir), &name)
+}
+
+async fn send_outcome(
+    tx: &mpsc::Sender<String>,
+    req_id: Option<String>,
+    outcome: Result<(), String>,
+) {
+    match outcome {
+        Ok(()) => {
+            let _ = tx
+                .send(
+                    serde_json::json!({ "type": "ok", "reqId": req_id, "payload": {} }).to_string(),
+                )
+                .await;
+        }
+        Err(message) => {
+            let _ = tx.send(error_message(req_id, &message)).await;
         }
     }
 }
@@ -563,6 +640,42 @@ where
                         }
                     },
                 }
+            }
+            "set_dest" => {
+                let req = msg.req_id.clone();
+                match relocate(manager, &msg) {
+                    Ok(meta) => {
+                        let _ = tx
+                            .send(
+                                serde_json::json!({
+                                    "type": "ack",
+                                    "reqId": req,
+                                    "payload": meta,
+                                })
+                                .to_string(),
+                            )
+                            .await;
+                    }
+                    Err(message) => {
+                        let _ = tx.send(error_message(req, &message)).await;
+                    }
+                }
+            }
+            "resume" => {
+                let req = msg.req_id.clone();
+                let outcome = match msg.id.clone() {
+                    None => Err("id eksik".to_string()),
+                    Some(id) => manager.resume(&id),
+                };
+                send_outcome(tx, req, outcome).await;
+            }
+            "remove" => {
+                let req = msg.req_id.clone();
+                let outcome = match msg.id.clone() {
+                    None => Err("id eksik".to_string()),
+                    Some(id) => manager.remove(&id, false),
+                };
+                send_outcome(tx, req, outcome).await;
             }
             other => {
                 let _ = tx

@@ -1,17 +1,27 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'data.dart';
 import 'format.dart';
+import 'handoff.dart';
+import 'rust/api/handoff.dart' as ffi;
 import 'theme.dart';
 import 'widgets.dart';
 
 /// Ayri bir isletim sistemi penceresinde acilan "İndirme Bilgileri" paneli.
 /// Tarayicidan devralinan indirme onay beklerken gosterilir.
+///
+/// Pencere kendi motorunu kurmaz: karari `ipc.json` uzerinden calisan ornegin
+/// motoruna iletir. Boylece iki surec ayni gorev listesine yazmaz.
 class HandoffWindow extends StatefulWidget {
-  const HandoffWindow({super.key, required this.task});
+  const HandoffWindow({super.key, required this.task, this.preview = false});
 
   final Task task;
+
+  /// Ornizleme gorevleri motorun listesinde yoktur; karar denemez.
+  final bool preview;
 
   @override
   State<HandoffWindow> createState() => _HandoffWindowState();
@@ -20,6 +30,7 @@ class HandoffWindow extends StatefulWidget {
 class _HandoffWindowState extends State<HandoffWindow> {
   late final TextEditingController _name = TextEditingController(text: widget.task.filename);
   String? _notice;
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -38,10 +49,67 @@ class _HandoffWindowState extends State<HandoffWindow> {
     return 'Sunucu parçalı indirmeyi desteklemiyor; dosya tek bağlantıyla inecek.';
   }
 
-  void _decide() {
+  /// Karar: yer/ad motora yazilir, `start` ile hemen indirmeye alinir.
+  Future<void> _decide({required bool start}) async {
+    final name = _name.text.trim();
+    if (_busy) return;
+    if (name.isEmpty) {
+      setState(() => _notice = 'Dosya adı boş bırakılamaz.');
+      return;
+    }
+    if (widget.preview) {
+      setState(() => _notice = 'Örnek görev motorla konuşmaz.');
+      return;
+    }
+
     setState(() {
-      _notice = 'Spike: karar indirme motoruna iletilemedi — motor bu sürümde bağlı değil.';
+      _busy = true;
+      _notice = null;
     });
+    // Köprü çağrısı bloklayıcıdır: meşgul durumu önce çizilsin.
+    await WidgetsBinding.instance.endOfFrame;
+    try {
+      ffi.confirmHandoff(
+        id: widget.task.id,
+        destDir: widget.task.dir,
+        filename: name,
+        start: start,
+      );
+    } catch (error) {
+      if (mounted) setState(() => _busy = false);
+      _show(engineReason(error));
+      return;
+    }
+    _close();
+  }
+
+  /// Karar yok: devralma listeden cikarilir.
+  Future<void> _cancel() async {
+    if (_busy) return;
+    if (widget.preview) {
+      setState(() => _notice = 'Örnek görev motorla konuşmaz.');
+      return;
+    }
+
+    setState(() => _busy = true);
+    await WidgetsBinding.instance.endOfFrame;
+    try {
+      ffi.cancelHandoff(id: widget.task.id);
+    } catch (error) {
+      if (mounted) setState(() => _busy = false);
+      _show(engineReason(error));
+      return;
+    }
+    _close();
+  }
+
+  void _show(String message) {
+    if (mounted) setState(() => _notice = message);
+  }
+
+  /// Surec cikar: pencere yok olur, ana pencere sıradaki onayı açar.
+  Never _close() {
+    exit(0);
   }
 
   @override
@@ -75,7 +143,7 @@ class _HandoffWindowState extends State<HandoffWindow> {
                     background: Serene.surfaceContainer,
                     hoverBackground: Serene.surfaceContainerHigh,
                     foreground: Serene.secondary,
-                    onTap: windowManager.close,
+                    onTap: _close,
                   ),
                 ],
               ),
@@ -225,7 +293,7 @@ class _HandoffWindowState extends State<HandoffWindow> {
                   Row(
                     children: [
                       HoverSurface(
-                        onTap: _decide,
+                        onTap: _cancel,
                         background: Colors.transparent,
                         hoverBackground: Serene.surfaceContainer,
                         padding: const EdgeInsets.symmetric(
@@ -235,7 +303,7 @@ class _HandoffWindowState extends State<HandoffWindow> {
                       ),
                       const Spacer(),
                       HoverSurface(
-                        onTap: _decide,
+                        onTap: () => _decide(start: false),
                         radius: 999,
                         background: Serene.surfaceContainer,
                         hoverBackground: Serene.surfaceContainerHigh,
@@ -246,7 +314,7 @@ class _HandoffWindowState extends State<HandoffWindow> {
                       ),
                       const SizedBox(width: 8),
                       HoverSurface(
-                        onTap: _decide,
+                        onTap: () => _decide(start: true),
                         radius: 999,
                         background: Serene.primary,
                         hoverBackground: const Color(0xE63D6A4B),

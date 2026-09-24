@@ -10,6 +10,7 @@ import 'cards.dart';
 import 'data.dart';
 import 'demo.dart';
 import 'format.dart';
+import 'handoff.dart';
 import 'rust/api/commands.dart' as ffi;
 import 'rust/api/dto.dart' as engine;
 import 'rust/api/events.dart' as ffi;
@@ -61,6 +62,10 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
   /// "Cikis" secildiginde pencere X'e basilmis gibi tepsiye gizlenmesin.
   bool _quitting = false;
 
+  /// Onay bekleyen devralmalarin sirasi ve acik olan harici pencere.
+  final HandoffQueue _handoffs = HandoffQueue();
+  Process? _handoffProc;
+
   List<Task> get _tasks => _demoOn ? [..._demo, ..._real] : _real;
 
   @override
@@ -75,11 +80,25 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     _applyTasks(ffi.listTasks());
     _applyCaptures(ffi.listCaptures());
 
-    _streams.add(ffi.watchTasks().listen(_applyTasks));
+    _streams.add(ffi.watchTasks().listen((raw) {
+      _applyTasks(raw);
+      _pumpHandoffs();
+    }));
     _streams.add(ffi.watchProgress().listen(_applyProgress));
     _streams.add(ffi.watchCaptures().listen(_applyCaptures));
     // Ikinci acilis ya da eklentideki "Serene'yi Ac": pencere one gelir.
     _streams.add(ffi.watchPresent().listen((_) => _present()));
+    // Yeni bir tarayici devralmasi: onay penceresi sirasina girer.
+    _streams.add(ffi.watchHandoff().listen((task) {
+      _handoffs.request(task.id);
+      _pumpHandoffs();
+    }));
+
+    // Kapanip acildiktan sonra onay bekleyen gorevler yeniden sorulur.
+    for (final task in _real) {
+      if (task.pending) _handoffs.request(task.id);
+    }
+    _pumpHandoffs();
 
     _setupShell();
     _checkBridge();
@@ -270,6 +289,10 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
   }
 
   Future<void> _runAction(Task task, String action) async {
+    if (action == 'info') {
+      _requestHandoff(task);
+      return;
+    }
     final live = _mutable(task.id);
     if (live != null) {
       setState(() {
@@ -287,8 +310,6 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
             live.status = 'downloading';
             live.speed = 1024 * 1024;
             live.error = null;
-          case 'info':
-            _openHandoff(live);
           default:
             _notify('"$action" islemi taninmiyor');
         }
@@ -310,13 +331,11 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
           await ffi.openTaskFile(id: task.id);
         case 'reveal':
           await ffi.revealTaskFile(id: task.id);
-        case 'info':
-          _openHandoff(task);
         default:
           _notify('"$action" islemi taninmiyor');
       }
     } catch (error) {
-      _notify(_reason(error));
+      _notify(engineReason(error));
     }
   }
 
@@ -334,7 +353,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
           _notify('"$action" islemi taninmiyor');
       }
     } catch (error) {
-      _notify(_reason(error));
+      _notify(engineReason(error));
     }
   }
 
@@ -343,18 +362,63 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
       final count = await ffi.clearCaptures();
       _notify('$count yakalama temizlendi');
     } catch (error) {
-      _notify(_reason(error));
+      _notify(engineReason(error));
     }
   }
 
-  /// FFI hatalari Dart'ta istisna olarak karsiliga cikar; kullaniciya Rust
-  /// tarafindaki Turkce kisa aciklama gosterilir.
-  String _reason(Object error) => error.toString().replaceFirst('Exception: ', '');
+  /// Gorevi onay siralarina alir; listedeki "Bilgileri Aç" da buradan gecirilir.
+  void _requestHandoff(Task task) {
+    _handoffs.request(task.id);
+    _pumpHandoffs();
+  }
 
-  void _openHandoff(Task task) {
+  /// Siradaki onay bekleyen gorev icin harici pencereyi acar.
+  ///
+  /// Gorev baska bir yerden onaylanir ya da silinirse acik pencere kapatilir;
+  /// boylece pencere asla yarim kalmis bir karari sormaz.
+  void _pumpHandoffs() {
+    final pending = {for (final task in _tasks) if (task.pending) task.id};
+    final stale = _handoffs.sync(pending);
+    if (stale != null) {
+      _handoffProc?.kill();
+      _handoffProc = null;
+    }
+
+    final id = _handoffs.take();
+    if (id == null) return;
+    final task = _taskById(id);
+    if (task == null) {
+      _handoffs.close(id);
+      return;
+    }
+    _spawnHandoff(task);
+  }
+
+  Task? _taskById(String id) {
+    for (final task in _tasks) {
+      if (task.id == id) return task;
+    }
+    return null;
+  }
+
+  void _spawnHandoff(Task task) {
     final payload = base64Url.encode(utf8.encode(jsonEncode(task.toJson())));
-    Process.start(Platform.resolvedExecutable, ['--handoff=$payload'],
-        mode: ProcessStartMode.detached);
+    Process.start(
+      Platform.resolvedExecutable,
+      ['--handoff=$payload', if (_demoOn) '--handoff-demo'],
+      mode: ProcessStartMode.detached,
+    ).then((process) {
+      _handoffProc = process;
+      return process.exitCode;
+    }).then((_) => _handoffClosed(task.id)).catchError((Object _) {
+      _handoffClosed(task.id);
+    });
+  }
+
+  void _handoffClosed(String id) {
+    _handoffProc = null;
+    _handoffs.close(id);
+    if (mounted) _pumpHandoffs();
   }
 
   Future<void> _submitUrl() async {
@@ -372,7 +436,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
         source: 'flutter',
       );
     } catch (error) {
-      _notify(_reason(error));
+      _notify(engineReason(error));
     }
   }
 

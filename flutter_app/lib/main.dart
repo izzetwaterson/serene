@@ -34,7 +34,8 @@ Future<void> main(List<String> args) async {
 
   final payload = _arg(args, 'handoff');
   if (payload != null) {
-    await _openHandoff(_decodeTask(payload));
+    await _openHandoff(_decodeTask(payload),
+        preview: args.contains('--handoff-demo'));
     return;
   }
   await _openMain(demo: args.contains('--demo'));
@@ -117,7 +118,11 @@ Future<void> _openMain({bool demo = false}) async {
   }
 }
 
-Future<void> _openHandoff(Task task) async {
+/// Onay penceresi: motoru olan tek surec ana penceredir. Bu kip yalnizca
+/// derlenen kopru kutuphanesini yukler ve karari calisan ornege yollar.
+Future<void> _openHandoff(Task task, {required bool preview}) async {
+  await RustLib.init();
+
   const options = WindowOptions(
     size: Size(520, 680),
     center: true,
@@ -137,7 +142,7 @@ Future<void> _openHandoff(Task task) async {
     await windowManager.focus();
   });
 
-  runApp(HandoffApp(task: task));
+  runApp(HandoffApp(task: task, preview: preview));
 }
 
 String? _arg(List<String> args, String name) {
@@ -186,9 +191,10 @@ class SereneApp extends StatelessWidget {
 }
 
 class HandoffApp extends StatelessWidget {
-  const HandoffApp({super.key, required this.task});
+  const HandoffApp({super.key, required this.task, this.preview = false});
 
   final Task task;
+  final bool preview;
 
   @override
   Widget build(BuildContext context) {
@@ -196,7 +202,7 @@ class HandoffApp extends StatelessWidget {
       title: 'İndirme Bilgileri',
       debugShowCheckedModeBanner: false,
       theme: sereneTheme(),
-      home: HandoffWindow(task: task),
+      home: HandoffWindow(task: task, preview: preview),
     );
   }
 }
