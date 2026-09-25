@@ -238,7 +238,7 @@ class _PulseDotState extends State<_PulseDot>
       child: Container(
         width: 10,
         height: 10,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Serene.primary,
           shape: BoxShape.circle,
         ),
@@ -275,7 +275,7 @@ class EmptyState extends StatelessWidget {
           Container(
             width: 56,
             height: 56,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Serene.surfaceContainer,
               shape: BoxShape.circle,
             ),
@@ -341,7 +341,7 @@ class ReadOnlyField extends StatelessWidget {
       decoration: BoxDecoration(
         color: Serene.surfaceContainerLow,
         borderRadius: BorderRadius.circular(Serene.radiusField),
-        border: Border.all(color: const Color(0x99DCD8CE)),
+        border: Border.all(color: Serene.borderInput),
       ),
       child: Text(
         text,

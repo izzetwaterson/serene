@@ -17,6 +17,7 @@ class AppConfig {
   final bool watchClipboard;
   final bool closeToTray;
   final bool confirmBrowserDownload;
+  final String theme;
 
   const AppConfig({
     required this.downloadDir,
@@ -25,6 +26,7 @@ class AppConfig {
     required this.watchClipboard,
     required this.closeToTray,
     required this.confirmBrowserDownload,
+    required this.theme,
   });
 
   @override
@@ -34,7 +36,8 @@ class AppConfig {
       connections.hashCode ^
       watchClipboard.hashCode ^
       closeToTray.hashCode ^
-      confirmBrowserDownload.hashCode;
+      confirmBrowserDownload.hashCode ^
+      theme.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -46,7 +49,8 @@ class AppConfig {
           connections == other.connections &&
           watchClipboard == other.watchClipboard &&
           closeToTray == other.closeToTray &&
-          confirmBrowserDownload == other.confirmBrowserDownload;
+          confirmBrowserDownload == other.confirmBrowserDownload &&
+          theme == other.theme;
 }
 
 /// Tarayicidan yakalanan medya kaydi.

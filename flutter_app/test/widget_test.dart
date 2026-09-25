@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:serene_app/src/app_theme.dart';
 import 'package:serene_app/src/data.dart';
 import 'package:serene_app/src/format.dart';
 import 'package:serene_app/src/handoff.dart';
@@ -16,9 +17,13 @@ Settings _engineSettings() => Settings(
       watchClipboard: false,
       closeToTray: true,
       confirmBrowserDownload: true,
+      theme: 'system',
     );
 
 void main() {
+  // Palet globaldir; bir testin biraktigi mod digerine sizmasin.
+  tearDown(() => applyThemeMode(ThemeMode.system));
+
   test('bayt bicimlendirme', () {
     expect(fmtBytes(0), '0 B');
     expect(fmtBytes(512), '512 B');
@@ -133,6 +138,85 @@ void main() {
     expect(parseCount('40', 3), 16);
   });
 
+  test('tema ayari taninan degerlere iner', () {
+    expect(themeModeSetting(themeModeFrom(' dark ')), 'dark');
+    expect(themeModeSetting(themeModeFrom('LIGHT')), 'light');
+    // Eski ayar dosyalarinda alan yok; elle duzenlenen deger de varsayilana
+    // duser, cunku motordaki `normalize_theme` ayni kumeyi tanir.
+    expect(themeModeSetting(themeModeFrom('')), 'system');
+    expect(themeModeSetting(themeModeFrom('sepya')), 'system');
+  });
+
+  testWidgets('mod degisince pencere agaci yeni paleti okur', (tester) async {
+    applyThemeMode(ThemeMode.light);
+    await tester.pumpWidget(_settingsHost(const Center(child: _PaletteProbe())));
+    expect(_probeColor(tester), const Color(0xFFFFFFFF));
+
+    applyThemeMode(ThemeMode.dark);
+    await tester.pump();
+    expect(_probeColor(tester), const Color(0xFF1D1F1B));
+  });
+
+  testWidgets('ayarlar paneli gorunum seceneklerini gosterir', (tester) async {
+    await tester.pumpWidget(_settingsHost(
+      SettingsPanel(
+        settings: _engineSettings(),
+        onClose: () {},
+        onSaved: (_) {},
+      ),
+    ));
+
+    expect(find.text('GÖRÜNÜM'), findsOneWidget);
+    expect(find.text('Sistem'), findsOneWidget);
+    expect(find.text('Aydınlık'), findsOneWidget);
+    expect(find.text('Karanlık'), findsOneWidget);
+  });
+
+  testWidgets('secilen gorunum hemen boyanir', (tester) async {
+    applyThemeMode(ThemeMode.light);
+    await tester.pumpWidget(_settingsHost(
+      SettingsPanel(
+        settings: _engineSettings(),
+        onClose: () {},
+        onSaved: (_) {},
+      ),
+    ));
+
+    await tester.tap(find.text('Karanlık'));
+    await tester.pump();
+    expect(Serene.brightness, Brightness.dark);
+  });
+
+  testWidgets('kaydedilmeden kapanan panel tema denemesini geri alir', (
+    tester,
+  ) async {
+    applyThemeMode(ThemeMode.light);
+    await tester.pumpWidget(_settingsHost(
+      SettingsPanel(
+        settings: Settings(
+          downloadDir: r'C:\indir',
+          maxConcurrent: 3,
+          connections: 8,
+          watchClipboard: false,
+          closeToTray: true,
+          confirmBrowserDownload: true,
+          theme: 'light',
+        ),
+        onClose: () {},
+        onSaved: (_) {},
+      ),
+    ));
+
+    await tester.tap(find.text('Karanlık'));
+    await tester.pump();
+    expect(Serene.brightness, Brightness.dark);
+
+    // Kaydetmeden kapanis: secim yalnizca denemeydi, kayitli deger doner.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    expect(Serene.brightness, Brightness.light);
+  });
+
   testWidgets('ayarlar paneli motor ayarlarindan dolar', (tester) async {
     await tester.pumpWidget(_settingsHost(
       SettingsPanel(
@@ -182,4 +266,49 @@ void main() {
 
 /// Panel tek basina da ayni temayi seesin: katmanin sahibi ana pencere gibi.
 Widget _settingsHost(Widget child) =>
-    MaterialApp(theme: sereneTheme(), home: child);
+    MaterialApp(theme: sereneTheme(Brightness.light), home: child);
+
+Color? _probeColor(WidgetTester tester) {
+  final box = tester.widget<Container>(find.byKey(_PaletteProbe.boxKey));
+  return (box.decoration as BoxDecoration).color;
+}
+
+/// Ana pencerenin tema mekanizmasinin kucuk kopyasi: modu dinler ve kendi
+/// `build`ini yeniden calistirir. Palet global oldugu icin yeni renkleri
+/// ancak agaci yeniden kuran dugum gorebilir.
+class _PaletteProbe extends StatefulWidget {
+  const _PaletteProbe();
+
+  static const boxKey = ValueKey('palet-yoklamasi');
+
+  @override
+  State<_PaletteProbe> createState() => _PaletteProbeState();
+}
+
+class _PaletteProbeState extends State<_PaletteProbe> {
+  @override
+  void initState() {
+    super.initState();
+    appThemeMode.addListener(_onTheme);
+  }
+
+  @override
+  void dispose() {
+    appThemeMode.removeListener(_onTheme);
+    super.dispose();
+  }
+
+  void _onTheme() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: _PaletteProbe.boxKey,
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(color: Serene.surfaceContainerLowest),
+    );
+  }
+}

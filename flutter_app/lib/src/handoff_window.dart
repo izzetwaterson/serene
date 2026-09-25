@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'app_theme.dart';
 import 'data.dart';
 import 'folder_picker.dart';
 import 'format.dart';
@@ -32,7 +33,8 @@ class HandoffWindow extends StatefulWidget {
   State<HandoffWindow> createState() => _HandoffWindowState();
 }
 
-class _HandoffWindowState extends State<HandoffWindow> {
+class _HandoffWindowState extends State<HandoffWindow>
+    with WidgetsBindingObserver {
   late final TextEditingController _name = TextEditingController(
     text: widget.task.filename,
   );
@@ -44,9 +46,26 @@ class _HandoffWindowState extends State<HandoffWindow> {
   bool _busy = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _name.dispose();
     super.dispose();
+  }
+
+  /// Yalnizca "Sistem" seciliyken is gorur: elle secilen tema, isletim
+  /// sisteminin bildirdigi parlakliktan bagimsizdir.
+  @override
+  void didChangePlatformBrightness() {
+    if (appThemeMode.value == ThemeMode.system) {
+      applyThemeMode(ThemeMode.system);
+      if (mounted) setState(() {});
+    }
   }
 
   String get _note {
@@ -193,7 +212,7 @@ class _HandoffWindowState extends State<HandoffWindow> {
                             borderRadius: BorderRadius.circular(
                               Serene.radiusTile,
                             ),
-                            border: Border.all(color: const Color(0x80DCD8CE)),
+                            border: Border.all(color: Serene.borderSoft),
                           ),
                           child: Row(
                             children: [
@@ -309,7 +328,7 @@ class _HandoffWindowState extends State<HandoffWindow> {
                                 Serene.radiusField,
                               ),
                               border: Border.all(
-                                color: const Color(0x99DCD8CE),
+                                color: Serene.borderInput,
                               ),
                             ),
                             child: TextField(
@@ -337,7 +356,7 @@ class _HandoffWindowState extends State<HandoffWindow> {
                             borderRadius: BorderRadius.circular(
                               Serene.radiusField,
                             ),
-                            border: Border.all(color: const Color(0x66DCD8CE)),
+                            border: Border.all(color: Serene.borderFaint),
                           ),
                           child: Text(
                             _note,
@@ -381,7 +400,7 @@ class _HandoffWindowState extends State<HandoffWindow> {
                           onTap: () => _decide(start: true),
                           radius: 999,
                           background: Serene.primary,
-                          hoverBackground: const Color(0xE63D6A4B),
+                          hoverBackground: Serene.primaryHover,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Center(
                             child: Text(

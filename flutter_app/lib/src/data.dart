@@ -158,6 +158,7 @@ class Settings {
     required this.watchClipboard,
     required this.closeToTray,
     required this.confirmBrowserDownload,
+    required this.theme,
   });
 
   static Settings fromEngine(engine.AppConfig raw) => Settings(
@@ -167,6 +168,7 @@ class Settings {
     watchClipboard: raw.watchClipboard,
     closeToTray: raw.closeToTray,
     confirmBrowserDownload: raw.confirmBrowserDownload,
+    theme: raw.theme,
   );
 
   final String downloadDir;
@@ -175,4 +177,7 @@ class Settings {
   final bool watchClipboard;
   final bool closeToTray;
   final bool confirmBrowserDownload;
+
+  /// `system`, `light` ya da `dark`; motor taninmayan degeri varsayilana indirir.
+  final String theme;
 }

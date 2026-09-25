@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'app_theme.dart';
 import 'data.dart';
 import 'folder_picker.dart';
 import 'handoff.dart' show engineReason;
@@ -95,6 +96,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late bool _clipboard = widget.settings.watchClipboard;
   late bool _tray = widget.settings.closeToTray;
   late bool _confirm = widget.settings.confirmBrowserDownload;
+  late ThemeMode _theme = themeModeFrom(widget.settings.theme);
 
   String? _status;
   Color _statusColor = Serene.primary;
@@ -103,11 +105,24 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   @override
   void dispose() {
+    // Kaydedilmeden kapanan panel tema denemesini geri alir: secim yalnizca
+    // "Kaydet" ile kalici olur. Mikro gorev, kapanma karesi bittikten sonra
+    // paleti eski haline dondurur.
+    final saved = themeModeFrom(widget.settings.theme);
+    if (saved != _theme) {
+      scheduleMicrotask(() => applyThemeMode(saved));
+    }
     _closeTimer?.cancel();
     _dir.dispose();
     _concurrent.dispose();
     _connections.dispose();
     super.dispose();
+  }
+
+  /// Secim aninda boyanir; kaydedilmezse kapanista geri alinir.
+  void _pickTheme(ThemeMode mode) {
+    setState(() => _theme = mode);
+    applyThemeMode(mode);
   }
 
   Future<void> _browse() async {
@@ -127,6 +142,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     watchClipboard: _clipboard,
     closeToTray: _tray,
     confirmBrowserDownload: _confirm,
+    theme: themeModeSetting(_theme),
   );
 
   Future<void> _save() async {
@@ -230,165 +246,225 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       ],
                     ),
                   ),
-                  ListView(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
-                    children: [
-                      Field(
-                        label: 'Kayıt klasörü',
-                        child: Row(
-                          children: [
-                            Expanded(child: ReadOnlyField(text: _dir.text)),
-                            const SizedBox(width: 8),
-                            HoverSurface(
-                              onTap: _browse,
-                              radius: Serene.radiusField,
-                              background: Serene.surfaceContainer,
-                              hoverBackground: Serene.surfaceContainerHigh,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
+                  // Icerik pencereye sigmazsa liste kendi icinde kayar; sigarsa
+                  // panel yine icerik kadar kalir (`Flexible` + `shrinkWrap`).
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
+                      children: [
+                        Field(
+                          label: 'Kayıt klasörü',
+                          child: Row(
+                            children: [
+                              Expanded(child: ReadOnlyField(text: _dir.text)),
+                              const SizedBox(width: 8),
+                              HoverSurface(
+                                onTap: _browse,
+                                radius: Serene.radiusField,
+                                background: Serene.surfaceContainer,
+                                hoverBackground: Serene.surfaceContainerHigh,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                child: Text(
+                                  'Gözat',
+                                  style: body(13, weight: FontWeight.w500),
+                                ),
                               ),
-                              child: Text(
-                                'Gözat',
-                                style: body(13, weight: FontWeight.w500),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Field(
+                                label: 'Eşzamanlı indirme',
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    _NumberField(controller: _concurrent),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Aynı anda kaç dosya iner',
+                                      style: body(
+                                        11,
+                                        color: Serene.secondary,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: Field(
+                                label: 'Bağlantı / dosya',
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    _NumberField(controller: _connections),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Parçalı indirmede bağlantı sayısı',
+                                      style: body(
+                                        11,
+                                        color: Serene.secondary,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Field(
-                              label: 'Eşzamanlı indirme',
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _NumberField(controller: _concurrent),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Aynı anda kaç dosya iner',
-                                    style: body(
-                                      11,
-                                      color: Serene.secondary,
-                                      height: 1.35,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                        const SizedBox(height: 24),
+                        Field(
+                          label: 'Görünüm',
+                          child: _ThemePicker(
+                            value: _theme,
+                            onChanged: _pickTheme,
                           ),
-                          const SizedBox(width: 20),
-                          Expanded(
-                            child: Field(
-                              label: 'Bağlantı / dosya',
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _NumberField(controller: _connections),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Parçalı indirmede bağlantı sayısı',
-                                    style: body(
-                                      11,
-                                      color: Serene.secondary,
-                                      height: 1.35,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      _Toggle(
-                        title: 'Panoyu izle',
-                        hint: 'Kopyaladığınız bağlantıları yakalayıp önerir',
-                        value: _clipboard,
-                        onChanged: (value) =>
-                            setState(() => _clipboard = value),
-                      ),
-                      const SizedBox(height: 16),
-                      _Toggle(
-                        title: 'Kapatınca tepsiye gizle',
-                        hint: 'Kapat düğmesi uygulamayı bitirmez, indirmeler sürer',
-                        value: _tray,
-                        onChanged: (value) => setState(() => _tray = value),
-                      ),
-                      const SizedBox(height: 16),
-                      _Toggle(
-                        title: 'Tarayıcı indirmelerini önce sor',
-                        hint: 'Devralınan indirme, bilgileri onaylanana kadar başlamaz',
-                        value: _confirm,
-                        onChanged: (value) => setState(() => _confirm = value),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          HoverSurface(
-                            onTap: _clearCompleted,
-                            background: Colors.transparent,
-                            hoverBackground: Serene.surfaceContainer,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 6,
-                            ),
-                            child: Text(
-                              'Tamamlananları temizle',
-                              style: body(
-                                13,
-                                weight: FontWeight.w500,
-                                color: Serene.secondary,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          if (_status != null) ...[
-                            Flexible(
-                              child: Text(
-                                _status!,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.right,
-                                style: body(12, color: _statusColor),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                          ],
-                          Opacity(
-                            opacity: _busy ? 0.6 : 1,
-                            child: HoverSurface(
-                              onTap: _busy ? null : _save,
-                              radius: 999,
-                              background: Serene.primary,
-                              hoverBackground: const Color(0xE63D6A4B),
+                        ),
+                        const SizedBox(height: 24),
+                        _Toggle(
+                          title: 'Panoyu izle',
+                          hint: 'Kopyaladığınız bağlantıları yakalayıp önerir',
+                          value: _clipboard,
+                          onChanged: (value) => setState(() => _clipboard = value),
+                        ),
+                        const SizedBox(height: 16),
+                        _Toggle(
+                          title: 'Kapatınca tepsiye gizle',
+                          hint: 'Kapat düğmesi uygulamayı bitirmez, indirmeler sürer',
+                          value: _tray,
+                          onChanged: (value) => setState(() => _tray = value),
+                        ),
+                        const SizedBox(height: 16),
+                        _Toggle(
+                          title: 'Tarayıcı indirmelerini önce sor',
+                          hint: 'Devralınan indirme, bilgileri onaylanana kadar başlamaz',
+                          value: _confirm,
+                          onChanged: (value) => setState(() => _confirm = value),
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            HoverSurface(
+                              onTap: _clearCompleted,
+                              background: Colors.transparent,
+                              hoverBackground: Serene.surfaceContainer,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
+                                horizontal: 8,
+                                vertical: 6,
                               ),
                               child: Text(
-                                'Kaydet',
+                                'Tamamlananları temizle',
                                 style: body(
                                   13,
                                   weight: FontWeight.w500,
-                                  color: Serene.onPrimary,
+                                  color: Serene.secondary,
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                            const Spacer(),
+                            if (_status != null) ...[
+                              Flexible(
+                                child: Text(
+                                  _status!,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.right,
+                                  style: body(12, color: _statusColor),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            Opacity(
+                              opacity: _busy ? 0.6 : 1,
+                              child: HoverSurface(
+                                onTap: _busy ? null : _save,
+                                radius: 999,
+                                background: Serene.primary,
+                                hoverBackground: Serene.primaryHover,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 10,
+                                ),
+                                child: Text(
+                                  'Kaydet',
+                                  style: body(
+                                    13,
+                                    weight: FontWeight.w500,
+                                    color: Serene.onPrimary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Uc secenekli gorunum secici: web arayuzundeki `select`in karsiligi,
+/// ayni satirda duran ve secilisi birincil renkle boyanan dugmeler.
+class _ThemePicker extends StatelessWidget {
+  const _ThemePicker({required this.value, required this.onChanged});
+
+  final ThemeMode value;
+  final ValueChanged<ThemeMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Serene.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(Serene.radiusField),
+        border: Border.all(color: Serene.borderInput),
+      ),
+      child: Row(
+        children: [
+          for (final mode in ThemeMode.values) ...[
+            if (mode != ThemeMode.values.first) const SizedBox(width: 4),
+            Expanded(
+              child: HoverSurface(
+                onTap: () => onChanged(mode),
+                radius: 9,
+                background:
+                    mode == value ? Serene.primary : Colors.transparent,
+                hoverBackground:
+                    mode == value ? Serene.primaryHover : Serene.surfaceContainer,
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                child: Center(
+                  child: Text(
+                    themeModeTitle(mode),
+                    style: body(
+                      12,
+                      weight: FontWeight.w500,
+                      color: mode == value ? Serene.onPrimary : Serene.secondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -407,7 +483,7 @@ class _NumberField extends StatelessWidget {
       decoration: BoxDecoration(
         color: Serene.surfaceContainerLow,
         borderRadius: BorderRadius.circular(Serene.radiusField),
-        border: Border.all(color: const Color(0x99DCD8CE)),
+        border: Border.all(color: Serene.borderInput),
       ),
       child: TextField(
         controller: controller,
@@ -472,7 +548,7 @@ class _Toggle extends StatelessWidget {
                 onChanged: (next) => onChanged(next ?? false),
                 activeColor: Serene.primary,
                 checkColor: Serene.onPrimary,
-                side: const BorderSide(color: Serene.outline),
+                side: BorderSide(color: Serene.outline),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
                 ),

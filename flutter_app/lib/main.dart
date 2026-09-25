@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'src/app_theme.dart';
 import 'src/data.dart';
 import 'src/handoff_window.dart';
 import 'src/main_window.dart';
@@ -20,10 +21,13 @@ import 'src/theme.dart';
 ///   `serene_app.exe --demo`        -> ana pencere ornek gorevlerle acilir
 ///   `serene_app.exe --settings`    -> ana pencere ayarlar katmani acik halde
 ///   `serene_app.exe --handoff=<b64>` -> ayri "İndirme Bilgileri" penceresi
+///        (`--handoff-theme=system|light|dark` ile o pencerenin temasi)
 ///   `serene_app.exe --selfcheck`   -> pencere acmadan Rust motorunu yoklar
 ///
 /// Onay penceresi kendi surecinde acilir; boylece gercek bir isletim sistemi
-/// penceresi olur ve ana pencere kapanip acilsa da bagimsiz kalir.
+/// penceresi olur ve ana pencere kapanip acilsa da bagimsiz kalir. Ayarlar
+/// yalnizca ana pencerenin motorunda durur; onay penceresi temayi komut
+/// satirindan alir.
 Future<void> main(List<String> args) async {
   if (args.contains('--selfcheck')) {
     await _selfcheck();
@@ -38,6 +42,7 @@ Future<void> main(List<String> args) async {
     await _openHandoff(
       _decodeTask(payload),
       preview: args.contains('--handoff-demo'),
+      theme: _arg(args, 'handoff-theme') ?? 'system',
     );
     return;
   }
@@ -98,7 +103,15 @@ Future<void> _openMain({bool demo = false, bool settings = false}) async {
 
   await ffi.bootEngine();
 
-  const options = WindowOptions(
+  // Palet pencereden once kurulur: `backgroundColor` ve ilk kare, kayitli
+  // temayi gormeli. Ayarlar okunamazsa varsayilan `system` kalir.
+  try {
+    applyThemeSetting(ffi.getSettings().theme);
+  } catch (_) {
+    /* ayar okunamadi: varsayilan temayla devam */
+  }
+
+  final options = WindowOptions(
     size: Size(1280, 880),
     minimumSize: Size(940, 620),
     center: true,
@@ -133,10 +146,16 @@ Future<void> _openMain({bool demo = false, bool settings = false}) async {
 
 /// Onay penceresi: motoru olan tek surec ana penceredir. Bu kip yalnizca
 /// derlenen kopru kutuphanesini yukler ve karari calisan ornege yollar.
-Future<void> _openHandoff(Task task, {required bool preview}) async {
+/// Tema komut satirindan gelir: ayar dosyasini yalnizca ana pencere okur.
+Future<void> _openHandoff(
+  Task task, {
+  required bool preview,
+  required String theme,
+}) async {
   await RustLib.init();
+  applyThemeSetting(theme);
 
-  const options = WindowOptions(
+  final options = WindowOptions(
     size: Size(860, 480),
     center: true,
     backgroundColor: Serene.surfaceContainerLowest,
@@ -199,11 +218,18 @@ class SereneApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Serene',
-      debugShowCheckedModeBanner: false,
-      theme: sereneTheme(),
-      home: MainWindow(demoOn: demo, settingsOn: settings),
+    // `themeMode` degisince `MaterialApp` yeniden kurulur; paleti kullanan
+    // govde agaci da ondan kopyalandigi icin guncel renkleri okur.
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: appThemeMode,
+      builder: (context, mode, _) => MaterialApp(
+        title: 'Serene',
+        debugShowCheckedModeBanner: false,
+        theme: sereneTheme(Brightness.light),
+        darkTheme: sereneTheme(Brightness.dark),
+        themeMode: mode,
+        home: MainWindow(demoOn: demo, settingsOn: settings),
+      ),
     );
   }
 }
@@ -216,11 +242,16 @@ class HandoffApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'İndirme Bilgileri',
-      debugShowCheckedModeBanner: false,
-      theme: sereneTheme(),
-      home: HandoffWindow(task: task, preview: preview),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: appThemeMode,
+      builder: (context, mode, _) => MaterialApp(
+        title: 'İndirme Bilgileri',
+        debugShowCheckedModeBanner: false,
+        theme: sereneTheme(Brightness.light),
+        darkTheme: sereneTheme(Brightness.dark),
+        themeMode: mode,
+        home: HandoffWindow(task: task, preview: preview),
+      ),
     );
   }
 }

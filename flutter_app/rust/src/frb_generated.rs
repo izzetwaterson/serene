@@ -1333,6 +1333,7 @@ impl SseDecode for crate::api::dto::AppConfig {
         let mut var_watchClipboard = <bool>::sse_decode(deserializer);
         let mut var_closeToTray = <bool>::sse_decode(deserializer);
         let mut var_confirmBrowserDownload = <bool>::sse_decode(deserializer);
+        let mut var_theme = <String>::sse_decode(deserializer);
         return crate::api::dto::AppConfig {
             download_dir: var_downloadDir,
             max_concurrent: var_maxConcurrent,
@@ -1340,6 +1341,7 @@ impl SseDecode for crate::api::dto::AppConfig {
             watch_clipboard: var_watchClipboard,
             close_to_tray: var_closeToTray,
             confirm_browser_download: var_confirmBrowserDownload,
+            theme: var_theme,
         };
     }
 }
@@ -1739,6 +1741,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::dto::AppConfig {
             self.watch_clipboard.into_into_dart().into_dart(),
             self.close_to_tray.into_into_dart().into_dart(),
             self.confirm_browser_download.into_into_dart().into_dart(),
+            self.theme.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -2013,6 +2016,7 @@ impl SseEncode for crate::api::dto::AppConfig {
         <bool>::sse_encode(self.watch_clipboard, serializer);
         <bool>::sse_encode(self.close_to_tray, serializer);
         <bool>::sse_encode(self.confirm_browser_download, serializer);
+        <String>::sse_encode(self.theme, serializer);
     }
 }
 

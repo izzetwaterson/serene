@@ -225,7 +225,7 @@ class Hero extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SIcon('eco', size: 14, color: Serene.onPrimaryFixed),
+                SIcon('eco', size: 14, color: Serene.onPrimaryFixed),
                 const SizedBox(width: 6),
                 Text(
                   'Huzurlu İndirme Alanı',
@@ -275,7 +275,7 @@ class Hero extends StatelessWidget {
                       color: Serene.primaryFixed.withValues(alpha: 0.4),
                       shape: BoxShape.circle,
                     ),
-                    child: const Center(
+                    child: Center(
                       child: SIcon('link', size: 20, color: Serene.primary),
                     ),
                   ),
@@ -315,14 +315,14 @@ class Hero extends StatelessWidget {
                           onTap: ready ? onSubmitUrl : null,
                           radius: 999,
                           background: Serene.primary,
-                          hoverBackground: const Color(0xE63D6A4B),
+                          hoverBackground: Serene.primaryHover,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 10,
                           ),
                           child: Row(
                             children: [
-                              const SIcon(
+                              SIcon(
                                 'download',
                                 size: 18,
                                 color: Serene.onPrimary,
@@ -354,7 +354,7 @@ class Hero extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SIcon('folder', size: 14, color: Serene.secondary),
+                SIcon('folder', size: 14, color: Serene.secondary),
                 const SizedBox(width: 6),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 448),
@@ -366,7 +366,7 @@ class Hero extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                const SIcon('edit', size: 13, color: Serene.secondary),
+                SIcon('edit', size: 13, color: Serene.secondary),
               ],
             ),
           ),
@@ -390,7 +390,7 @@ class Hero extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SIcon(
+                  SIcon(
                     'folder_special',
                     size: 14,
                     color: Serene.primary,
@@ -615,12 +615,14 @@ class _CompletedGrid extends StatelessWidget {
 class _HoverCard extends StatefulWidget {
   const _HoverCard({
     required this.child,
-    this.background = Serene.surfaceContainerLowest,
+    this.background,
     this.padding = const EdgeInsets.all(24),
   });
 
   final Widget child;
-  final Color background;
+
+  /// `null` kart yuzeyini kullanir; palet cagri aninda okunur.
+  final Color? background;
   final EdgeInsets padding;
 
   @override
@@ -639,7 +641,7 @@ class _HoverCardState extends State<_HoverCard> {
         duration: const Duration(milliseconds: 180),
         padding: widget.padding,
         decoration: BoxDecoration(
-          color: widget.background,
+          color: widget.background ?? Serene.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(Serene.radiusCard),
           boxShadow: _hover ? Serene.shadowFloat : Serene.shadowSoft,
         ),
@@ -723,9 +725,9 @@ class CaptureCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: item.kind == 'hls'
-                      ? const Color(0x80D3EBD8)
+                      ? Serene.tintPrimaryStrong
                       : item.kind == 'dash'
-                      ? const Color(0x80F8E0A8)
+                      ? Serene.tintTertiaryStrong
                       : Serene.surfaceContainer,
                   borderRadius: BorderRadius.circular(999),
                 ),

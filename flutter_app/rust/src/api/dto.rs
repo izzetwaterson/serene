@@ -7,7 +7,10 @@
 
 use serene_core::bridge::BridgeStatus;
 use serene_core::manager::ProgressTick;
-use serene_core::models::{CaptureItem, Category, DownloadKind, DownloadMeta, DiskUsage, SegmentInfo, Settings, Status};
+use serene_core::models::{
+    normalize_theme, CaptureItem, Category, DiskUsage, DownloadKind, DownloadMeta, SegmentInfo,
+    Settings, Status,
+};
 
 /// Boyutu bilinmeyen parcalar `u64::MAX` ile isaretlenir; Dart'ta buyuk ama
 /// pozitif bir sayi, bos gorunmesindendir iyidir.
@@ -220,6 +223,7 @@ pub struct AppConfig {
     pub watch_clipboard: bool,
     pub close_to_tray: bool,
     pub confirm_browser_download: bool,
+    pub theme: String,
 }
 
 impl From<Settings> for AppConfig {
@@ -231,6 +235,7 @@ impl From<Settings> for AppConfig {
             watch_clipboard: value.watch_clipboard,
             close_to_tray: value.close_to_tray,
             confirm_browser_download: value.confirm_browser_download,
+            theme: normalize_theme(&value.theme),
         }
     }
 }
@@ -244,6 +249,7 @@ impl From<AppConfig> for Settings {
             watch_clipboard: value.watch_clipboard,
             close_to_tray: value.close_to_tray,
             confirm_browser_download: value.confirm_browser_download,
+            theme: normalize_theme(&value.theme),
         }
     }
 }

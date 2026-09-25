@@ -120,6 +120,18 @@ pub struct Settings {
     pub close_to_tray: bool,
     /// Tarayicidan devralinan indirmeler baslamadan once bilgi penceresi cikar.
     pub confirm_browser_download: bool,
+    /// Arayuz temasi: `system`, `light` ya da `dark`.
+    pub theme: String,
+}
+
+/// Tema degerini taninan kumesine indirger. Ayar dosyasi elle duzenlenebilir
+/// ve eski surumler alani hic yazmaz; ikisi de varsayilana duser.
+pub fn normalize_theme(value: &str) -> String {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "light" => "light".to_string(),
+        "dark" => "dark".to_string(),
+        _ => "system".to_string(),
+    }
 }
 
 impl Default for Settings {
@@ -131,6 +143,7 @@ impl Default for Settings {
             watch_clipboard: true,
             close_to_tray: true,
             confirm_browser_download: true,
+            theme: "system".to_string(),
         }
     }
 }

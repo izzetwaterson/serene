@@ -101,18 +101,22 @@ class CategoryStyle {
   final Color tone;
 }
 
-const _categoryStyles = <String, CategoryStyle>{
-  'video': CategoryStyle('movie', Color(0x66D3EBD8), Serene.primary),
-  'audio': CategoryStyle('music_note', Color(0x66D3EBD8), Serene.primary),
-  'image': CategoryStyle('image', Color(0x66F8E0A8), Serene.tertiary),
+/// Renkler cagri aninda paletten okunur; harita sabit olamaz, cunku tema
+/// degisince kategori renkleri de degisir.
+Map<String, CategoryStyle> _categoryStyles() => {
+  'video': CategoryStyle('movie', Serene.tintPrimary, Serene.primary),
+  'audio': CategoryStyle('music_note', Serene.tintPrimary, Serene.primary),
+  'image': CategoryStyle('image', Serene.tintTertiary, Serene.tertiary),
   'document': CategoryStyle('description', Serene.surfaceContainerHigh, Serene.primary),
-  'software': CategoryStyle('code', Color(0x66D3EBD8), Serene.primary),
-  'archive': CategoryStyle('folder_zip', Color(0x66F8E0A8), Serene.tertiary),
+  'software': CategoryStyle('code', Serene.tintPrimary, Serene.primary),
+  'archive': CategoryStyle('folder_zip', Serene.tintTertiary, Serene.tertiary),
   'other': CategoryStyle('draft', Serene.surfaceContainerHigh, Serene.secondary),
 };
 
-CategoryStyle styleOf(Task task) =>
-    _categoryStyles[task.category] ?? _categoryStyles['other']!;
+CategoryStyle styleOf(Task task) {
+  final styles = _categoryStyles();
+  return styles[task.category] ?? styles['other']!;
+}
 
 const inProgress = {'downloading', 'paused'};
 
@@ -139,7 +143,7 @@ const categoryTitles = <String, String>{
   if (task.pending) {
     return (
       label: 'Onay bekliyor',
-      bg: const Color(0x80F8E0A8),
+      bg: Serene.tintTertiaryStrong,
       fg: Serene.onTertiaryContainer,
     );
   }
@@ -147,7 +151,7 @@ const categoryTitles = <String, String>{
     case 'downloading':
       return (
         label: 'Devam ediyor',
-        bg: const Color(0x80D3EBD8),
+        bg: Serene.tintPrimaryStrong,
         fg: Serene.onPrimaryFixed,
       );
     case 'paused':
@@ -155,19 +159,19 @@ const categoryTitles = <String, String>{
     case 'failed':
       return (
         label: 'Hata',
-        bg: const Color(0xB3FCE4E2),
+        bg: Serene.tintError,
         fg: Serene.onErrorContainer,
       );
     case 'completed':
       return (
         label: 'Tamamlandı',
-        bg: const Color(0x80D3EBD8),
+        bg: Serene.tintPrimaryStrong,
         fg: Serene.onPrimaryFixed,
       );
   }
   return (
     label: 'Kuyrukta',
-    bg: const Color(0x80F8E0A8),
+    bg: Serene.tintTertiaryStrong,
     fg: Serene.onTertiaryContainer,
   );
 }
@@ -234,16 +238,17 @@ String captureKindLabel(String kind) => switch (kind) {
     };
 
 CategoryStyle captureKindStyle(String kind, String contentType) {
+  final styles = _categoryStyles();
   if (kind == 'hls' || kind == 'dash') {
-    return const CategoryStyle('movie', Color(0x66F8E0A8), Serene.tertiary);
+    return CategoryStyle('movie', Serene.tintTertiary, Serene.tertiary);
   }
-  if (contentType.startsWith('image/')) return _categoryStyles['image']!;
-  if (contentType.startsWith('audio/')) return _categoryStyles['audio']!;
-  if (contentType.startsWith('video/')) return _categoryStyles['video']!;
+  if (contentType.startsWith('image/')) return styles['image']!;
+  if (contentType.startsWith('audio/')) return styles['audio']!;
+  if (contentType.startsWith('video/')) return styles['video']!;
   if (contentType.contains('pdf') || contentType.startsWith('text/')) {
-    return _categoryStyles['document']!;
+    return styles['document']!;
   }
-  return _categoryStyles['other']!;
+  return styles['other']!;
 }
 
 String captureName(CaptureItem item) {

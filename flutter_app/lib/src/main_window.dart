@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'app_theme.dart';
 import 'cards.dart';
 import 'data.dart';
 import 'demo.dart';
@@ -34,7 +35,8 @@ class MainWindow extends StatefulWidget {
   State<MainWindow> createState() => _MainWindowState();
 }
 
-class _MainWindowState extends State<MainWindow> with WindowListener {
+class _MainWindowState extends State<MainWindow>
+    with WindowListener, WidgetsBindingObserver {
   /// Motorun tam listesi; demo acikken ust gosterilen sahte gorevler ayridir.
   List<Task> _real = [];
   final List<Task> _demo = demoTasks();
@@ -84,6 +86,12 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     _demoOn = widget.demoOn;
     _showSettings = widget.settingsOn;
     windowManager.addListener(this);
+    WidgetsBinding.instance.addObserver(this);
+
+    // Palet globaldir ve degistiginde agac kendiliginden kurulmaz: bu
+    // pencerenin govdesini kuran `build` yeniden calismali ki yeni renkler
+    // okunsun. Ayarlar katmani da ayni anda modu yazar.
+    appThemeMode.addListener(_onThemeChanged);
 
     // Motor bu noktada ayaaga kalkmis olur: main() RustLib.init ve bootEngine
     // icin bekletilmis bir Future'i bitirmeden pencereyi boyamaz.
@@ -220,9 +228,24 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     }
     _tray?.setVisible(false);
     windowManager.removeListener(this);
+    WidgetsBinding.instance.removeObserver(this);
+    appThemeMode.removeListener(_onThemeChanged);
     _search.dispose();
     _url.dispose();
     super.dispose();
+  }
+
+  void _onThemeChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Yalnizca "Sistem" seciliyken is gorur: elle secilen tema isletim
+  /// sisteminin bildirdigi parlakliktan bagimsizdir.
+  @override
+  void didChangePlatformBrightness() {
+    if (appThemeMode.value == ThemeMode.system) {
+      applyThemeMode(ThemeMode.system);
+    }
   }
 
   @override
@@ -307,6 +330,9 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
   /// Kaydedilen ayar arayuzde kullanilir; disk karti yeni hedef klasore bakar.
   void _applySettings(Settings saved) {
     setState(() => _settings = saved);
+    // Kayit tek dogru kaynaktir: panel secim aninda da boyasa, burada
+    // motorun kabul ettigi deger pekistirilir.
+    applyThemeSetting(saved.theme);
     _loadDisk();
   }
 
@@ -465,6 +491,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
       final process = await Process.start(Platform.resolvedExecutable, [
         '--handoff=$payload',
         if (_demoOn) '--handoff-demo',
+        '--handoff-theme=${themeModeSetting(appThemeMode.value)}',
       ]);
       unawaited(process.stdout.drain());
       unawaited(process.stderr.drain());
@@ -669,9 +696,9 @@ class Header extends StatelessWidget {
       onPanStart: (_) => windowManager.startDragging(),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Serene.background,
-          border: Border(bottom: BorderSide(color: Color(0x80DCD8CE))),
+          border: Border(bottom: BorderSide(color: Serene.borderSoft)),
         ),
         child: Row(
           children: [
@@ -682,7 +709,7 @@ class Header extends StatelessWidget {
                 color: Serene.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Center(
+              child: Center(
                 child: SIcon('spa', size: 15, color: Serene.primary),
               ),
             ),
@@ -737,7 +764,7 @@ class Header extends StatelessWidget {
               background: Serene.surfaceContainer,
               hoverBackground: Serene.surfaceContainerHigh,
               foreground: Serene.secondary,
-              border: const Color(0x99DCD8CE),
+              border: Serene.borderInput,
               onTap: onSettings,
             ),
             const SizedBox(width: 12),
@@ -756,7 +783,7 @@ class Header extends StatelessWidget {
                     ],
                   ),
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0x333D6A4B)),
+                  border: Border.all(color: Serene.borderPrimary),
                 ),
                 child: Center(
                   child: Text(
@@ -773,8 +800,8 @@ class Header extends StatelessWidget {
             const SizedBox(width: 20),
             Container(
               padding: const EdgeInsets.only(left: 8),
-              decoration: const BoxDecoration(
-                border: Border(left: BorderSide(color: Color(0x99DCD8CE))),
+              decoration: BoxDecoration(
+                border: Border(left: BorderSide(color: Serene.borderInput)),
               ),
               child: Row(
                 children: [
@@ -786,7 +813,7 @@ class Header extends StatelessWidget {
                     background: Serene.surfaceContainer,
                     hoverBackground: Serene.surfaceContainerHigh,
                     foreground: Serene.secondary,
-                    border: const Color(0x99DCD8CE),
+                    border: Serene.borderInput,
                     onTap: onMinimize,
                   ),
                   const SizedBox(width: 4),
@@ -798,7 +825,7 @@ class Header extends StatelessWidget {
                     background: Serene.surfaceContainer,
                     hoverBackground: Serene.surfaceContainerHigh,
                     foreground: Serene.secondary,
-                    border: const Color(0x99DCD8CE),
+                    border: Serene.borderInput,
                     onTap: onMaximize,
                   ),
                   const SizedBox(width: 4),
@@ -810,7 +837,7 @@ class Header extends StatelessWidget {
                     background: Serene.surfaceContainer,
                     hoverBackground: Serene.errorContainer,
                     foreground: Serene.secondary,
-                    border: const Color(0x99DCD8CE),
+                    border: Serene.borderInput,
                     onTap: onClose,
                   ),
                 ],
@@ -837,11 +864,11 @@ class _SearchField extends StatelessWidget {
       decoration: BoxDecoration(
         color: Serene.surfaceContainerLow,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0x99DCD8CE)),
+        border: Border.all(color: Serene.borderInput),
       ),
       child: Row(
         children: [
-          const SIcon('search', size: 17, color: Serene.outline),
+          SIcon('search', size: 17, color: Serene.outline),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
@@ -865,7 +892,7 @@ class _SearchField extends StatelessWidget {
             decoration: BoxDecoration(
               color: Serene.surfaceContainer,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0x99DCD8CE)),
+              border: Border.all(color: Serene.borderInput),
             ),
             child: Text('Ctrl K', style: mono(10, color: Serene.outline)),
           ),
@@ -896,7 +923,7 @@ class _Pill extends StatelessWidget {
       decoration: BoxDecoration(
         color: Serene.surfaceContainerLow,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0x99DCD8CE)),
+        border: Border.all(color: Serene.borderInput),
         boxShadow: Serene.shadowSoft,
       ),
       child: Row(
@@ -948,7 +975,7 @@ class _PulseDotState extends State<_PulseDot>
       child: Container(
         width: 8,
         height: 8,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Serene.primary,
           shape: BoxShape.circle,
         ),
@@ -1026,12 +1053,12 @@ class Sidebar extends StatelessWidget {
               onTap: onNewDownload,
               radius: Serene.radiusTile,
               background: Serene.primary,
-              hoverBackground: const Color(0xF23D6A4B),
+              hoverBackground: Serene.primaryHoverStrong,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SIcon('add_circle', size: 19, color: Serene.onPrimary),
+                  SIcon('add_circle', size: 19, color: Serene.onPrimary),
                   const SizedBox(width: 10),
                   Text(
                     'Yeni İndirme Başlat',
@@ -1050,7 +1077,7 @@ class Sidebar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Serene.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(Serene.radiusCard),
-                border: Border.all(color: const Color(0x80DCD8CE)),
+                border: Border.all(color: Serene.borderSoft),
                 boxShadow: Serene.shadowSoft,
               ),
               child: Column(
@@ -1078,7 +1105,7 @@ class Sidebar extends StatelessWidget {
                   Container(
                     height: 1,
                     margin: const EdgeInsets.symmetric(vertical: 12),
-                    color: const Color(0x80DCD8CE),
+                    color: Serene.borderSoft,
                   ),
                   _GroupLabel('Kategoriler', dense: true),
                   for (final (key, label, icon) in cats)
@@ -1210,14 +1237,14 @@ class _DiskCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Serene.secondaryContainer.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(Serene.radiusCard),
-        border: Border.all(color: const Color(0x66DCD8CE)),
+        border: Border.all(color: Serene.borderFaint),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              const SIcon('hard_drive', size: 15, color: Serene.primary),
+              SIcon('hard_drive', size: 15, color: Serene.primary),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -1297,7 +1324,7 @@ class _DemoSwitch extends StatelessWidget {
               ),
             ),
             child: value
-                ? const Center(
+                ? Center(
                     child: SIcon('check', size: 11, color: Serene.onPrimary),
                   )
                 : null,
