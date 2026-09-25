@@ -1,42 +1,47 @@
 // Serene "Yakalananlar" (Faz 7) dogrulamasi.
 //
 // Gercek uygulama baslatilir, yerel kopruye baglanilir ve eklentinin gonderdigi
-// `capture` mesajlari beslenir; kayitlar kopruden, Tauri komutlarindan ve
-// diskteki captures.json'dan okunup karsilastirilir.
+// `capture` mesajlari beslenir; kayitlar kopruden ve diskteki captures.json'dan
+// okunup karsilastirilir. Webview surulmez.
 //
 // Dogrulananlar:
 //   1. Ayni url iki kez bildirilir; tek kayit kalir ve id degismez (tekillestirme)
 //   2. `subscribe` uzerine mevcut liste `captures` olarak itilir
-//   3. `list_captures` mesaji ve Tauri komutu kayitlari ayni sekilde doner
-//   4. `download_capture` yerel sunucudan gercek dosyayi indirir; HLS turu
+//   3. `download_capture` yerel sunucudan gercek dosyayi indirir; HLS turu
 //      tasiyan kayit akis yolundan gecer ve parcalar birlestirilir
-//   5. `dismiss_capture` kaydi listeden dusurur
-//   6. Kayitlar uygulama yeniden baslatildiktan sonra da durur (captures.json)
-//   7. `clear_captures` listeyi bosaltir
+//   4. `dismiss_capture` yalnizca verilen kaydi dusurur; olmayan id hata doner
+//   5. Kayitlar uygulama yeniden baslatildiktan sonra da durur (captures.json)
+//   6. `clear_captures` listeyi bosaltir
 //
-// Kullanim: node scripts/check_captures.mjs
+// Kullanim:
+//   cd flutter_app && flutter build windows --debug
+//   node scripts/check_captures.mjs
+//
+// Baska bir derlemeyi denemek icin: SERENE_APP_EXE=...\serene_app.exe
+// Her sey gecici bir klasorde yasar: kullanicinin %APPDATA%\Serene'i ve
+// Indirilenler'i etkilenmez.
 
-import { execSync, spawn } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { connect as netConnect } from "node:net";
+import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { createServer } from "node:http";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { connect as netConnect } from "node:net";
 
-// Baska bir derlemeyi denemek icin: SERENE_EXE=...\target\release\serene.exe
+const ROOT = resolve(import.meta.dirname, "..");
 const EXE =
-  process.env.SERENE_EXE ||
-  "C:\\Users\\izzet\\Desktop\\serene\\src-tauri\\target\\debug\\serene.exe";
-const CWD = "C:\\Users\\izzet\\Desktop\\serene\\src-tauri";
-const IPC_PATH = join(process.env.APPDATA, "Serene", "ipc.json");
-const CAPTURES_PATH = join(process.env.APPDATA, "Serene", "captures.json");
-const PORT = Number(process.env.SERENE_CDP_PORT || 9338);
+  process.env.SERENE_APP_EXE ||
+  join(ROOT, "flutter_app", "build", "windows", "x64", "runner", "Debug", "serene_app.exe");
+const IMAGE = "serene_app";
+const LIST_WINDOWS = join(ROOT, "scripts", "list_windows.ps1");
 const HTTP_PORT = 8798;
 
-/// Test ciktilari indirme klasorune bu onekle duser; temizlikte yalnizca bu
-/// kalip silinir (kullanicinin kendi indirmelerine dokunulmaz).
-const OUTPUT_PATTERN = /^yakalama-(testi\.bin|hls( \(\d+\))?\.ts)$/;
-
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function fail(reason) {
+  console.log("BASARISIZ: " + reason);
+  process.exit(1);
+}
 
 /* ---------- yerel test sunucusu ---------- */
 
@@ -71,7 +76,7 @@ function startHttpServer() {
     body: Buffer.from(PLAYLIST, "utf8"),
   });
   HLS_SEGMENTS.forEach((body, i) =>
-    routes.set(`/video/seg${i}.ts`, { type: "video/mp2t", body })
+    routes.set(`/video/seg${i}.ts`, { type: "video/mp2t", body }),
   );
 
   const server = createServer((req, res) => {
@@ -114,120 +119,34 @@ function startHttpServer() {
   return new Promise((resolve) => server.listen(HTTP_PORT, "127.0.0.1", () => resolve(server)));
 }
 
-/* ---------- CDP ---------- */
+/* ---------- isletim sistemi pencereleri ---------- */
 
-async function findTarget(timeoutMs = 40000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`http://127.0.0.1:${PORT}/json/list`);
-      const targets = await response.json();
-      const page = targets.find((item) => item.type === "page" && item.webSocketDebuggerUrl);
-      if (page) return page;
-    } catch {
-      /* port henuz acilmadi */
-    }
-    await sleep(500);
-  }
-  throw new Error(`CDP hedefi bulunamadi (port ${PORT})`);
-}
-
-class Cdp {
-  constructor(socket) {
-    this.socket = socket;
-    this.nextId = 1;
-    this.pending = new Map();
-  }
-
-  send(method, params = {}) {
-    const id = this.nextId++;
-    this.socket.send(JSON.stringify({ id, method, params }));
-    return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      setTimeout(() => {
-        if (this.pending.delete(id)) reject(new Error(`${method} zaman asimi`));
-      }, 30000);
-    });
-  }
-
-  handle(message) {
-    const entry = this.pending.get(message.id);
-    if (!entry) return;
-    this.pending.delete(message.id);
-    if (message.error) entry.reject(new Error(JSON.stringify(message.error)));
-    else entry.resolve(message.result);
-  }
-
-  async evaluate(expression, awaitPromise = false) {
-    const result = await this.send("Runtime.evaluate", {
-      expression,
-      awaitPromise,
-      returnByValue: true,
-      userGesture: true,
-    });
-    if (result.exceptionDetails) {
-      throw new Error(
-        `JS hatasi: ${
-          result.exceptionDetails.exception?.description || result.exceptionDetails.text
-        }`
-      );
-    }
-    return result.result.value;
-  }
-
-  close() {
-    try {
-      this.socket.close();
-    } catch {
-      /* kapali */
-    }
-  }
-}
-
-async function connectCdp() {
-  const target = await findTarget();
-  const socket = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((resolve, reject) => {
-    socket.addEventListener("open", resolve, { once: true });
-    socket.addEventListener("error", reject, { once: true });
-  });
-  const cdp = new Cdp(socket);
-  socket.addEventListener("message", (event) => cdp.handle(JSON.parse(event.data)));
-  await cdp.send("Runtime.enable");
-  return cdp;
-}
-
-async function waitForApp(cdp, timeoutMs = 25000) {
-  const deadline = Date.now() + timeoutMs;
-  let last = null;
-  while (Date.now() < deadline) {
-    try {
-      last = await cdp.evaluate(
-        `(() => ({
-          hasInput: Boolean(document.getElementById("url-input")),
-          hasTauri: Boolean(window.__TAURI__ && window.__TAURI__.core),
-        }))()`
-      );
-    } catch (error) {
-      last = { error: error.message };
-    }
-    if (last && last.hasInput && last.hasTauri) return last;
-    await sleep(300);
-  }
-  throw new Error(`arayuz hazir olmadi: ${JSON.stringify(last)}`);
-}
-
-/// Tauri komutunu arayuz uzerinden cagirir.
-async function invoke(cdp, command, args = {}) {
-  return cdp.evaluate(
-    `(async () => await window.__TAURI__.core.invoke(${JSON.stringify(
-      command
-    )}, ${JSON.stringify(args)}))()`,
-    true
+function openWindows() {
+  const out = execFileSync(
+    "powershell",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", LIST_WINDOWS, "-ProcessName", IMAGE],
+    { encoding: "utf8", windowsHide: true },
   );
+  return out
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      const [pid, title, visible] = line.split("\t");
+      return { pid: Number(pid), title: title || "", visible: visible === "1" };
+    });
 }
 
-/* ---------- ham TCP istemcisi ---------- */
+async function until(label, timeoutMs, probe, intervalMs = 300) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const value = await probe();
+    if (value) return value;
+    if (Date.now() > deadline) throw new Error(`${label}: ${timeoutMs} ms icinde gerceklesmedi`);
+    await sleep(intervalMs);
+  }
+}
+
+/* ---------- yerel kopru istemcisi ---------- */
 
 class IpcClient {
   constructor(socket) {
@@ -245,14 +164,13 @@ class IpcClient {
         const line = this.buffer.slice(0, index).trim();
         this.buffer = this.buffer.slice(index + 1);
         if (!line) continue;
-        let parsed;
         try {
-          parsed = JSON.parse(line);
+          const parsed = JSON.parse(line);
+          this.messages.push(parsed);
+          for (const waiter of [...this.waiters]) waiter(parsed);
         } catch {
-          continue;
+          /* JSON olmayan satir yoksayilir */
         }
-        this.messages.push(parsed);
-        for (const waiter of [...this.waiters]) waiter(parsed);
       }
     });
     socket.on("close", () => (this.closed = true));
@@ -263,7 +181,7 @@ class IpcClient {
     this.socket.write(`${JSON.stringify(object)}\n`);
   }
 
-  waitFor(predicate, timeoutMs = 15000, label = "mesaj") {
+  waitFor(predicate, timeoutMs, label) {
     const found = this.messages.find(predicate);
     if (found) return Promise.resolve(found);
 
@@ -271,10 +189,9 @@ class IpcClient {
       const timer = setTimeout(() => {
         this.waiters = this.waiters.filter((w) => w !== waiter);
         reject(
-          new Error(`${label} zaman asimi. Gelenler: ${JSON.stringify(this.messages.slice(-4))}`)
+          new Error(`${label} zaman asimi. Son mesajlar: ${JSON.stringify(this.messages.slice(-4))}`),
         );
       }, timeoutMs);
-
       const waiter = (message) => {
         if (!predicate(message)) return;
         clearTimeout(timer);
@@ -294,120 +211,91 @@ class IpcClient {
   }
 }
 
-async function openIpc(port) {
-  const socket = netConnect({ host: "127.0.0.1", port });
+let reqSeq = 0;
+
+async function call(client, op, fields = {}, timeoutMs = 30000) {
+  const reqId = `c${++reqSeq}`;
+  client.send({ type: op, reqId, ...fields });
+  const answer = await client.waitFor((m) => m.reqId === reqId, timeoutMs, `${op} yaniti`);
+  if (answer.type === "error") {
+    throw new Error(`${op}: ${answer.payload?.message || "bilinmeyen hata"}`);
+  }
+  return answer;
+}
+
+const listCaptures = (client) => call(client, "list_captures").then((a) => a.payload || []);
+
+async function waitTask(client, id, done, timeoutMs = 90000) {
+  return until(
+    `gorev ${id}`,
+    timeoutMs,
+    async () => {
+      const tasks = await call(client, "list").then((a) => a.payload);
+      const task = tasks.find((t) => t.id === id);
+      return task && done(task) ? task : null;
+    },
+    300,
+  );
+}
+
+async function connectBridge(dataDir) {
+  const info = await until(
+    "ipc.json",
+    30000,
+    () => {
+      const path = join(dataDir, "ipc.json");
+      if (!existsSync(path)) return null;
+      try {
+        const parsed = JSON.parse(readFileSync(path, "utf8"));
+        return parsed.port && parsed.token ? parsed : null;
+      } catch {
+        return null;
+      }
+    },
+    300,
+  );
+
+  const socket = netConnect({ host: "127.0.0.1", port: info.port });
   await new Promise((resolve, reject) => {
     socket.once("connect", resolve);
     socket.once("error", reject);
   });
-  return new IpcClient(socket);
-}
-
-/* ---------- uygulama yasam dongusu ---------- */
-
-function killSerene() {
-  // Bayat bir ornek varsa tek ornek kilidi yuzunden yeni ornek hemen kapanir;
-  // bu yuzden her kosu temiz bir sureçle baslar.
-  try {
-    execSync('taskkill /F /IM serene.exe /T', { stdio: "ignore", windowsHide: true });
-  } catch {
-    /* calisan ornek yok */
-  }
-}
-
-/// Uygulamayi baslatir; log parcaciklari cagiran tarafta toplanir.
-function spawnApp(env) {
-  const proc = spawn(EXE, [], { cwd: CWD, env, stdio: ["ignore", "pipe", "pipe"] });
-  const logs = [];
-  proc.stdout.on("data", (chunk) => logs.push(chunk.toString()));
-  proc.stderr.on("data", (chunk) => logs.push(chunk.toString()));
-  return { proc, logs };
-}
-
-async function waitForIpc(timeoutMs = 25000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (existsSync(IPC_PATH)) {
-      try {
-        const info = JSON.parse(readFileSync(IPC_PATH, "utf8"));
-        if (info.port && info.token) return info;
-      } catch {
-        /* yazim suruyor */
-      }
-    }
-    await sleep(300);
-  }
-  throw new Error("ipc.json olusmadi");
-}
-
-/// El sikismasini tamamlar ve abonelik kurar.
-async function connectBridge(info) {
-  const deadline = Date.now() + 15000;
-  let client = null;
-  while (Date.now() < deadline) {
-    try {
-      client = await openIpc(info.port);
-      break;
-    } catch {
-      await sleep(300);
-    }
-  }
-  if (!client) throw new Error(`kopruye baglanilamadi (port ${info.port})`);
+  const client = new IpcClient(socket);
 
   client.send({ type: "hello", token: info.token });
   await client.waitFor((m) => m.type === "ready", 10000, "ready");
+  return { client, info };
+}
+
+/* ---------- uygulama sureci ---------- */
+
+function launch(dataDir) {
+  const proc = spawn(EXE, [], {
+    cwd: join(EXE, ".."),
+    env: { ...process.env, SERENE_DATA_DIR: dataDir },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let log = "";
+  proc.stdout.on("data", (chunk) => (log += chunk.toString()));
+  proc.stderr.on("data", (chunk) => (log += chunk.toString()));
+  proc.on("exit", (code) => (log += `\n[cikis ${code}]`));
+  return { proc, log: () => log };
+}
+
+function killAll() {
+  spawnSync("taskkill", ["/F", "/IM", `${IMAGE}.exe`, "/T"], {
+    stdio: "ignore",
+    windowsHide: true,
+  });
+}
+
+async function startApp(dataDir) {
+  rmSync(join(dataDir, "ipc.json"), { force: true });
+  const app = launch(dataDir);
+  const { client, info } = await connectBridge(dataDir);
   client.send({ type: "subscribe" });
-  await client.waitFor((m) => m.type === "subscribed", 8000, "subscribed");
-  return client;
-}
-
-/* ---------- yardimcilar ---------- */
-
-function cleanDownloads(dir = join(process.env.USERPROFILE, "Downloads")) {
-  try {
-    for (const name of readdirSync(dir)) {
-      if (OUTPUT_PATTERN.test(name)) rmSync(join(dir, name), { force: true });
-    }
-  } catch {
-    /* klasor yok */
-  }
-}
-
-/// `list_captures` mesajini gonderip listeyi bekler.
-async function listCaptures(client, reqId) {
-  client.send({ type: "list_captures", reqId });
-  const message = await client.waitFor(
-    (m) => m.type === "captures" && m.reqId === reqId,
-    10000,
-    `list_captures ${reqId}`
-  );
-  return message.payload || [];
-}
-
-function captureAck(client, reqId) {
-  return client.waitFor(
-    (m) => (m.type === "ack" || m.type === "error") && m.reqId === reqId,
-    15000,
-    `capture ${reqId}`
-  );
-}
-
-/// Yakalanan turdeki gorevin bitmesini bekler; gorev listesi abonelik
-/// uzerinden `tasks` olayiyla akar (CDP gerekmez).
-async function waitForTask(client, id, timeoutMs, label) {
-  const deadline = Date.now() + timeoutMs;
-  let last = null;
-  while (Date.now() < deadline) {
-    for (const message of client.messages) {
-      if (message.type !== "tasks" || !Array.isArray(message.payload)) continue;
-      const task = message.payload.find((item) => item.id === id);
-      if (!task) continue;
-      last = task;
-      if (task.status === "completed" || task.status === "failed") return task;
-    }
-    await sleep(300);
-  }
-  throw new Error(`${label}: gorev bitmedi (son durum: ${last?.status})`);
+  await client.waitFor((m) => m.type === "subscribed", 10000, "subscribed");
+  return { app, client, info };
 }
 
 /// Indirilen dosyayi diskteki baytlarla karsilastirir.
@@ -432,60 +320,58 @@ function verifyFile(task, expected, label, dir, problems, report) {
 
 /* ---------- ana akis ---------- */
 
-async function main() {
-  const report = {};
-  const problems = [];
+const report = {};
+const problems = [];
 
-  killSerene();
-  await sleep(500);
-  for (const path of [IPC_PATH, CAPTURES_PATH]) {
-    try {
-      rmSync(path, { force: true });
-    } catch {
-      /* yok */
-    }
-  }
-  cleanDownloads();
+async function main() {
+  if (!existsSync(EXE)) fail("uygulama bulunamadi: " + EXE + " (once `flutter build windows --debug`)");
+  if (openWindows().length) fail(`calisan bir ${IMAGE}.exe var; kosumdan once onu kapat`);
+
+  const dataDir = mkdtempSync(join(tmpdir(), "serene-captures-"));
+  const downloadDir = join(dataDir, "indir");
+  const capturesPath = join(dataDir, "captures.json");
+  mkdirSync(downloadDir);
+  writeFileSync(
+    join(dataDir, "settings.json"),
+    JSON.stringify(
+      {
+        downloadDir,
+        maxConcurrent: 2,
+        connections: 2,
+        watchClipboard: false,
+        closeToTray: false,
+        confirmBrowserDownload: false,
+      },
+      null,
+      2,
+    ),
+  );
+  console.log(`indirme klasoru: ${downloadDir}`);
 
   const httpServer = await startHttpServer();
-  const env = { ...process.env };
-  env.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = `--remote-debugging-port=${PORT}`;
-
-  console.log(`baslatiliyor: ${EXE}`);
-  let app = spawnApp(env);
-  let cdp = null;
+  let app = null;
   let client = null;
-  let failed = false;
 
   try {
-    /* 0. Kopru ve arayuz ayakta mi */
-    const info = await waitForIpc();
-    report.ipcPort = info.port;
-    cdp = await connectCdp();
-    await waitForApp(cdp);
-    const settings = await invoke(cdp, "get_settings");
-    const downloadsDir = settings.downloadDir;
-    report.downloadsDir = downloadsDir;
-    console.log(`indirme klasoru: ${downloadsDir}`);
-
-    client = await connectBridge(info);
+    /* 0. Kopru ve abonelik */
+    const started = await startApp(dataDir);
+    app = started.app;
+    client = started.client;
+    report.ipcPort = started.info.port;
     console.log("kopru hazir, abonelik kuruldu");
 
     /* 2. Abonelikte mevcut liste itilmeli. */
     const initial = await client.waitFor(
       (m) => m.type === "captures" && !m.reqId && Array.isArray(m.payload),
       8000,
-      "abonelik captures"
+      "abonelik captures",
     );
     report.subscribePush = initial.payload.length;
     console.log(`abonelik push'u: ${initial.payload.length} kayit`);
-    if (!Array.isArray(initial.payload)) problems.push("abonelik push'u liste degil");
 
     /* 1. Ayni url iki kez -> tek kayit, sabit id. */
     const urlFile = `http://127.0.0.1:${HTTP_PORT}/medya.mp4`;
-    client.send({
-      type: "capture",
-      reqId: "c1",
+    const ack1 = await call(client, "capture", {
       url: urlFile,
       filename: "medya.mp4",
       size: FILE_PAYLOAD.length,
@@ -493,12 +379,10 @@ async function main() {
       kind: "file",
       site: "127.0.0.1",
     });
-    const ack1 = await captureAck(client, "c1");
-    if (ack1.type === "error") throw new Error(`capture c1: ${ack1.payload?.message}`);
     const first = ack1.payload;
     report.first = first;
     console.log(
-      `capture c1: id=${first.id}, tur=${first.kind}, ad=${first.filename}, boyut=${first.size}`
+      `capture c1: id=${first.id}, tur=${first.kind}, ad=${first.filename}, boyut=${first.size}`,
     );
     if (first.url !== urlFile) problems.push(`kayitli url beklenen degil (${first.url})`);
     if (first.kind !== "file") problems.push(`capture turu file degil (${first.kind})`);
@@ -512,14 +396,12 @@ async function main() {
     const push = await client.waitFor(
       (m) => m.type === "captures" && !m.reqId && (m.payload || []).some((c) => c.url === urlFile),
       8000,
-      "captures guncellemesi"
+      "captures guncellemesi",
     );
     report.pushAfterCapture = push.payload.length;
     console.log(`yakalama sonrasi push: ${push.payload.length} kayit`);
 
-    client.send({
-      type: "capture",
-      reqId: "c2",
+    const ack2 = await call(client, "capture", {
       url: urlFile,
       filename: "baska-ad.mp4",
       size: 5,
@@ -527,26 +409,22 @@ async function main() {
       kind: "file",
       site: "127.0.0.1",
     });
-    const ack2 = await captureAck(client, "c2");
-    if (ack2.type === "error") throw new Error(`capture c2: ${ack2.payload?.message}`);
     const repeat = ack2.payload;
     report.repeat = repeat;
     console.log(`capture c2 (ayni url): id=${repeat.id}, ad=${repeat.filename}`);
     if (repeat.id !== first.id) problems.push("ayni url icin id degisti (tekillestirme yok)");
     if (repeat.filename !== "medya.mp4") problems.push("ayni url mevcut kaydi degistirdi");
 
-    const byUrl = await listCaptures(client, "l1");
+    const byUrl = await listCaptures(client);
     report.afterRepeat = byUrl.filter((c) => c.url === urlFile).length;
     console.log(`ayni url iki kez bildirildi, kayit sayisi: ${report.afterRepeat}`);
     if (report.afterRepeat !== 1) {
       problems.push(`ayni url icin ${report.afterRepeat} kayit var (1 olmali)`);
     }
 
-    /* 4a. HLS turu kayit; akis yolundan inmesi gerekir. */
+    /* HLS turu kayit; akis yolundan inmesi gerekir. */
     const urlHls = `http://127.0.0.1:${HTTP_PORT}/video/index.m3u8`;
-    client.send({
-      type: "capture",
-      reqId: "c3",
+    const ack3 = await call(client, "capture", {
       url: urlHls,
       filename: "video.m3u8",
       size: 0,
@@ -554,61 +432,52 @@ async function main() {
       kind: "hls",
       site: "127.0.0.1",
     });
-    const ack3 = await captureAck(client, "c3");
-    if (ack3.type === "error") throw new Error(`capture c3: ${ack3.payload?.message}`);
     const hls = ack3.payload;
     report.hls = hls;
     console.log(`capture c3: id=${hls.id}, tur=${hls.kind}`);
     if (hls.kind !== "hls") problems.push(`HLS kaydinin turu hls degil (${hls.kind})`);
 
-    /* 3. list_captures hem kopruden hem arayuzden ayni listeyi dondurmeli. */
-    const fromBridge = await listCaptures(client, "l2");
-    const fromTauri = await invoke(cdp, "list_captures");
-    report.listCount = fromBridge.length;
-    console.log(`list_captures: kopru=${fromBridge.length}, arayuz=${fromTauri.length}`);
-    if (!fromBridge.some((c) => c.url === urlFile)) problems.push("listede dosya kaydi yok");
-    if (!fromBridge.some((c) => c.url === urlHls)) problems.push("listede HLS kaydi yok");
-    if (fromTauri.length !== fromBridge.length) {
-      problems.push(`arayuz listesi koprudan farkli (${fromTauri.length} != ${fromBridge.length})`);
-    }
+    const listed = await listCaptures(client);
+    report.listCount = listed.length;
+    console.log(`list_captures: ${listed.length} kayit`);
+    if (!listed.some((c) => c.url === urlFile)) problems.push("listede dosya kaydi yok");
+    if (!listed.some((c) => c.url === urlHls)) problems.push("listede HLS kaydi yok");
 
-    /* 4. download_capture: dosya turu. */
-    client.send({ type: "download_capture", reqId: "d1", id: first.id });
-    const dl1 = await client.waitFor(
-      (m) => (m.type === "ack" || m.type === "error") && m.reqId === "d1",
-      30000,
-      "download_capture d1"
-    );
-    if (dl1.type === "error") throw new Error(`download_capture d1: ${dl1.payload?.message}`);
+    /* 3. download_capture: dosya turu. */
+    const dl1 = await call(client, "download_capture", { id: first.id }, 30000);
     report.downloadFile = { id: dl1.payload.id, kind: dl1.payload.kind, dest: dl1.payload.dest };
     console.log(`indirme basladi: ${dl1.payload.filename} (tur=${dl1.payload.kind})`);
-    const done1 = await waitForTask(client, dl1.payload.id, 60000, "dosya");
+    const done1 = await waitTask(
+      client,
+      dl1.payload.id,
+      (t) => t.status === "completed" || t.status === "failed",
+      60000,
+    );
     if (done1.status !== "completed") {
       problems.push(`dosya: indirme tamamlanmadi (${done1.status}: ${done1.error})`);
     }
-    verifyFile(done1, FILE_PAYLOAD, "dosya", downloadsDir, problems, report);
+    verifyFile(done1, FILE_PAYLOAD, "dosya", downloadDir, problems, report);
 
-    /* 4b. download_capture: HLS turu akis yolundan iner. */
-    client.send({ type: "download_capture", reqId: "d2", id: hls.id });
-    const dl2 = await client.waitFor(
-      (m) => (m.type === "ack" || m.type === "error") && m.reqId === "d2",
-      30000,
-      "download_capture d2"
-    );
-    if (dl2.type === "error") throw new Error(`download_capture d2: ${dl2.payload?.message}`);
+    /* 3b. download_capture: HLS turu akis yolundan iner. */
+    const dl2 = await call(client, "download_capture", { id: hls.id }, 30000);
     report.downloadHls = { id: dl2.payload.id, kind: dl2.payload.kind, dest: dl2.payload.dest };
     if (dl2.payload.kind !== "hls") {
       problems.push(`HLS yakalamasi dosya yoluna gitti (tur=${dl2.payload.kind})`);
     }
-    const done2 = await waitForTask(client, dl2.payload.id, 60000, "hls");
+    const done2 = await waitTask(
+      client,
+      dl2.payload.id,
+      (t) => t.status === "completed" || t.status === "failed",
+      60000,
+    );
     if (done2.status !== "completed") {
       problems.push(`hls: indirme tamamlanmadi (${done2.status}: ${done2.error})`);
     }
-    verifyFile(done2, HLS_EXPECTED, "hls", downloadsDir, problems, report);
+    verifyFile(done2, HLS_EXPECTED, "hls", downloadDir, problems, report);
 
-    /* 5. dismiss_capture yalnizca verilen kaydi siler. */
-    await invoke(cdp, "dismiss_capture", { id: hls.id });
-    const afterDismiss = await invoke(cdp, "list_captures");
+    /* 4. dismiss_capture yalnizca verilen kaydi siler. */
+    await call(client, "dismiss_capture", { id: hls.id });
+    const afterDismiss = await listCaptures(client);
     report.afterDismiss = afterDismiss.length;
     console.log(`dismiss sonrasi kayit sayisi: ${afterDismiss.length}`);
     if (afterDismiss.some((c) => c.id === hls.id)) problems.push("dismiss kaydi silmedi");
@@ -617,40 +486,37 @@ async function main() {
     }
     let missing = false;
     try {
-      await invoke(cdp, "dismiss_capture", { id: "olmayan-kimlik" });
+      await call(client, "dismiss_capture", { id: "olmayan-kimlik" });
       missing = true;
     } catch {
       /* beklenen: bilinmeyen id hata doner */
     }
     if (missing) problems.push("olmayan id ile dismiss hata dondurmedi");
 
-    /* 6. Yeniden baslatma: kayitlar diskten geri gelmeli. */
+    /* 5. Yeniden baslatma: kayitlar diskten geri gelmeli. */
     client.close();
     client = null;
-    cdp.close();
-    cdp = null;
-    killSerene();
+    killAll();
     await sleep(1500);
-    rmSync(IPC_PATH, { force: true });
+    rmSync(join(dataDir, "ipc.json"), { force: true });
 
-    if (!existsSync(CAPTURES_PATH)) problems.push("captures.json yazilmadi");
+    if (!existsSync(capturesPath)) problems.push("captures.json yazilmadi");
     else {
-      const onDisk = JSON.parse(readFileSync(CAPTURES_PATH, "utf8"));
+      const onDisk = JSON.parse(readFileSync(capturesPath, "utf8"));
       report.onDiskBeforeRestart = onDisk.length;
       console.log(`kapanmadan once captures.json: ${onDisk.length} kayit`);
       if (onDisk.length !== 1) problems.push(`captures.json'da ${onDisk.length} kayit var (1 olmali)`);
     }
 
     console.log(`yeniden baslatiliyor: ${EXE}`);
-    app = spawnApp(env);
-    const info2 = await waitForIpc();
-    const client2 = await connectBridge(info2);
-    client = client2;
-    const list2 = await client2
+    const again = await startApp(dataDir);
+    app = again.app;
+    client = again.client;
+    const list2 = await client
       .waitFor(
         (m) => m.type === "captures" && Array.isArray(m.payload),
         8000,
-        "yeniden baslatma push'u"
+        "yeniden baslatma push'u",
       )
       .then((m) => m.payload);
     report.afterRestart = list2.length;
@@ -661,51 +527,34 @@ async function main() {
     else if (survivor.id !== first.id) problems.push("yeniden baslatmada id degisti");
     if (list2.some((c) => c.url === urlHls)) problems.push("dismiss edilen kayit geri geldi");
 
-    /* 7. clear_captures: geriye kayit kalmaz (sonraki kosu temiz baslar). */
-    cdp = await connectCdp();
-    await waitForApp(cdp);
-    const cleared = await invoke(cdp, "clear_captures");
-    const afterClear = await invoke(cdp, "list_captures");
-    report.cleared = cleared;
-    report.afterClear = afterClear.length;
-    console.log(`clear_captures: ${cleared} kayit silindi, kalan ${afterClear.length}`);
-    if (cleared !== 1) problems.push(`clear_captures ${cleared} kayit sildi (1 beklenirdi)`);
-    if (afterClear.length !== 0) problems.push("clear_captures sonrasi liste bos degil");
+    /* 6. clear_captures: geriye kayit kalmaz (sonraki kosu temiz baslar). */
+    const beforeClear = (await listCaptures(client)).length;
+    await call(client, "clear_captures");
+    const afterClear = (await listCaptures(client)).length;
+    report.beforeClear = beforeClear;
+    report.afterClear = afterClear;
+    console.log(`clear_captures: ${beforeClear} kayit vardi, kalan ${afterClear}`);
+    if (beforeClear !== 1) problems.push(`clear oncesi ${beforeClear} kayit vardi (1 beklenirdi)`);
+    if (afterClear !== 0) problems.push("clear_captures sonrasi liste bos degil");
 
-    console.log("");
-    console.log(JSON.stringify(report, null, 2));
-    console.log("");
-    if (problems.length) {
-      failed = true;
-      console.log(`BASARISIZ: ${problems.join("; ")}`);
-    } else {
-      console.log(
-        "BASARILI: yakalananlar tekillestirme, liste itme, indirme (dosya + HLS), silme ve kalicilik dogrulandi"
-      );
-    }
+    client.close();
+    client = null;
   } catch (error) {
-    failed = true;
-    console.log("");
-    console.log(`BASARISIZ: ${error.message}`);
+    problems.push(error.stack || String(error));
+    if (app) console.log(app.log().slice(-2000));
   } finally {
-    const log = app?.logs.join("") || "";
-    if (log.trim()) {
-      console.log("");
-      console.log("--- uygulama cikisi ---");
-      console.log(log.trim().slice(0, 4000));
-    }
     if (client) client.close();
-    if (cdp) cdp.close();
-    killSerene();
-    await sleep(800);
-    cleanDownloads();
+    killAll();
+    await sleep(600);
     httpServer.close();
+    rmSync(dataDir, { recursive: true, force: true });
   }
 
-  process.exit(failed ? 1 : 0);
+  console.log(JSON.stringify(report, null, 2));
+  if (problems.length) fail(problems.join(" | "));
+  console.log(
+    "BASARILI: yakalananlar tekillestirme, liste itme, indirme (dosya + HLS), silme ve kalicilik dogrulandi",
+  );
 }
 
-main().catch((error) => {
-  console.log(`beklenmeyen hata: ${error.message}`);
-  process.exit(2);
-});
+main();
