@@ -124,6 +124,12 @@ pub struct Settings {
     pub theme: String,
     /// Arayuz dili: `tr` ya da `en`.
     pub language: String,
+    /// Windows acilisinda uygulamayi baslatir.
+    ///
+    /// Gercek tutulmasi `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+    /// anahtarinda `Serene` degeridir; kurulum paketi de ayni anahtari yazar.
+    /// Kullanici bu isi Ayarlar'dan ya da kurulumdan yapabilir.
+    pub autostart: bool,
 }
 
 /// Tema degerini taninan kumesine indirger. Ayar dosyasi elle duzenlenebilir
@@ -156,6 +162,7 @@ impl Default for Settings {
             confirm_browser_download: true,
             theme: "system".to_string(),
             language: "tr".to_string(),
+            autostart: false,
         }
     }
 }
