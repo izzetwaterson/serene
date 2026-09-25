@@ -28,7 +28,7 @@ const HOST_ID = "com.serene.nmh";
 const args = new Set(process.argv.slice(2));
 const config = args.has("--debug") ? "Debug" : "Release";
 const bundle = join(DIR, "flutter_app", "build", "windows", "x64", "runner", config);
-const tauriTarget = join(DIR, "src-tauri", "target", config.toLowerCase());
+const hostTarget = join(DIR, "native-host", "target", config.toLowerCase());
 const manifest = join(process.env.APPDATA ?? "", "Serene", "nmh", `${HOST_ID}.json`);
 
 function run(command, commandArgs, cwd) {
@@ -60,7 +60,7 @@ function registeredPath() {
 }
 
 function copyHost() {
-  const source = join(tauriTarget, NMH);
+  const source = join(hostTarget, NMH);
   if (!existsSync(source)) {
     fail(`${source} yok; once derleme yapin (--no-build vermeyin)`);
   }
@@ -129,9 +129,8 @@ function main() {
 
   if (!args.has("--no-build")) {
     run("flutter", ["build", "windows", `--${config.toLowerCase()}`], join(DIR, "flutter_app"));
-    // Host ikilisi Tauri paketinde durur; yalnizca bu hedef derlenir, yani
-    // webview bagimliliklari derlenmez.
-    run("cargo", ["build", `--${config.toLowerCase()}`, "--bin", "serene-nmh"], join(DIR, "src-tauri"));
+    // Host ikilisi kendi paketinde durur; motoru linklemedigi icin kucuk kalir.
+    run("cargo", ["build", `--${config.toLowerCase()}`, "--bin", "serene-nmh"], join(DIR, "native-host"));
   }
 
   if (!existsSync(join(bundle, APP))) {

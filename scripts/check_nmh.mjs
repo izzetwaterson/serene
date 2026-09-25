@@ -9,20 +9,24 @@
 //   6. enqueue komutu nmh uzerinden uctan uca indirme baslatir
 //   7. stdin kapaninca nmh cikar
 //   8. --unregister-host kaydi siler
+//   9. Kosum sonunda kayit geri kurulur: anahtari silen test kullaniciyi
+//      kayitsiz birakmasin (kayit yine kosumun derledigi nmh'yi gosterir)
 //
 // Kullanim: node scripts/check_nmh.mjs
 
 import { execSync, spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 // Baska bir derlemeyi denemek icin: SERENE_TARGET_DIR=...\target\release
+// Host, uygulamayi kendi klasorunde aradigi icin test ikilinin YAN YANA oldugu
+// yayin klasorunde kosar (deploy_flutter.mjs oraya kopyalar).
 const DIR =
   process.env.SERENE_TARGET_DIR ||
-  "C:\\Users\\izzet\\Desktop\\serene\\src-tauri\\target\\debug";
+  join(resolve(import.meta.dirname, ".."), "flutter_app", "build", "windows", "x64", "runner", "Debug");
 const NMH = join(DIR, "serene-nmh.exe");
-const EXE = join(DIR, "serene.exe");
+const EXE = join(DIR, "serene_app.exe");
 const APPDATA = process.env.APPDATA;
 const MANIFEST = join(APPDATA, "Serene", "nmh", "com.serene.nmh.json");
 const IPC_PATH = join(APPDATA, "Serene", "ipc.json");
@@ -180,7 +184,7 @@ function processCount(name) {
 }
 
 function killAll() {
-  for (const name of ["serene.exe", "serene-nmh.exe"]) {
+  for (const name of ["serene_app.exe", "serene-nmh.exe"]) {
     try {
       execSync(`taskkill /F /IM ${name} /T`, { stdio: "ignore", windowsHide: true });
     } catch {
@@ -209,6 +213,11 @@ async function main() {
   const report = {};
   const problems = [];
   let failed = false;
+
+  if (!existsSync(NMH)) {
+    console.log(`BASARISIZ: ${NMH} yok; once \`node scripts/deploy_flutter.mjs --debug\` calistirin`);
+    process.exit(1);
+  }
 
   killAll();
   await sleep(1000);
@@ -252,9 +261,9 @@ async function main() {
     }
 
     /* 3-4. Uygulama kapaliyken cerceveleme + sessiz baslatma */
-    report.exeRunningBefore = processCount("serene.exe");
-    console.log(`test oncesi serene.exe sayisi: ${report.exeRunningBefore}`);
-    if (report.exeRunningBefore !== 0) problems.push("test basinda serene.exe zaten calisiyor");
+    report.exeRunningBefore = processCount("serene_app.exe");
+    console.log(`test oncesi serene_app.exe sayisi: ${report.exeRunningBefore}`);
+    if (report.exeRunningBefore !== 0) problems.push("test basinda serene_app.exe zaten calisiyor");
 
     const host = spawnHost();
     const startedAt = Date.now();
@@ -267,13 +276,13 @@ async function main() {
       `pong ${report.autostartMs} ms icinde geldi: pid=${pong.payload.pid}, surum=${pong.payload.version}`
     );
 
-    report.exeRunningAfter = processCount("serene.exe");
+    report.exeRunningAfter = processCount("serene_app.exe");
     report.ipcExists = existsSync(IPC_PATH);
     console.log(
-      `otomatik baslatma: serene.exe=${report.exeRunningAfter}, ipc.json=${report.ipcExists}`
+      `otomatik baslatma: serene_app.exe=${report.exeRunningAfter}, ipc.json=${report.ipcExists}`
     );
     if (report.exeRunningAfter !== 1) {
-      problems.push(`nmh uygulamayi baslatmadi (serene.exe=${report.exeRunningAfter})`);
+      problems.push(`nmh uygulamayi baslatmadi (serene_app.exe=${report.exeRunningAfter})`);
     }
     if (!report.ipcExists) problems.push("otomatik baslatma sonrasi ipc.json yok");
 
@@ -287,9 +296,9 @@ async function main() {
     host2.send({ type: "ping" });
     const pong2 = await host2.waitFor((m) => m.type === "pong", 20000, "ikinci pong");
     report.secondHostPid = pong2.payload.pid;
-    report.exeRunningAfterSecond = processCount("serene.exe");
+    report.exeRunningAfterSecond = processCount("serene_app.exe");
     console.log(
-      `ikinci nmh: pid=${pong2.payload.pid}, serene.exe sayisi=${report.exeRunningAfterSecond}`
+      `ikinci nmh: pid=${pong2.payload.pid}, serene_app.exe sayisi=${report.exeRunningAfterSecond}`
     );
     if (report.exeRunningAfterSecond !== 1) {
       problems.push(`ikinci nmh yeni surec acti (${report.exeRunningAfterSecond})`);
@@ -369,6 +378,18 @@ async function main() {
       problems.push("kayit defteri anahtari silinmedi");
     }
     if (report.manifestAfterUnregister) problems.push("manifest dosyasi silinmedi");
+
+    /* 9. Kaydi geri kur: kosum anahtari sildi, onceki duruma don. */
+    const restore = spawn(NMH, ["--register-host"], { stdio: ["ignore", "pipe", "pipe"] });
+    let restoreOut = "";
+    restore.stdout.on("data", (c) => (restoreOut += c.toString()));
+    restore.stderr.on("data", (c) => (restoreOut += c.toString()));
+    const restoreCode = await new Promise((resolve) => restore.on("exit", resolve));
+    report.registryRestored = registryValue();
+    console.log(`kayit geri kuruldu: ${report.registryRestored} (cikis ${restoreCode})`);
+    if (restoreCode !== 0 || report.registryRestored !== MANIFEST) {
+      problems.push(`kayit geri kurulamadi: ${restoreOut.trim() || "(cikti yok)"}`);
+    }
 
     console.log("");
     console.log(JSON.stringify(report, null, 2));

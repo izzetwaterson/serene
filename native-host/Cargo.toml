@@ -10,6 +10,10 @@ rust-version = "1.77"
 name = "serene_native_host"
 path = "src/lib.rs"
 
+[[bin]]
+name = "serene-nmh"
+path = "src/bin/serene-nmh.rs"
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
