@@ -1,186 +1,120 @@
 // Serene yerel kopru (bridge) dogrulamasi.
 //
-// Dogrulananlar:
-//   1. ipc.json yazilir; port ve rastgele token icerir
-//   2. Token olmadan / yanlis token ile baglanti reddedilir
-//   3. Dogru token ile el sikisma "ready" doner
-//   4. ping -> pong (pid uygulamayla ayni)
-//   5. subscribe -> subscribed, ardindan enqueue -> ack + tasks/progress olaylari
-//   6. bridge_status komutu canli baglanti sayisini bildirir
-//   7. Uygulama kapaninca ipc.json silinir
+// Gercek uygulama baslatilir ve yerel kopru dogrudan konusturulur: webview
+// surulmez, yalnizca tel bicimi denetlenir. Boylece protokol kabuktan bagimsiz
+// olarak sınanir.
 //
-// Kullanim: node scripts/check_bridge.mjs
+// Dogrulananlar:
+//   1. ipc.json yazilir; port, pid, surum ve rastgele token (>=32) icerir
+//   2. Token'siz ve yanlis token'li baglanti reddedilir, soket kapanir
+//   3. Dogru token ile el sikismasi "ready" doner
+//   4. Bilinmeyen komut hata doner; yanitlar token'i sizdirmaz
+//   5. ping -> pong (pid uygulamayla ayni, clients canli baglanti sayisi)
+//   6. subscribe -> subscribed; enqueue -> ack + progress olaylari; dosya
+//      hedef klasore bayt bayt iner
+//   7. pause/resume durum gecisleri kopruden surulur
+//   8. remove gorevi listeden dusurur
+//   9. Uygulama kapaninca ipc.json silinir
+//
+// Kullanim:
+//   cd flutter_app && flutter build windows --debug
+//   node scripts/check_bridge.mjs
+//
+// Baska bir derlemeyi denemek icin: SERENE_APP_EXE=...\serene_app.exe
+// Her sey gecici bir klasorde yasar: kullanicinin %APPDATA%\Serene'i ve
+// Indirilenler'i etkilenmez.
 
-import { execSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { connect as netConnect } from "node:net";
 
-// Baska bir derlemeyi denemek icin: SERENE_EXE=...\target\release\serene.exe
+const ROOT = resolve(import.meta.dirname, "..");
 const EXE =
-  process.env.SERENE_EXE ||
-  "C:\\Users\\izzet\\Desktop\\serene\\src-tauri\\target\\debug\\serene.exe";
-const CWD = "C:\\Users\\izzet\\Desktop\\serene\\src-tauri";
-const IPC_PATH = join(process.env.APPDATA, "Serene", "ipc.json");
-const PORT = Number(process.env.SERENE_CDP_PORT || 9335);
+  process.env.SERENE_APP_EXE ||
+  join(ROOT, "flutter_app", "build", "windows", "x64", "runner", "Debug", "serene_app.exe");
+const IMAGE = "serene_app";
+const LIST_WINDOWS = join(ROOT, "scripts", "list_windows.ps1");
 const HTTP_PORT = 8793;
+
+const DRIP_CHUNK = 16 * 1024;
+const DRIP_DELAY_MS = 300;
+const PAYLOAD = Buffer.alloc(192 * 1024, 0x51);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/* ---------- yerel test sunucusu ---------- */
-
-const PAYLOAD = Buffer.alloc(192 * 1024, 0x51);
-const DRIP_CHUNK = 16 * 1024;
-const DRIP_DELAY_MS = 300;
-
-/// Govdeyi parca parca gonderir. Amac: indirmeyi 400 ms'lik ilerleme
-/// tikinden daha uzun surdurmek, boylece `tasks:progress` olaylari aksin.
-function drip(res, buffer, onDone) {
-  let offset = 0;
-  const timer = setInterval(() => {
-    if (offset >= buffer.length) {
-      clearInterval(timer);
-      res.end();
-      onDone?.();
-      return;
-    }
-    const slice = buffer.subarray(offset, offset + DRIP_CHUNK);
-    offset += slice.length;
-    res.write(slice);
-  }, DRIP_DELAY_MS);
-
-  res.on("close", () => clearInterval(timer));
+function fail(reason) {
+  console.log("BASARISIZ: " + reason);
+  process.exit(1);
 }
 
+/* ---------- yerel test sunucusu ---------- */
+
+/// Govdeyi parca parca gonderir: indirme, ilerleme tikinden (400 ms) uzun
+/// surmeli ki `progress` olaylari aksin.
 function startHttpServer() {
   const server = createServer((req, res) => {
     const total = PAYLOAD.length;
-    const range = req.headers.range;
+    const range = /bytes=(\d+)-(\d*)/.exec(req.headers.range || "");
+    const start = range ? Number(range[1]) : 0;
+    const end = range ? (range[2] ? Number(range[2]) : total - 1) : total - 1;
 
-    if (range) {
-      const match = /bytes=(\d+)-(\d*)/.exec(range);
-      const start = Number(match[1]);
-      const end = match[2] ? Number(match[2]) : total - 1;
-      res.writeHead(206, {
-        "Content-Type": "application/octet-stream",
-        "Content-Length": end - start + 1,
-        "Content-Range": `bytes ${start}-${end}/${total}`,
-        "Accept-Ranges": "bytes",
-        "Content-Disposition": 'attachment; filename="kopru-testi.bin"',
-      });
-      drip(res, PAYLOAD.subarray(start, end + 1));
-      return;
-    }
-
-    res.writeHead(200, {
+    const headers = {
       "Content-Type": "application/octet-stream",
-      "Content-Length": total,
+      "Content-Length": end - start + 1,
       "Accept-Ranges": "bytes",
-      "Content-Disposition": 'attachment; filename="kopru-testi.bin"',
-    });
-    drip(res, PAYLOAD);
+      "Content-Disposition": 'attachment; filename="kopru-kuyruk.bin"',
+    };
+    if (range) headers["Content-Range"] = `bytes ${start}-${end}/${total}`;
+    res.writeHead(range ? 206 : 200, headers);
+
+    const slice = PAYLOAD.subarray(start, end + 1);
+    let offset = 0;
+    const timer = setInterval(() => {
+      if (offset >= slice.length) {
+        clearInterval(timer);
+        res.end();
+        return;
+      }
+      res.write(slice.subarray(offset, offset + DRIP_CHUNK));
+      offset += DRIP_CHUNK;
+    }, DRIP_DELAY_MS);
+    res.on("close", () => clearInterval(timer));
   });
 
   return new Promise((resolve) => server.listen(HTTP_PORT, "127.0.0.1", () => resolve(server)));
 }
 
-/* ---------- CDP ---------- */
+/* ---------- isletim sistemi pencereleri ---------- */
 
-async function findTarget(timeoutMs = 40000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`http://127.0.0.1:${PORT}/json/list`);
-      const targets = await response.json();
-      const page = targets.find((item) => item.type === "page" && item.webSocketDebuggerUrl);
-      if (page) return page;
-    } catch {
-      /* port henuz acilmadi */
-    }
-    await sleep(500);
-  }
-  throw new Error(`CDP hedefi bulunamadi (port ${PORT})`);
-}
-
-class Cdp {
-  constructor(socket) {
-    this.socket = socket;
-    this.nextId = 1;
-    this.pending = new Map();
-  }
-
-  send(method, params = {}) {
-    const id = this.nextId++;
-    this.socket.send(JSON.stringify({ id, method, params }));
-    return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      setTimeout(() => {
-        if (this.pending.delete(id)) reject(new Error(`${method} zaman asimi`));
-      }, 30000);
+function openWindows() {
+  const out = execFileSync(
+    "powershell",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", LIST_WINDOWS, "-ProcessName", IMAGE],
+    { encoding: "utf8", windowsHide: true },
+  );
+  return out
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      const [pid, title, visible] = line.split("\t");
+      return { pid: Number(pid), title: title || "", visible: visible === "1" };
     });
-  }
-
-  handle(message) {
-    const entry = this.pending.get(message.id);
-    if (!entry) return;
-    this.pending.delete(message.id);
-    if (message.error) entry.reject(new Error(JSON.stringify(message.error)));
-    else entry.resolve(message.result);
-  }
-
-  async evaluate(expression, awaitPromise = false) {
-    const result = await this.send("Runtime.evaluate", {
-      expression,
-      awaitPromise,
-      returnByValue: true,
-      userGesture: true,
-    });
-    if (result.exceptionDetails) {
-      throw new Error(
-        `JS hatasi: ${
-          result.exceptionDetails.exception?.description || result.exceptionDetails.text
-        }`
-      );
-    }
-    return result.result.value;
-  }
 }
 
-async function connectCdp() {
-  const target = await findTarget();
-  const socket = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((resolve, reject) => {
-    socket.addEventListener("open", resolve, { once: true });
-    socket.addEventListener("error", reject, { once: true });
-  });
-  const cdp = new Cdp(socket);
-  socket.addEventListener("message", (event) => cdp.handle(JSON.parse(event.data)));
-  await cdp.send("Runtime.enable");
-  return cdp;
-}
-
-async function waitForApp(cdp, timeoutMs = 25000) {
+async function until(label, timeoutMs, probe, intervalMs = 300) {
   const deadline = Date.now() + timeoutMs;
-  let last = null;
-  while (Date.now() < deadline) {
-    try {
-      last = await cdp.evaluate(
-        `(() => ({
-          hasInput: Boolean(document.getElementById("url-input")),
-          hasTauri: Boolean(window.__TAURI__ && window.__TAURI__.core),
-        }))()`
-      );
-    } catch (error) {
-      last = { error: error.message };
-    }
-    if (last && last.hasInput && last.hasTauri) return last;
-    await sleep(300);
+  for (;;) {
+    const value = await probe();
+    if (value) return value;
+    if (Date.now() > deadline) throw new Error(`${label}: ${timeoutMs} ms icinde gerceklesmedi`);
+    await sleep(intervalMs);
   }
-  throw new Error(`arayuz hazir olmadi: ${JSON.stringify(last)}`);
 }
 
-/* ---------- ham TCP istemcisi ---------- */
+/* ---------- yerel kopru istemcisi ---------- */
 
 class IpcClient {
   constructor(socket) {
@@ -188,6 +122,7 @@ class IpcClient {
     this.buffer = "";
     this.messages = [];
     this.waiters = [];
+    this.closers = [];
     this.closed = false;
 
     socket.setEncoding("utf8");
@@ -198,26 +133,30 @@ class IpcClient {
         const line = this.buffer.slice(0, index).trim();
         this.buffer = this.buffer.slice(index + 1);
         if (!line) continue;
-        let parsed;
         try {
-          parsed = JSON.parse(line);
+          const parsed = JSON.parse(line);
+          this.messages.push(parsed);
+          for (const waiter of [...this.waiters]) waiter(parsed);
         } catch {
-          continue;
+          /* JSON olmayan satir yoksayilir */
         }
-        this.messages.push(parsed);
-        for (const waiter of [...this.waiters]) waiter(parsed);
       }
     });
-    socket.on("close", () => (this.closed = true));
-    socket.on("error", () => (this.closed = true));
+    socket.on("close", () => this._closed());
+    socket.on("error", () => this._closed());
+  }
+
+  _closed() {
+    this.closed = true;
+    for (const closer of this.closers) closer();
+    this.closers = [];
   }
 
   send(object) {
     this.socket.write(`${JSON.stringify(object)}\n`);
   }
 
-  /** Verilen kosula uyan ilk mesaji bekler (once birikmisler taranir). */
-  waitFor(predicate, timeoutMs = 15000, label = "mesaj") {
+  waitFor(predicate, timeoutMs, label) {
     const found = this.messages.find(predicate);
     if (found) return Promise.resolve(found);
 
@@ -225,12 +164,9 @@ class IpcClient {
       const timer = setTimeout(() => {
         this.waiters = this.waiters.filter((w) => w !== waiter);
         reject(
-          new Error(
-            `${label} zaman asimi. Gelenler: ${JSON.stringify(this.messages.slice(-6))}`
-          )
+          new Error(`${label} zaman asimi. Son mesajlar: ${JSON.stringify(this.messages.slice(-4))}`),
         );
       }, timeoutMs);
-
       const waiter = (message) => {
         if (!predicate(message)) return;
         clearTimeout(timer);
@@ -241,14 +177,21 @@ class IpcClient {
     });
   }
 
-  async waitForClose(timeoutMs = 8000) {
-    if (this.closed) return true;
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      if (this.closed) return true;
-      await sleep(100);
-    }
-    return false;
+  /// Sunucunun baglantiyi kapatmasi beklenir (reddedilen el sikismasi).
+  waitForClose(timeoutMs, label) {
+    if (this.closed) return Promise.resolve(true);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.closers = this.closers.filter((c) => c !== closer);
+        reject(new Error(`${label} zaman asimi`));
+      }, timeoutMs);
+      const closer = () => {
+        clearTimeout(timer);
+        this.closers = this.closers.filter((c) => c !== closer);
+        resolve(true);
+      };
+      this.closers.push(closer);
+    });
   }
 
   close() {
@@ -260,277 +203,284 @@ class IpcClient {
   }
 }
 
-async function openIpc(port) {
-  const socket = netConnect({ host: "127.0.0.1", port });
+let reqSeq = 0;
+
+async function call(client, op, fields = {}, timeoutMs = 30000) {
+  const reqId = `k${++reqSeq}`;
+  client.send({ type: op, reqId, ...fields });
+  const answer = await client.waitFor((m) => m.reqId === reqId, timeoutMs, `${op} yaniti`);
+  if (answer.type === "error") {
+    throw new Error(`${op}: ${answer.payload?.message || "bilinmeyen hata"}`);
+  }
+  return answer;
+}
+
+const taskList = (client) => call(client, "list").then((answer) => answer.payload);
+
+async function waitTask(client, id, done, timeoutMs = 90000) {
+  return until(
+    `gorev ${id}`,
+    timeoutMs,
+    async () => {
+      const task = (await taskList(client)).find((t) => t.id === id);
+      return task && done(task) ? task : null;
+    },
+    300,
+  );
+}
+
+/// El sikismasi olmadan baglanir: token denemeleri icin.
+async function rawConnect(dataDir) {
+  const info = JSON.parse(readFileSync(join(dataDir, "ipc.json"), "utf8"));
+  const socket = netConnect({ host: "127.0.0.1", port: info.port });
   await new Promise((resolve, reject) => {
     socket.once("connect", resolve);
     socket.once("error", reject);
   });
-  return new IpcClient(socket);
+  return { client: new IpcClient(socket), info };
+}
+
+async function connectBridge(dataDir) {
+  const info = await until(
+    "ipc.json",
+    30000,
+    () => {
+      const path = join(dataDir, "ipc.json");
+      if (!existsSync(path)) return null;
+      try {
+        const parsed = JSON.parse(readFileSync(path, "utf8"));
+        return parsed.port && parsed.token ? parsed : null;
+      } catch {
+        return null;
+      }
+    },
+    300,
+  );
+
+  const socket = netConnect({ host: "127.0.0.1", port: info.port });
+  await new Promise((resolve, reject) => {
+    socket.once("connect", resolve);
+    socket.once("error", reject);
+  });
+  const client = new IpcClient(socket);
+
+  client.send({ type: "hello", token: info.token });
+  await client.waitFor((m) => m.type === "ready", 10000, "ready");
+  return { client, info };
+}
+
+/* ---------- uygulama sureci ---------- */
+
+function launch(dataDir) {
+  const proc = spawn(EXE, [], {
+    cwd: join(EXE, ".."),
+    env: { ...process.env, SERENE_DATA_DIR: dataDir },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let log = "";
+  proc.stdout.on("data", (chunk) => (log += chunk.toString()));
+  proc.stderr.on("data", (chunk) => (log += chunk.toString()));
+  proc.on("exit", (code) => (log += `\n[cikis ${code}]`));
+  return { proc, log: () => log };
+}
+
+function killAll() {
+  spawnSync("taskkill", ["/F", "/IM", `${IMAGE}.exe`, "/T"], {
+    stdio: "ignore",
+    windowsHide: true,
+  });
+}
+
+/// `/F` olmadan Windows pencereye WM_CLOSE gonderir: uygulama kapanirken
+/// kopru kaydini (`ipc.json`) kendisi siler.
+function closeGracefully() {
+  spawnSync("taskkill", ["/IM", `${IMAGE}.exe`, "/T"], {
+    stdio: "ignore",
+    windowsHide: true,
+  });
+}
+
+async function startApp(dataDir) {
+  rmSync(join(dataDir, "ipc.json"), { force: true });
+  const app = launch(dataDir);
+  const started = await connectBridge(dataDir);
+  return { app, ...started };
 }
 
 /* ---------- ana akis ---------- */
 
-async function main() {
-  const report = {};
-  const problems = [];
+const report = {};
+const problems = [];
 
-  if (existsSync(IPC_PATH)) {
-    try {
-      execSync(`del /q "${IPC_PATH}"`, { stdio: "ignore", windowsHide: true });
-    } catch {
-      /* yok */
-    }
-  }
+async function main() {
+  if (!existsSync(EXE)) fail("uygulama bulunamadi: " + EXE + " (once `flutter build windows --debug`)");
+  if (openWindows().length) fail(`calisan bir ${IMAGE}.exe var; kosumdan once onu kapat`);
+
+  const dataDir = mkdtempSync(join(tmpdir(), "serene-bridge-"));
+  const downloadDir = join(dataDir, "indir");
+  mkdirSync(downloadDir);
+  writeFileSync(
+    join(dataDir, "settings.json"),
+    JSON.stringify(
+      {
+        downloadDir,
+        maxConcurrent: 2,
+        connections: 2,
+        watchClipboard: false,
+        closeToTray: false,
+        confirmBrowserDownload: false,
+      },
+      null,
+      2,
+    ),
+  );
 
   const httpServer = await startHttpServer();
-
-  const env = { ...process.env };
-  env.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = `--remote-debugging-port=${PORT}`;
-
-  console.log(`baslatiliyor: ${EXE}`);
-  const proc = spawn(EXE, [], { cwd: CWD, env, stdio: ["ignore", "pipe", "pipe"] });
-  let appLog = "";
-  proc.stdout.on("data", (chunk) => (appLog += chunk.toString()));
-  proc.stderr.on("data", (chunk) => (appLog += chunk.toString()));
-
-  let failed = false;
+  let client = null;
+  let app = null;
 
   try {
-    const cdp = await connectCdp();
-    await waitForApp(cdp);
-
-    /* 1. ipc.json */
-    const deadline = Date.now() + 15000;
-    while (!existsSync(IPC_PATH) && Date.now() < deadline) await sleep(300);
-    if (!existsSync(IPC_PATH)) throw new Error("ipc.json olusmadi");
-
-    const info = JSON.parse(readFileSync(IPC_PATH, "utf8"));
-    report.ipcFile = {
-      port: info.port,
-      tokenLength: String(info.token || "").length,
-      pid: info.pid,
-      version: info.version,
-    };
-    console.log(
-      `ipc.json: port=${info.port}, token uzunlugu=${report.ipcFile.tokenLength}, pid=${info.pid}, surum=${info.version}`
-    );
-    if (!info.port) problems.push("ipc.json port alani bos");
-    if (!info.token || String(info.token).length < 32) {
-      problems.push("ipc.json token yeterince uzun degil");
+    /* 1: ipc.json alanlari */
+    const first = await startApp(dataDir);
+    app = first.app;
+    client = first.client;
+    const info = first.info;
+    report.ipc = { port: info.port, pid: info.pid, version: info.version };
+    if (!Number.isInteger(info.port) || info.port <= 0) problems.push("ipc.json port gecersiz");
+    if (!info.token || info.token.length < 32) problems.push("ipc.json token'i kisa");
+    if (info.pid !== app.proc.pid) {
+      problems.push(`ipc.json pid uygulamayla ayni degil: ${info.pid} != ${app.proc.pid}`);
     }
 
-    /* 2a. Yanlis token */
-    const bad = await openIpc(info.port);
-    bad.send({ type: "hello", token: "yanlis-token" });
-    const badError = await bad.waitFor((m) => m.type === "error", 8000, "yanlis token hatasi");
-    report.badToken = { error: badError.payload?.message, closed: await bad.waitForClose() };
-    console.log(`yanlis token: "${report.badToken.error}", baglanti kapandi: ${report.badToken.closed}`);
-    bad.close();
-    if (report.badToken.closed !== true) problems.push("yanlis token sonrasi baglanti kapanmadi");
+    /* 2: tokensiz ve yanlis token'li baglanti reddedilir */
+    const bare = await rawConnect(dataDir);
+    bare.client.send({ type: "ping" });
+    const rejected = await bare.client.waitFor((m) => m.type === "error", 10000, "tokensiz reddi");
+    report.tokenlessRejection = rejected.payload?.message;
+    await bare.client.waitForClose(10000, "tokensiz kapanis");
+    bare.client.close();
 
-    /* 2b. El sikismasi olmadan komut */
-    const noHello = await openIpc(info.port);
-    noHello.send({ type: "ping" });
-    const noHelloError = await noHello.waitFor(
+    const wrong = await rawConnect(dataDir);
+    wrong.client.send({ type: "hello", token: "yanlis-token" });
+    const wrongRejected = await wrong.client.waitFor(
       (m) => m.type === "error",
-      8000,
-      "el sikismasi hatasi"
+      10000,
+      "yanlis token reddi",
     );
-    report.noHello = {
-      error: noHelloError.payload?.message,
-      closed: await noHello.waitForClose(),
-    };
-    console.log(
-      `el sikismasiz istek: "${report.noHello.error}", baglanti kapandi: ${report.noHello.closed}`
-    );
-    noHello.close();
-    if (report.noHello.closed !== true) problems.push("el sikismasiz istekte baglanti kapanmadi");
+    report.wrongTokenRejection = wrongRejected.payload?.message;
+    await wrong.client.waitForClose(10000, "yanlis token kapanisi");
+    wrong.client.close();
 
-    /* 3-5. Dogru token ile tam akis */
-    const client = await openIpc(info.port);
-    client.send({ type: "hello", token: info.token });
-    const ready = await client.waitFor((m) => m.type === "ready", 10000, "ready");
-    report.ready = ready.payload;
-    console.log(`el sikisma tamam: surum=${ready.payload.version}, port=${ready.payload.port}`);
+    /* 3-4: ping/pong + bilinmeyen komut + token sizmaz */
+    const pong = await call(client, "ping");
+    report.ping = pong.payload;
+    if (pong.payload?.pid !== app.proc.pid) {
+      problems.push(`ping pid'i uygulamayla ayni degil: ${pong.payload?.pid}`);
+    }
+    if (pong.payload?.clients !== 1) {
+      problems.push(`ping clients=1 bekleniyordu: ${pong.payload?.clients}`);
+    }
+    if (JSON.stringify(pong).includes(info.token)) problems.push("ping yaniti token'i sizdirdi");
 
-    client.send({ type: "ping" });
-    const pong = await client.waitFor((m) => m.type === "pong", 8000, "pong");
-    report.pong = pong.payload;
-    console.log(`pong: pid=${pong.payload.pid}, istemci=${pong.payload.clients}`);
-    if (pong.payload.pid !== info.pid) problems.push("pong pid'i uygulama pid'i ile ayni degil");
-    if (pong.payload.clients !== 1) {
-      problems.push(`pong istemci sayisi 1 degil (${pong.payload.clients})`);
+    let unknown = null;
+    try {
+      await call(client, "olmayan_komut");
+      problems.push("bilinmeyen komut hata dondurmedi");
+    } catch (error) {
+      unknown = String(error.message);
+    }
+    report.unknownCommand = unknown;
+    if (unknown && !unknown.includes("bilinmeyen komut")) {
+      problems.push(`bilinmeyen komut mesaji beklenen degil: ${unknown}`);
     }
 
-    /* Kopru durumu arayuzden okunabiliyor mu? */
-    report.bridgeStatus = await cdp.evaluate(
-      `(async () => await window.__TAURI__.core.invoke("bridge_status"))()`,
-      true
-    );
-    console.log(
-      `bridge_status: port=${report.bridgeStatus.port}, istemci=${report.bridgeStatus.clients}`
-    );
-    if (report.bridgeStatus.clients !== 1) {
-      problems.push(`bridge_status istemci sayisi 1 degil (${report.bridgeStatus.clients})`);
+    /* 5: ikinci baglanti clients sayisini artirir, kapaninca duser */
+    const peer = await rawConnect(dataDir);
+    peer.client.send({ type: "hello", token: info.token });
+    await peer.client.waitFor((m) => m.type === "ready", 10000, "peer ready");
+    const both = await call(client, "ping");
+    report.clientsWithPeer = both.payload?.clients;
+    if (both.payload?.clients !== 2) {
+      problems.push(`ikinci baglanti clients=2 uretmedi: ${both.payload?.clients}`);
     }
-    if (report.bridgeStatus.token !== undefined) {
-      problems.push("bridge_status token sizdirdi");
+    peer.client.close();
+    const alone = await until(
+      "clients sayisinin dusmesi",
+      15000,
+      async () => {
+        const answer = await call(client, "ping");
+        return answer.payload?.clients === 1 ? answer.payload : null;
+      },
+      400,
+    );
+    report.clientsAfterPeer = alone.clients;
+
+    /* 6: subscribe + enqueue + olay akisi + disk */
+    await call(client, "subscribe");
+    await client.waitFor((m) => m.type === "subscribed", 10000, "subscribed");
+
+    const ack = await call(client, "enqueue", { url: `http://127.0.0.1:${HTTP_PORT}/kuyruk.bin` });
+    const taskId = ack.payload.id;
+    report.enqueue = { id: taskId, filename: ack.payload.filename, total: ack.payload.total };
+    if (ack.payload.total !== PAYLOAD.length) {
+      problems.push(`ack boyutu beklenen degil: ${ack.payload.total}`);
     }
 
-    client.send({ type: "subscribe" });
-    await client.waitFor((m) => m.type === "subscribed", 8000, "subscribed");
-    console.log("abonelik kuruldu");
-
-    const url = `http://127.0.0.1:${HTTP_PORT}/kopru-testi.bin`;
-    client.send({ type: "enqueue", reqId: "r1", url });
-
-    const ack = await client.waitFor(
-      (m) => m.type === "ack" && m.reqId === "r1",
+    await client.waitFor(
+      (m) => m.type === "progress" && (m.payload || []).some((tick) => tick.id === taskId),
       30000,
-      "ack"
+      "ilerleme olayi",
     );
-    report.ack = {
-      id: ack.payload.id,
-      filename: ack.payload.filename,
-      status: ack.payload.status,
-      total: ack.payload.total,
-      segments: Array.isArray(ack.payload.segments) ? ack.payload.segments.length : null,
-    };
-    console.log(
-      `ack: ${report.ack.filename}, durum=${report.ack.status}, boyut=${report.ack.total}, parca=${report.ack.segments}`
+
+    /* 7: pause -> paused, resume -> completed */
+    await call(client, "pause", { id: taskId });
+    const paused = await waitTask(client, taskId, (t) => t.status === "paused", 30000);
+    report.paused = paused.status;
+    await call(client, "resume", { id: taskId });
+
+    const finished = await waitTask(client, taskId, (t) => t.status === "completed");
+    report.completed = { downloaded: finished.downloaded, dest: finished.dest };
+    const landed = join(downloadDir, "kopru-kuyruk.bin");
+    if (!existsSync(landed) || !readFileSync(landed).equals(PAYLOAD)) {
+      problems.push("kopru-kuyruk.bin hedef klasorde beklenen icerikle bulunamadi");
+    }
+
+    /* 8: remove gorevi listeden dusurur */
+    await call(client, "remove", { id: taskId });
+    const gone = await until(
+      "gorevin listeden dusmesi",
+      15000,
+      async () => ((await taskList(client)).some((t) => t.id === taskId) ? null : true),
+      300,
     );
-    if (report.ack.total !== PAYLOAD.length) {
-      problems.push(`ack boyutu beklenen ${PAYLOAD.length} degil (${report.ack.total})`);
-    }
+    report.removed = gone;
 
-    /* Olay akisi: abone oldugumuz icin ilerleme paketleri gelmeli. */
-    const progress = await client.waitFor((m) => m.type === "progress", 30000, "progress");
-    const firstTick = progress.payload.find((tick) => tick.id === report.ack.id);
-    report.progressEvent = {
-      firstDownloaded: firstTick?.downloaded ?? null,
-      midFlight: Boolean(firstTick && firstTick.downloaded < PAYLOAD.length),
-    };
-    console.log(
-      `ilk progress olayi: inen=${report.progressEvent.firstDownloaded}/${PAYLOAD.length} (devam ederken)`
-    );
-    if (!firstTick) problems.push("progress olayinda bizim gorev yok");
-    if (!report.progressEvent.midFlight) {
-      problems.push("ilk progress olayi indirme bitmeden gelmedi");
-    }
-
-    /* Indirme tamamlanana kadar bekle. */
-    const finishDeadline = Date.now() + 60000;
-    let finalTask = null;
-    while (Date.now() < finishDeadline) {
-      const tasks = await cdp.evaluate(
-        `(async () => await window.__TAURI__.core.invoke("list_tasks"))()`,
-        true
-      );
-      finalTask = tasks.find((task) => task.id === report.ack.id);
-      if (finalTask && (finalTask.status === "completed" || finalTask.status === "failed")) break;
-      await sleep(500);
-    }
-    report.finalStatus = finalTask?.status;
-    report.finalDownloaded = finalTask?.downloaded;
-    console.log(`indirme sonucu: durum=${report.finalStatus}, inen=${report.finalDownloaded}`);
-    if (report.finalStatus !== "completed") {
-      problems.push(`indirme tamamlanmadi (${report.finalStatus})`);
-    }
-    if (report.finalDownloaded !== PAYLOAD.length) {
-      problems.push(`inen bayt beklenen degil (${report.finalDownloaded})`);
-    }
-
-    /* tasks olayi da akmis olmali. */
-    const tasksEvent = client.messages.find((m) => m.type === "tasks");
-    report.tasksEventSeen = Boolean(tasksEvent);
-    if (!tasksEvent) problems.push("tasks olayi hic gelmedi");
-
-    /* Abonelikten cikinca istemci sayisi duser. */
+    /* 9: kapanista ipc.json silinir */
     client.close();
-    await sleep(1200);
-    report.statusAfterClose = await cdp.evaluate(
-      `(async () => await window.__TAURI__.core.invoke("bridge_status"))()`,
-      true
+    client = null;
+    closeGracefully();
+    const removed = await until(
+      "ipc.json silinmesi",
+      25000,
+      () => (openWindows().length === 0 && !existsSync(join(dataDir, "ipc.json")) ? true : null),
+      400,
     );
-    console.log(`baglanti kapaninca istemci sayisi: ${report.statusAfterClose.clients}`);
-    if (report.statusAfterClose.clients !== 0) {
-      problems.push(`baglanti kapaninca istemci sayisi 0 degil (${report.statusAfterClose.clients})`);
-    }
-
-    /* 7. Kapanista ipc.json silinir */
-    await cdp.evaluate(
-      `(async () => {
-        const s = await window.__TAURI__.core.invoke("get_settings");
-        s.closeToTray = false;
-        await window.__TAURI__.core.invoke("update_settings", { settings: s });
-        return true;
-      })()`,
-      true
-    );
-    try {
-      await Promise.race([
-        cdp.evaluate(
-          `(async () => { await window.__TAURI__.window.getCurrentWindow().close(); return true; })()`,
-          true
-        ),
-        sleep(1500),
-      ]);
-    } catch {
-      /* soket kapandi */
-    }
-
-    const exitDeadline = Date.now() + 15000;
-    while (existsSync(IPC_PATH) && Date.now() < exitDeadline) await sleep(300);
-    report.ipcFileRemovedOnExit = !existsSync(IPC_PATH);
-    console.log(`kapanista ipc.json silindi: ${report.ipcFileRemovedOnExit}`);
-    if (!report.ipcFileRemovedOnExit) problems.push("kapanista ipc.json silinmedi");
-
-    /* Test kaydini temizle */
-    try {
-      execSync('taskkill /F /IM serene.exe /T', { stdio: "ignore", windowsHide: true });
-    } catch {
-      /* kapali */
-    }
-    await sleep(800);
-
-    console.log("");
-    console.log(JSON.stringify(report, null, 2));
-    console.log("");
-    if (problems.length) {
-      failed = true;
-      console.log(`BASARISIZ: ${problems.join("; ")}`);
-    } else {
-      console.log("BASARILI: yerel kopru token, komutlar ve olay akisi dogrulandi");
-    }
+    report.ipcRemoved = removed;
   } catch (error) {
-    failed = true;
-    console.log("");
-    console.log(`BASARISIZ: ${error.message}`);
+    problems.push(error.stack || String(error));
+    if (app) console.log(app.log().slice(-2000));
   } finally {
-    if (appLog.trim()) {
-      console.log("");
-      console.log("--- uygulama cikisi ---");
-      console.log(appLog.trim().slice(0, 4000));
-    }
-    try {
-      proc.kill();
-    } catch {
-      /* kapali */
-    }
-    await sleep(800);
-    try {
-      execSync('taskkill /F /IM serene.exe /T', { stdio: "ignore", windowsHide: true });
-    } catch {
-      /* kapali */
-    }
+    killAll();
+    await sleep(600);
     httpServer.close();
+    rmSync(dataDir, { recursive: true, force: true });
   }
 
-  process.exit(failed ? 1 : 0);
+  console.log(JSON.stringify(report, null, 2));
+  if (problems.length) fail(problems.join(" | "));
+  console.log(
+    "BASARILI: kopru protokolu, olay akisi, duraklat/devam ve kapanis temizligi dogrulandi",
+  );
 }
 
-main().catch((error) => {
-  console.log(`beklenmeyen hata: ${error.message}`);
-  process.exit(2);
-});
+main();
