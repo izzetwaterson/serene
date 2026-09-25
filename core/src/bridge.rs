@@ -669,6 +669,27 @@ where
                 };
                 send_outcome(tx, req, outcome).await;
             }
+            "pause" => {
+                let req = msg.req_id.clone();
+                let outcome = match msg.id.clone() {
+                    None => Err("id eksik".to_string()),
+                    Some(id) => manager.pause(&id),
+                };
+                send_outcome(tx, req, outcome).await;
+            }
+            "dismiss_capture" => {
+                let req = msg.req_id.clone();
+                let outcome = match msg.id.clone() {
+                    None => Err("id eksik".to_string()),
+                    Some(id) => manager.dismiss_capture(&id),
+                };
+                send_outcome(tx, req, outcome).await;
+            }
+            "clear_captures" => {
+                let req = msg.req_id.clone();
+                manager.clear_captures();
+                send_outcome(tx, req, Ok(())).await;
+            }
             "remove" => {
                 let req = msg.req_id.clone();
                 let outcome = match msg.id.clone() {
