@@ -1,4 +1,4 @@
-// Bu dosya scripts/fonts_to_ttf.py tarafindan uretilir; elle duzenlemeyin.
+// Bu dosya uretilmistir; elle duzenlemeyin.
 // Material Symbols ikon adlarinin kod noktalari.
 
 import 'package:flutter/widgets.dart';

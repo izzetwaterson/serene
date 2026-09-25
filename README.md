@@ -6,9 +6,6 @@ masaüstü uygulamasıdır (`flutter_app/`); indirme motoru Rust'ta yazılıdır
 çalıştırılabilir dosya vardır. Görsel tasarım `ui/` klasöründeki mockup'tan
 uyarlandı.
 
-Tauri + webview kabuğu (`src-tauri/` + `src/`) geçiş boyunca duruyor ve motorun
-aynı çekirdeğini kullanıyor; Flutter kabuğu ona birebir eşdeğer görünümü hedefler.
-
 ## Ne yapar
 
 - **Parçalı indirme** — `Range` istekleriyle tek dosyayı aynı anda 8 bağlantıdan çeker.
@@ -34,8 +31,7 @@ aynı çekirdeğini kullanıyor; Flutter kabuğu ona birebir eşdeğer görünü
 
 - Rust (stable) + MinGW-w64 gcc ya da Visual Studio Build Tools (C++)
 - Flutter (masaüstü Windows desteğiyle) ve `flutter_rust_bridge_codegen` 2.13.0
-- Yazı tiplerini yenilemek için Python + `fonttools`
-- Eski Tauri kabuğu için WebView2 Runtime (Windows 10/11'de genelde kurulu gelir)
+- Python: ikon üretimi (`scripts/make_icons.py`) ve eklenti paketleme (`scripts/pack_extension.py`)
 - Tarayıcı entegrasyonu için Firefox tabanlı bir tarayıcı (Zen Browser dahil)
 
 ## Geliştirme
@@ -54,21 +50,15 @@ flutter run -d windows
 `flutter build windows --debug` Rust motorunu cargokit ile birlikte derler ve
 `build\windows\x64\runner\Debug\serene_app.exe` ikilisini üretir.
 
-### Eski Tauri kabuğu
+### Tarayıcı köprüsü ikilisi
 
-Arayüz CSS'i Tailwind ile üretilir, ardından uygulama derlenir:
+`serene-nmh.exe` `native-host/` paketinden derlenir; tarayıcı entegrasyonu için
+`serene_app.exe`'nin yanında durmak zorundadır:
 
 ```cmd
-cd src
-..\tools\tailwindcss.exe -c tailwind.config.js -i input.css -o app.css --minify
-
-cd ..\src-tauri
-cargo run
+cd native-host
+cargo build --release --bin serene-nmh
 ```
-
-`cargo run` hem `serene.exe` hem de `serene-nmh.exe` ikilisini derler. İki ikili de
-gerekir: `serene-nmh.exe` tarayıcının native messaging köprüsüdür ve uygulama
-ikilisinin yanında durmak zorundadır.
 
 Motor ve kabuklardan bağımsız Rust testleri:
 
@@ -131,10 +121,6 @@ node scripts\check_flutter.mjs
 > çevirir. Kaydı başka bir klasöre almak için o klasördeki `serene-nmh.exe`
 > bir kez `--register-host` ile çalıştırılır.
 
-`smoke_test.py`, `e2e_download.py` (klavye girdisi gönderir, pencere odağı ister) ve
-`e2e_cdp.mjs` (dış ağdan indirme) yardımcı koşumlardır; günlük doğrulama için yukarıdaki
-liste yeterlidir.
-
 ## Tarayıcı eklentisi
 
 Eklenti `extension/` klasöründedir (Firefox Manifest V2, kalıcı arka plan betiği).
@@ -171,7 +157,7 @@ Eklenti her şeyi `browser.runtime.connectNative` üzerinden yapar; uygulamaya g
 iki atlamalıdır:
 
 - **Native messaging** — tarayıcı `serene-nmh.exe` sürecini başlatır ve stdin/stdout
-  üzerinden 4 baytlık uzunluk önekli JSON konuşur. Bu ikili Tauri'yi linklemediği için
+  üzerinden 4 baytlık uzunluk önekli JSON konuşur. Bu ikili motora bağlanmadığı için
   küçüktür ve hızlı açılır.
 - **Yerel köprü (loopback)** — uygulama `127.0.0.1` üzerinde rastgele bir portta TCP
   dinler; port ve rastgele token `%APPDATA%\Serene\ipc.json` dosyasına yazılır.
@@ -230,26 +216,9 @@ Ayrıca:
 Klasörü taşırken `serene_app.exe`, `rust_lib_serene.dll`, `flutter_windows.dll`,
 ek plugin dll'leri, `data\` ve `serene-nmh.exe` birlikte gitmelidir.
 
-### Eski Tauri kabuğu
-
-```cmd
-cd src-tauri
-cargo build --release
-```
-
-`target\release\serene.exe` ve `WebView2Loader.dll` birlikte kopyalanmalıdır. Host
-ikilisi artık bu paketten değil `native-host`'tan gelir; `serene.exe`'nin yanına
-konur (`cd native-host && cargo build --release --bin serene-nmh`). NSIS kurulum
-paketi için:
-
-```cmd
-cargo tauri build
-```
-
 Native messaging kaydı **son çalıştırılan derlemeyi** işaret eder: uygulama her açılışta
 kendi klasöründeki `serene-nmh.exe` yolunu yazar. Yayın klasörünü başka bir yere
-taşıdıysanız oradaki ikiliyi bir kez çalıştırmak kaydı tazeler; araya giren bir
-geliştirme derlemesi kaydı tekrar `target\debug`'a çevirir. `SERENE_DATA_DIR`
+taşıdıysanız oradaki ikiliyi bir kez çalıştırmak kaydı tazeler. `SERENE_DATA_DIR`
 verilmişse (koşumların yalıtılmış çalıştırması) Flutter kabuğu kayda hiç
 dokunmaz: o kipte köprü geçici klasörde doğar, tarayıcı ise gerçek klasöre bakar.
 
@@ -295,14 +264,6 @@ dokunmaz: o kipte köprü geçici klasörde doğar, tarayıcı ise gerçek klas�
 | `flutter_app/lib/src/folder_picker.dart` | Yerel klasör seçme diyaloğunun tek kapısı |
 | `flutter_app/lib/src/theme.dart` | Renk ve tipografi belirteçleri |
 
-### Eski Tauri kabuğu
-
-| Dosya | Sorumluluk |
-|---|---|
-| `src-tauri/src/commands.rs` | Arayüzün çağırdığı Tauri komutları |
-| `src-tauri/src/tray.rs` | Tauri tepsi menüsü |
-| `src/app.js`, `src/index.html` | Web arayüzü; Flutter için görsel referans |
-
 ## Olay ve komut sözleşmesi
 
 Motor kararlarını `EventBus` üzerinden `CoreEvent` olarak yayınlar; her kabuk
@@ -323,7 +284,6 @@ göndermek yerine sadece değişen sayıları yamamak, arayüzde gereksiz yenide
 
 Flutter bu olayları `watchTasks/Progress/Captures/Handoff/Clipboard/Present`
 akışları olarak alır ve komutları doğrudan FFI'dan çağırır — arada soket yoktur.
-Tauri kabuğu aynı kutuyu eski adlarla (`tasks:update` vb.) webview'e çevirir.
 
 Tarayıcı ve başka süreçler için ayrı bir kanal vardır: köprü protokolü satır
 sonuyla ayrılmış JSON'dur. Bağlanan istemci önce `{"type":"hello","token":...}`
@@ -338,7 +298,7 @@ Arayüz native Flutter'a taşındı ve motorunun içine gömüldü. Tamamlanan a
 - Gomulu motor: `flutter_app/rust` ayrık derleme olmadan cargokit ile kurulur,
   komutlar ve olaylar FFI üzerinden gider; arayüz ile çekirdek arasında soket yok.
 - Arayüz: görev listesi, kartlar, "Tarayıcıdan" paneli, arama ve filtreler,
-  ilerleme çubukları `src/` görünümüyle birebir aynı.
+  ilerleme çubukları `ui/` mockup'ındaki görünümle aynı.
 - Kabuk davranışı: tepsi simgesi, kapatınca tepsiye gizleme, tek örnek koruması.
 - "İndirme Bilgileri" onayı: ayrı bir işletim sistemi penceresi olarak, ikinci bir
   süreçte açılır ve kararını köprü üzerinden çalışan örneğe yazar.
@@ -346,17 +306,10 @@ Arayüz native Flutter'a taşındı ve motorunun içine gömüldü. Tamamlanan a
   kullanımı.
 - Doğrulama: `check_ffi.mjs`, `check_flutter.mjs` ve `flutter test`.
 
-`src/` ve `src-tauri/` bilinçli olarak duruyor; emeklilik ayrı bir karar. Kararın
-önündeki engeller:
-
-- Kurulum paketi (NSIS) yalnızca Tauri tarafında tanımlı; Flutter için henüz bir
-  yükleyici yok, yayın klasörü elle taşınıyor.
-- Web kabuğunun kendi araçları (`e2e_cdp.mjs`, `e2e_download.py`, `smoke_test.py`,
-  `check_imports*.py`, `raise_window.ps1`, `screenshot.ps1`) hâlâ depoda;
-  `src/` ile birlikte silinmeleri gerekiyor.
-
-Koşumlar artık webview'e danışmıyor, `serene-nmh.exe` de `native-host/` paketinden
-derleniyor: emekliliğin önündeki iki eski engel kapandı.
+Eski Tauri + webview kabuğu (`src/`, `src-tauri/`) ve yalnızca ona hizmet eden
+araçlar depodan çıkarıldı; geriye tek kabuk kaldı. Emekliliğin önündeki son engel
+kurulum paketi: NSIS yalnızca Tauri tarafında tanımlıydı, Flutter için yükleyici
+henüz yok ve yayın klasörü elle taşınıyor.
 
 ## Bilinmeyenler / sınırlar
 

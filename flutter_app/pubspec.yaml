@@ -67,8 +67,7 @@ flutter:
   assets:
     - assets/icons/
 
-  # Tema, src/fonts altindaki woff2 parcalarindan uretilir:
-  # once "python scripts/fonts_to_ttf.py" calistirin.
+  # Yazı tipleri depoda TTF olarak durur; yeniden uretmek gerekmez.
   fonts:
     - family: Fraunces
       fonts:

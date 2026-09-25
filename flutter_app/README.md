@@ -5,23 +5,18 @@ projenin içine gömülür: ortaya tek `serene_app.exe` ve yanındaki
 `rust_lib_serene.dll` çıkar, arayüz ile motor arasında soket ya da protokol
 yoktur.
 
-Eski Tauri + webview arayüzü (`src/`, `src-tauri/`) geçiş boyunca referans olarak
-durur; görsel hedef onun **birebir** aynısıdır.
+Görsel hedef `ui/` klasöründeki mockup'tır.
 
 ## Gereksinimler
 
 - Flutter (masaüstü Windows desteğiyle) ve `flutter config --enable-windows-desktop`
 - Rust (stable) + Visual Studio Build Tools (C++ iş yükü)
 - `cargo install flutter_rust_bridge_codegen --version 2.13.0`
-- Yazı tipleri için Python + `fonttools` (`pip install fonttools brotli`)
 
 ## Kurulum
 
 ```cmd
 flutter pub get
-
-:: src/fonts altindaki woff2 parcalarini tek TTF'e cevirir (assets/fonts/)
-python ..\scripts\fonts_to_ttf.py
 
 :: Rust->Dart baglantilarini yeniler (lib/src/rust/)
 flutter_rust_bridge_codegen generate
@@ -104,8 +99,8 @@ aksi halde iki motor aynı görev listesine yazardı.
   CDP/sentetik tık ile koşulandırılamaz; davranış `flutter test` ile,
   kabuk-motor bütünleşmesi `node scripts/check_flutter.mjs` ile doğrulanır.
 - **Yazı tipi testi.** `test/font_test.dart` olmadan ikonlar sessizce yedek yazı
-  tipine düşer; `fonts_to_ttf.py` değişken eksenleri statik değere sabitler ve
-  sfnt'ye zorlar.
+  tipine düşer. Yazı tipleri `assets/fonts/` altında TTF olarak depoda durur:
+  değişken eksenler statik değere sabitlenmiş, sfnt başlığı doğrulanmıştır.
 
 ## Doğrulama
 
@@ -118,5 +113,9 @@ node scripts\check_flutter.mjs            :: pencere, tek ornek, indirme, onay a
 
 `check_flutter.mjs` uygulamayı gerçekten başlatır, tarayıcının kullandığı yerel
 köprüden komut verir ve işletim sistemi penceresini Win32'den okur
-(`scripts/list_windows.ps1`). Ekran görüntüsü için önce
-`scripts/raise_window.ps1 -ProcessName serene_app` ile pencere öne alınır.
+(`scripts/list_windows.ps1`). Ekran görüntüsü için, pencereyi öne alıp yalnızca
+onu yakalayan yardımcı:
+
+```cmd
+powershell -NoProfile -File scripts\capture_window.ps1 -ProcessName serene_app
+```

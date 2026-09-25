@@ -1,9 +1,5 @@
-# Rust derleme ciktilari
-src-tauri/target/
-src-tauri/build.log
-
-# Tauri'nin derleme sirasinda urettigi semalar
-src-tauri/gen/schemas/
+# Visual Studio yerel ayarlari
+.vs/
 
 # Test kosumlarinin ekran goruntuleri
 artifacts/
