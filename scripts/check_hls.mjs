@@ -2,6 +2,7 @@
 //
 // Gercek uygulama baslatilir, yerel kopruye baglanilir ve HLS gorevleri
 // `enqueue` ile verilir; sonuc dosyalari diskten okunup bayt bayt karsilastirilir.
+// Webview surulmez: tum adimlar kopru protokolu uzerinden yurutulur.
 //
 // Dogrulananlar:
 //   1. Master playlist -> en yuksek BANDWIDTH varyanti secilir, #EXT-X-MAP
@@ -12,11 +13,18 @@
 //      tamamlanan parcalar yeniden inmeden dogru dosya olusur
 //   5. METHOD=SAMPLE-AES (DRM) net bir hatayla reddedilir, uygulama cokmez
 //
-// Kullanim: node scripts/check_hls.mjs
+// Kullanim:
+//   cd flutter_app && flutter build windows --debug
+//   node scripts/check_hls.mjs
+//
+// Baska bir derlemeyi denemek icin: SERENE_APP_EXE=...\serene_app.exe
+// Her sey gecici bir klasorde yasar: kullanicinin %APPDATA%\Serene'i ve
+// Indirilenler'i etkilenmez.
 
-import { execSync, spawn } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { spawn, spawnSync, execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { connect as netConnect } from "node:net";
 
 import {
@@ -26,117 +34,49 @@ import {
   start as startHlsServer,
 } from "./serve_hls_test.mjs";
 
-// Baska bir derlemeyi denemek icin: SERENE_EXE=...\target\release\serene.exe
+const ROOT = resolve(import.meta.dirname, "..");
 const EXE =
-  process.env.SERENE_EXE ||
-  "C:\\Users\\izzet\\Desktop\\serene\\src-tauri\\target\\debug\\serene.exe";
-const CWD = "C:\\Users\\izzet\\Desktop\\serene\\src-tauri";
-const IPC_PATH = join(process.env.APPDATA, "Serene", "ipc.json");
-const PORT = Number(process.env.SERENE_CDP_PORT || 9336);
+  process.env.SERENE_APP_EXE ||
+  join(ROOT, "flutter_app", "build", "windows", "x64", "runner", "Debug", "serene_app.exe");
+const IMAGE = "serene_app";
+const LIST_WINDOWS = join(ROOT, "scripts", "list_windows.ps1");
 const HTTP_PORT = 8796;
-
-/// Test dosyalari indirme klasorune bu onekle duser; temizlikte yalnizca
-/// bu kalip silinir (kullanicinin kendi indirmelerine dokunulmaz).
-const OUTPUT_PATTERN = /^hls-(master|aes|auth|yavas|drm)( \(\d+\))?\.ts$/;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/* ---------- CDP ---------- */
-
-async function findTarget(timeoutMs = 40000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`http://127.0.0.1:${PORT}/json/list`);
-      const targets = await response.json();
-      const page = targets.find((item) => item.type === "page" && item.webSocketDebuggerUrl);
-      if (page) return page;
-    } catch {
-      /* port henuz acilmadi */
-    }
-    await sleep(500);
-  }
-  throw new Error(`CDP hedefi bulunamadi (port ${PORT})`);
+function fail(reason) {
+  console.log("BASARISIZ: " + reason);
+  process.exit(1);
 }
 
-class Cdp {
-  constructor(socket) {
-    this.socket = socket;
-    this.nextId = 1;
-    this.pending = new Map();
-  }
+/* ---------- isletim sistemi pencereleri ---------- */
 
-  send(method, params = {}) {
-    const id = this.nextId++;
-    this.socket.send(JSON.stringify({ id, method, params }));
-    return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      setTimeout(() => {
-        if (this.pending.delete(id)) reject(new Error(`${method} zaman asimi`));
-      }, 30000);
+function openWindows() {
+  const out = execFileSync(
+    "powershell",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", LIST_WINDOWS, "-ProcessName", IMAGE],
+    { encoding: "utf8", windowsHide: true },
+  );
+  return out
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      const [pid, title, visible] = line.split("\t");
+      return { pid: Number(pid), title: title || "", visible: visible === "1" };
     });
-  }
-
-  handle(message) {
-    const entry = this.pending.get(message.id);
-    if (!entry) return;
-    this.pending.delete(message.id);
-    if (message.error) entry.reject(new Error(JSON.stringify(message.error)));
-    else entry.resolve(message.result);
-  }
-
-  async evaluate(expression, awaitPromise = false) {
-    const result = await this.send("Runtime.evaluate", {
-      expression,
-      awaitPromise,
-      returnByValue: true,
-      userGesture: true,
-    });
-    if (result.exceptionDetails) {
-      throw new Error(
-        `JS hatasi: ${
-          result.exceptionDetails.exception?.description || result.exceptionDetails.text
-        }`
-      );
-    }
-    return result.result.value;
-  }
 }
 
-async function connectCdp() {
-  const target = await findTarget();
-  const socket = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((resolve, reject) => {
-    socket.addEventListener("open", resolve, { once: true });
-    socket.addEventListener("error", reject, { once: true });
-  });
-  const cdp = new Cdp(socket);
-  socket.addEventListener("message", (event) => cdp.handle(JSON.parse(event.data)));
-  await cdp.send("Runtime.enable");
-  return cdp;
-}
-
-async function waitForApp(cdp, timeoutMs = 25000) {
+async function until(label, timeoutMs, probe, intervalMs = 300) {
   const deadline = Date.now() + timeoutMs;
-  let last = null;
-  while (Date.now() < deadline) {
-    try {
-      last = await cdp.evaluate(
-        `(() => ({
-          hasInput: Boolean(document.getElementById("url-input")),
-          hasTauri: Boolean(window.__TAURI__ && window.__TAURI__.core),
-        }))()`
-      );
-    } catch (error) {
-      last = { error: error.message };
-    }
-    if (last && last.hasInput && last.hasTauri) return last;
-    await sleep(300);
+  for (;;) {
+    const value = await probe();
+    if (value) return value;
+    if (Date.now() > deadline) throw new Error(`${label}: ${timeoutMs} ms icinde gerceklesmedi`);
+    await sleep(intervalMs);
   }
-  throw new Error(`arayuz hazir olmadi: ${JSON.stringify(last)}`);
 }
 
-/* ---------- ham TCP istemcisi ---------- */
+/* ---------- yerel kopru istemcisi ---------- */
 
 class IpcClient {
   constructor(socket) {
@@ -154,14 +94,13 @@ class IpcClient {
         const line = this.buffer.slice(0, index).trim();
         this.buffer = this.buffer.slice(index + 1);
         if (!line) continue;
-        let parsed;
         try {
-          parsed = JSON.parse(line);
+          const parsed = JSON.parse(line);
+          this.messages.push(parsed);
+          for (const waiter of [...this.waiters]) waiter(parsed);
         } catch {
-          continue;
+          /* JSON olmayan satir yoksayilir */
         }
-        this.messages.push(parsed);
-        for (const waiter of [...this.waiters]) waiter(parsed);
       }
     });
     socket.on("close", () => (this.closed = true));
@@ -172,7 +111,7 @@ class IpcClient {
     this.socket.write(`${JSON.stringify(object)}\n`);
   }
 
-  waitFor(predicate, timeoutMs = 15000, label = "mesaj") {
+  waitFor(predicate, timeoutMs, label) {
     const found = this.messages.find(predicate);
     if (found) return Promise.resolve(found);
 
@@ -180,10 +119,9 @@ class IpcClient {
       const timer = setTimeout(() => {
         this.waiters = this.waiters.filter((w) => w !== waiter);
         reject(
-          new Error(`${label} zaman asimi. Gelenler: ${JSON.stringify(this.messages.slice(-4))}`)
+          new Error(`${label} zaman asimi. Son mesajlar: ${JSON.stringify(this.messages.slice(-4))}`),
         );
       }, timeoutMs);
-
       const waiter = (message) => {
         if (!predicate(message)) return;
         clearTimeout(timer);
@@ -203,50 +141,93 @@ class IpcClient {
   }
 }
 
-async function openIpc(port) {
-  const socket = netConnect({ host: "127.0.0.1", port });
+let reqSeq = 0;
+
+async function call(client, op, fields = {}, timeoutMs = 30000) {
+  const reqId = `h${++reqSeq}`;
+  client.send({ type: op, reqId, ...fields });
+  const answer = await client.waitFor((m) => m.reqId === reqId, timeoutMs, `${op} yaniti`);
+  if (answer.type === "error") {
+    throw new Error(`${op}: ${answer.payload?.message || "bilinmeyen hata"}`);
+  }
+  return answer;
+}
+
+const taskList = (client) => call(client, "list").then((answer) => answer.payload);
+
+async function waitTask(client, id, done, timeoutMs = 90000) {
+  return until(
+    `gorev ${id}`,
+    timeoutMs,
+    async () => {
+      const task = (await taskList(client)).find((t) => t.id === id);
+      return task && done(task) ? task : null;
+    },
+    300,
+  );
+}
+
+async function connectBridge(dataDir) {
+  const info = await until(
+    "ipc.json",
+    30000,
+    () => {
+      const path = join(dataDir, "ipc.json");
+      if (!existsSync(path)) return null;
+      try {
+        const parsed = JSON.parse(readFileSync(path, "utf8"));
+        return parsed.port && parsed.token ? parsed : null;
+      } catch {
+        return null;
+      }
+    },
+    300,
+  );
+
+  const socket = netConnect({ host: "127.0.0.1", port: info.port });
   await new Promise((resolve, reject) => {
     socket.once("connect", resolve);
     socket.once("error", reject);
   });
-  return new IpcClient(socket);
+  const client = new IpcClient(socket);
+
+  client.send({ type: "hello", token: info.token });
+  await client.waitFor((m) => m.type === "ready", 10000, "ready");
+  return { client, info };
 }
 
-/* ---------- yardimcilar ---------- */
+/* ---------- uygulama sureci ---------- */
 
-function cleanDownloadDir(dir = join(process.env.USERPROFILE, "Downloads")) {
-  try {
-    for (const name of readdirSync(dir)) {
-      if (OUTPUT_PATTERN.test(name)) rmSync(join(dir, name), { force: true });
-    }
-  } catch {
-    /* klasor yok */
-  }
+function launch(dataDir) {
+  const proc = spawn(EXE, [], {
+    cwd: join(EXE, ".."),
+    env: { ...process.env, SERENE_DATA_DIR: dataDir },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let log = "";
+  proc.stdout.on("data", (chunk) => (log += chunk.toString()));
+  proc.stderr.on("data", (chunk) => (log += chunk.toString()));
+  proc.on("exit", (code) => (log += `\n[cikis ${code}]`));
+  return { proc, log: () => log };
 }
 
-async function taskById(cdp, id) {
-  const tasks = await cdp.evaluate(
-    `(async () => await window.__TAURI__.core.invoke("list_tasks"))()`,
-    true
-  );
-  return tasks.find((task) => task.id === id);
+function killAll() {
+  spawnSync("taskkill", ["/F", "/IM", `${IMAGE}.exe`, "/T"], {
+    stdio: "ignore",
+    windowsHide: true,
+  });
 }
 
-async function waitForTask(cdp, id, timeoutMs, label) {
-  const deadline = Date.now() + timeoutMs;
-  let task = null;
-  while (Date.now() < deadline) {
-    task = await taskById(cdp, id);
-    if (task && (task.status === "completed" || task.status === "failed")) return task;
-    await sleep(250);
-  }
-  throw new Error(`${label}: gorev bitmedi (son durum: ${task?.status})`);
+async function startApp(dataDir) {
+  rmSync(join(dataDir, "ipc.json"), { force: true });
+  const app = launch(dataDir);
+  const started = await connectBridge(dataDir);
+  return { app, ...started };
 }
 
-/// Bir gorevi kuyruga verir ve `ack` bekler.
-async function enqueue(client, reqId, url, extra = {}) {
-  client.send({ type: "enqueue", reqId, url, kind: "hls", ...extra });
-  const ack = await client.waitFor((m) => m.type === "ack" && m.reqId === reqId, 30000, `ack ${reqId}`);
+/// Bir gorevi kuyruga verir ve `ack` bekler. Tur acikca `hls` gonderilir.
+async function enqueue(client, url, extra = {}) {
+  const ack = await call(client, "enqueue", { url, kind: "hls", ...extra }, 30000);
   return ack.payload;
 }
 
@@ -263,7 +244,7 @@ function verifyFile(task, expected, label, problems, report) {
   info.actualBytes = actual.length;
   info.expectedBytes = expected.length;
   console.log(
-    `${label}: ${actual.length} bayt indi, beklenen ${expected.length} (gorev toplami=${task.total})`
+    `${label}: ${actual.length} bayt indi, beklenen ${expected.length} (gorev toplami=${task.total})`,
   );
   if (actual.length !== expected.length) {
     problems.push(`${label}: boyut beklenen degil (${actual.length} != ${expected.length})`);
@@ -280,70 +261,63 @@ function verifyFile(task, expected, label, problems, report) {
 
 /* ---------- ana akis ---------- */
 
-async function main() {
-  const report = {};
-  const problems = [];
+const report = {};
+const problems = [];
 
-  if (existsSync(IPC_PATH)) {
-    try {
-      execSync(`del /q "${IPC_PATH}"`, { stdio: "ignore", windowsHide: true });
-    } catch {
-      /* yok */
-    }
-  }
-  cleanDownloadDir();
+async function main() {
+  if (!existsSync(EXE)) fail("uygulama bulunamadi: " + EXE + " (once `flutter build windows --debug`)");
+  if (openWindows().length) fail(`calisan bir ${IMAGE}.exe var; kosumdan once onu kapat`);
+
+  const dataDir = mkdtempSync(join(tmpdir(), "serene-hls-"));
+  const downloadDir = join(dataDir, "indir");
+  mkdirSync(downloadDir);
+  writeFileSync(
+    join(dataDir, "settings.json"),
+    JSON.stringify(
+      {
+        downloadDir,
+        maxConcurrent: 2,
+        connections: 2,
+        watchClipboard: false,
+        closeToTray: false,
+        confirmBrowserDownload: false,
+      },
+      null,
+      2,
+    ),
+  );
 
   const hls = await startHlsServer({ port: HTTP_PORT });
   console.log(`HLS test sunucusu: ${hls.url("/master.m3u8")}`);
+  console.log(`indirme klasoru: ${downloadDir}`);
 
-  // Indirme klasoru ayarlardan ogrenilir; temizlik de oradan yapilir.
-  let downloadsDir = join(process.env.USERPROFILE, "Downloads");
-
-  const env = { ...process.env };
-  env.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = `--remote-debugging-port=${PORT}`;
-
-  console.log(`baslatiliyor: ${EXE}`);
-  const proc = spawn(EXE, [], { cwd: CWD, env, stdio: ["ignore", "pipe", "pipe"] });
-  let appLog = "";
-  proc.stdout.on("data", (chunk) => (appLog += chunk.toString()));
-  proc.stderr.on("data", (chunk) => (appLog += chunk.toString()));
-
-  let failed = false;
+  let client = null;
+  let app = null;
 
   try {
-    const cdp = await connectCdp();
-    await waitForApp(cdp);
+    const started = await startApp(dataDir);
+    app = started.app;
+    client = started.client;
+    console.log("kopru hazir");
 
-    const deadline = Date.now() + 15000;
-    while (!existsSync(IPC_PATH) && Date.now() < deadline) await sleep(300);
-    if (!existsSync(IPC_PATH)) throw new Error("ipc.json olusmadi");
-    const info = JSON.parse(readFileSync(IPC_PATH, "utf8"));
-
-    const downloadsDirSetting = await cdp.evaluate(
-      `(async () => (await window.__TAURI__.core.invoke("get_settings")).downloadDir)()`,
-      true
-    );
-    downloadsDir = downloadsDirSetting;
-    report.downloadsDir = downloadsDir;
-    console.log(`indirme klasoru: ${downloadsDir}`);
-
-    const client = await openIpc(info.port);
-    client.send({ type: "hello", token: info.token });
-    await client.waitFor((m) => m.type === "ready", 10000, "ready");
-    client.send({ type: "subscribe" });
-    await client.waitFor((m) => m.type === "subscribed", 8000, "subscribed");
-    console.log("kopru hazir, abonelik kuruldu");
+    await call(client, "subscribe");
+    await client.waitFor((m) => m.type === "subscribed", 10000, "subscribed");
 
     /* 1. Master playlist -> en yuksek bant genisligi + init parcasi */
-    const task1 = await enqueue(client, "hls1", hls.url("/master.m3u8"));
+    const task1 = await enqueue(client, hls.url("/master.m3u8"));
     console.log(`gorev 1 kuyruga girdi: ${task1.filename}`);
-    const done1 = await waitForTask(cdp, task1.id, 60000, "master");
+    const done1 = await waitTask(
+      client,
+      task1.id,
+      (t) => t.status === "completed" || t.status === "failed",
+      60000,
+    );
     if (done1.status !== "completed") {
       problems.push(`master: gorev tamamlanmadi (${done1.status}: ${done1.error})`);
     }
     report.masterStatus = done1.status;
     verifyFile(done1, EXPECTED.master, "master", problems, report);
-    if (!String(done1.dest).startsWith(downloadsDir)) {
+    if (!String(done1.dest).startsWith(downloadDir)) {
       problems.push("master: dosya indirme klasorunun disinda");
     }
     // Init parcasi basta olmali: dosya 0x11 deseniyle baslar, parcalar 0x40+.
@@ -354,8 +328,13 @@ async function main() {
     }
 
     /* 2. AES-128 sifreli akis */
-    const task2 = await enqueue(client, "hls2", hls.url("/aes/index.m3u8"));
-    const done2 = await waitForTask(cdp, task2.id, 60000, "aes");
+    const task2 = await enqueue(client, hls.url("/aes/index.m3u8"));
+    const done2 = await waitTask(
+      client,
+      task2.id,
+      (t) => t.status === "completed" || t.status === "failed",
+      60000,
+    );
     if (done2.status !== "completed") {
       problems.push(`aes: gorev tamamlanmadi (${done2.status}: ${done2.error})`);
     }
@@ -363,11 +342,16 @@ async function main() {
     verifyFile(done2, EXPECTED.aes, "aes", problems, report);
 
     /* 3. Referer + Cookie isteyen varyant */
-    const task3 = await enqueue(client, "hls3", hls.url("/auth/master.m3u8"), {
+    const task3 = await enqueue(client, hls.url("/auth/master.m3u8"), {
       referer: REQUIRED_REFERER,
       cookie: `a=1; ${REQUIRED_COOKIE}`,
     });
-    const done3 = await waitForTask(cdp, task3.id, 60000, "auth");
+    const done3 = await waitTask(
+      client,
+      task3.id,
+      (t) => t.status === "completed" || t.status === "failed",
+      60000,
+    );
     if (done3.status !== "completed") {
       problems.push(`auth: gorev tamamlanmadi (${done3.status}: ${done3.error})`);
     }
@@ -375,30 +359,23 @@ async function main() {
     verifyFile(done3, EXPECTED.auth, "auth", problems, report);
 
     /* 4. Duraklat / devam */
-    const task4 = await enqueue(client, "hls4", hls.url("/slow/index.m3u8"));
+    const task4 = await enqueue(client, hls.url("/slow/index.m3u8"));
     await sleep(900); // ilk parcalar bitsin, sonrakiler yarim kalsin
-    await cdp.evaluate(
-      `(async () => await window.__TAURI__.core.invoke("pause_download", { id: ${JSON.stringify(
-        task4.id
-      )} }))()`,
-      true
-    );
-    await sleep(700);
-    const paused = await taskById(cdp, task4.id);
-    report.pause = { status: paused?.status, downloaded: paused?.downloaded };
-    console.log(`duraklatildi: durum=${paused?.status}, inen=${paused?.downloaded}`);
-    if (paused?.status !== "paused") problems.push(`duraklat: durum paused degil (${paused?.status})`);
-    if (!(paused?.downloaded > 0 && paused?.downloaded < EXPECTED.slow.length)) {
-      problems.push(`duraklat: ilerleme beklenen aralikta degil (${paused?.downloaded})`);
+    await call(client, "pause", { id: task4.id });
+    const paused = await waitTask(client, task4.id, (t) => t.status === "paused", 20000);
+    report.pause = { status: paused.status, downloaded: paused.downloaded };
+    console.log(`duraklatildi: durum=${paused.status}, inen=${paused.downloaded}`);
+    if (!(paused.downloaded > 0 && paused.downloaded < EXPECTED.slow.length)) {
+      problems.push(`duraklat: ilerleme beklenen aralikta degil (${paused.downloaded})`);
     }
 
-    await cdp.evaluate(
-      `(async () => await window.__TAURI__.core.invoke("resume_download", { id: ${JSON.stringify(
-        task4.id
-      )} }))()`,
-      true
+    await call(client, "resume", { id: task4.id });
+    const done4 = await waitTask(
+      client,
+      task4.id,
+      (t) => t.status === "completed" || t.status === "failed",
+      60000,
     );
-    const done4 = await waitForTask(cdp, task4.id, 60000, "duraklat/devam");
     if (done4.status !== "completed") {
       problems.push(`duraklat/devam: gorev tamamlanmadi (${done4.status}: ${done4.error})`);
     }
@@ -413,14 +390,19 @@ async function main() {
     report.progressTicks = ticks.length;
     report.maxTickBytes = ticks.reduce((max, tick) => Math.max(max, tick.downloaded), 0);
     console.log(
-      `duraklat/devam sirasinda ilerleme paketi: ${ticks.length} (en yuksek inen=${report.maxTickBytes})`
+      `duraklat/devam sirasinda ilerleme paketi: ${ticks.length} (en yuksek inen=${report.maxTickBytes})`,
     );
     if (ticks.length === 0) problems.push("duraklat/devam: hic ilerleme paketi gelmedi");
     if (report.maxTickBytes === 0) problems.push("duraklat/devam: ilerleme paketleri bos");
 
     /* 5. DRM reddi */
-    const task5 = await enqueue(client, "hls5", hls.url("/drm/index.m3u8"));
-    const done5 = await waitForTask(cdp, task5.id, 60000, "drm");
+    const task5 = await enqueue(client, hls.url("/drm/index.m3u8"));
+    const done5 = await waitTask(
+      client,
+      task5.id,
+      (t) => t.status === "completed" || t.status === "failed",
+      60000,
+    );
     report.drm = { status: done5.status, error: done5.error };
     console.log(`DRM gorevi: durum=${done5.status}, hata="${done5.error}"`);
     if (done5.status !== "failed") problems.push(`drm: gorev basarisiz olmadi (${done5.status})`);
@@ -430,69 +412,28 @@ async function main() {
     if (existsSync(done5.dest)) problems.push("drm: basarisiz gorev yine de dosya birakti");
 
     // Uygulama yasiyor mu: kopru ve komutlar hala yanit vermeli.
-    const alive = await cdp.evaluate(
-      `(async () => (await window.__TAURI__.core.invoke("list_tasks")).length)()`,
-      true
-    );
+    const alive = (await taskList(client)).length;
     report.appAlive = alive >= 5;
     console.log(`DRM sonrasi uygulama ayakta: ${report.appAlive} (gorev sayisi=${alive})`);
     if (!report.appAlive) problems.push("drm: uygulama DRM hatasindan sonra yanit vermiyor");
 
-    // Test kayitlarini gorev listesinden dusur (dosyalar finally'de silinir).
-    for (const task of [task1, task2, task3, task4, task5]) {
-      try {
-        await cdp.evaluate(
-          `(async () => await window.__TAURI__.core.invoke("remove_download", { id: ${JSON.stringify(
-            task.id
-          )} }))()`,
-          true
-        );
-      } catch {
-        /* gorev zaten yok */
-      }
-    }
-
     client.close();
-
-    console.log("");
-    console.log(JSON.stringify(report, null, 2));
-    console.log("");
-    if (problems.length) {
-      failed = true;
-      console.log(`BASARISIZ: ${problems.join("; ")}`);
-    } else {
-      console.log("BASARILI: HLS varyant secimi, birlestirme, AES-128, basliklar, duraklat/devam ve DRM reddi dogrulandi");
-    }
+    client = null;
   } catch (error) {
-    failed = true;
-    console.log("");
-    console.log(`BASARISIZ: ${error.message}`);
+    problems.push(error.stack || String(error));
+    if (app) console.log(app.log().slice(-2000));
   } finally {
-    if (appLog.trim()) {
-      console.log("");
-      console.log("--- uygulama cikisi ---");
-      console.log(appLog.trim().slice(0, 4000));
-    }
-    try {
-      proc.kill();
-    } catch {
-      /* kapali */
-    }
-    await sleep(800);
-    try {
-      execSync('taskkill /F /IM serene.exe /T', { stdio: "ignore", windowsHide: true });
-    } catch {
-      /* kapali */
-    }
-    await sleep(400);
-    cleanDownloadDir();
+    killAll();
+    await sleep(600);
+    rmSync(dataDir, { recursive: true, force: true });
     await hls.close();
   }
 
-  process.exit(failed ? 1 : 0);
+  console.log(JSON.stringify(report, null, 2));
+  if (problems.length) fail(problems.join(" | "));
+  console.log(
+    "BASARILI: HLS varyant secimi, birlestirme, AES-128, basliklar, duraklat/devam ve DRM reddi dogrulandi",
+  );
 }
 
-main().catch((error) => {
-  console.log(`beklenmeyen hata: ${error.message}`);
-  process.exit(2);
-});
+main();
