@@ -18,6 +18,7 @@ import 'rust/api/dto.dart' as engine;
 import 'rust/api/events.dart' as ffi;
 import 'rust/api/lifecycle.dart' as ffi;
 import 'settings_view.dart';
+import 'strings.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -92,6 +93,9 @@ class _MainWindowState extends State<MainWindow>
     // pencerenin govdesini kuran `build` yeniden calismali ki yeni renkler
     // okunsun. Ayarlar katmani da ayni anda modu yazar.
     appThemeMode.addListener(_onThemeChanged);
+    // Metinler de ayni sekilde globaldir: dil degisince basliklar, tepsi
+    // menusu ve govde yeni dili okumali.
+    appLanguage.addListener(_onLanguageChanged);
 
     // Motor bu noktada ayaaga kalkmis olur: main() RustLib.init ve bootEngine
     // icin bekletilmis bir Future'i bitirmeden pencereyi boyamaz.
@@ -153,33 +157,41 @@ class _MainWindowState extends State<MainWindow>
     if (icon == null) return;
 
     icon.icon = ImageAsset.fromAsset('assets/icons/serene_tray.png');
-    icon.setTooltip('Serene');
-
-    final menu = Menu.create();
-    if (menu != null) {
-      menu.addItem(_trayItem('Pencereyi Göster', _present));
-      menu.addItem(
-        _trayItem('Tümünü Duraklat', () async {
-          ffi.pauseAllDownloads();
-          await _present();
-        }),
-      );
-      menu.addItem(
-        _trayItem('Ayarlar', () async {
-          await _present();
-          _openSettings();
-        }),
-      );
-      menu.addSeparator();
-      menu.addItem(_trayItem('Çıkış', _quit));
-      icon.setContextMenu(menu);
-    }
+    icon.setTooltip(T.appTitle);
+    icon.setContextMenu(_trayMenu());
 
     icon.addListener((event) {
       if (event is TrayIconClickedEvent) _present();
     });
     icon.setVisible(true);
     _tray = icon;
+  }
+
+  /// Tepsi menusu her dilde yeniden kurulur; menu ogeleri metni tasir.
+  Menu? _trayMenu() {
+    final menu = Menu.create();
+    if (menu == null) return null;
+    menu.addItem(_trayItem(T.showWindow, _present));
+    menu.addItem(
+      _trayItem(T.pauseAllTray, () async {
+        ffi.pauseAllDownloads();
+        await _present();
+      }),
+    );
+    menu.addItem(
+      _trayItem(T.settingsTitle, () async {
+        await _present();
+        _openSettings();
+      }),
+    );
+    menu.addSeparator();
+    menu.addItem(_trayItem(T.quit, _quit));
+    return menu;
+  }
+
+  void _refreshTrayMenu() {
+    final menu = _trayMenu();
+    if (menu != null) _tray?.setContextMenu(menu);
   }
 
   MenuItem? _trayItem(String label, Future<void> Function() onTap) {
@@ -230,12 +242,20 @@ class _MainWindowState extends State<MainWindow>
     windowManager.removeListener(this);
     WidgetsBinding.instance.removeObserver(this);
     appThemeMode.removeListener(_onThemeChanged);
+    appLanguage.removeListener(_onLanguageChanged);
     _search.dispose();
     _url.dispose();
     super.dispose();
   }
 
   void _onThemeChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Tepsi menusu yerel olarak kurulur; dil degisince etiketleri tazelemek
+  /// icin menu yeniden takilir.
+  void _onLanguageChanged() {
+    _refreshTrayMenu();
     if (mounted) setState(() {});
   }
 
@@ -333,18 +353,19 @@ class _MainWindowState extends State<MainWindow>
     // Kayit tek dogru kaynaktir: panel secim aninda da boyasa, burada
     // motorun kabul ettigi deger pekistirilir.
     applyThemeSetting(saved.theme);
+    applyLanguageSetting(saved.language);
     _loadDisk();
   }
 
   /// Siradaki indirmeler icin gecici hedef; ayarlardaki klasoru degistirmez.
   Future<void> _pickDest() async {
     final picked = await pickFolder(
-      title: 'Bu indirme için klasör seçin',
+      title: T.chooseFolderForDownload,
       initialDirectory: _settings.downloadDir,
     );
     if (picked == null || !mounted) return;
     setState(() => _destOverride = picked);
-    _notify('Bu indirme şuraya kaydedilecek: $picked');
+    _notify(T.willBeSavedToPath(picked));
   }
 
   void _notify(String message) {
@@ -389,7 +410,7 @@ class _MainWindowState extends State<MainWindow>
             live.speed = 1024 * 1024;
             live.error = null;
           default:
-            _notify('"$action" islemi taninmiyor');
+            _notify(T.unknownAction(action));
         }
       });
       return;
@@ -410,7 +431,7 @@ class _MainWindowState extends State<MainWindow>
         case 'reveal':
           await ffi.revealTaskFile(id: task.id);
         default:
-          _notify('"$action" islemi taninmiyor');
+          _notify(T.unknownAction(action));
       }
     } catch (error) {
       _notify(engineReason(error));
@@ -428,7 +449,7 @@ class _MainWindowState extends State<MainWindow>
         case 'dismiss':
           await ffi.dismissCapture(id: item.id);
         default:
-          _notify('"$action" islemi taninmiyor');
+          _notify(T.unknownAction(action));
       }
     } catch (error) {
       _notify(engineReason(error));
@@ -438,7 +459,7 @@ class _MainWindowState extends State<MainWindow>
   Future<void> _clearCaptures() async {
     try {
       final count = await ffi.clearCaptures();
-      _notify('$count yakalama temizlendi');
+      _notify(T.capturedCleared(count));
     } catch (error) {
       _notify(engineReason(error));
     }
@@ -492,6 +513,7 @@ class _MainWindowState extends State<MainWindow>
         '--handoff=$payload',
         if (_demoOn) '--handoff-demo',
         '--handoff-theme=${themeModeSetting(appThemeMode.value)}',
+        '--handoff-lang=${languageSetting(appLanguage.value)}',
       ]);
       unawaited(process.stdout.drain());
       unawaited(process.stderr.drain());
@@ -577,9 +599,7 @@ class _MainWindowState extends State<MainWindow>
                             view: _view,
                             demoOn: _demoOn,
                             onNewDownload: () => _url.text.isEmpty
-                                ? _notify(
-                                    'Bağlantı alanına bir adres yapıştırın',
-                                  )
+                                ? _notify(T.pasteLinkIntoField)
                                 : _submitUrl(),
                             onFilter: (value) => setState(() {
                               _filter = value;
@@ -715,7 +735,7 @@ class Header extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Text(
-              'Serene',
+              T.appTitle,
               style: head(15, weight: FontWeight.w500, letterSpacing: -0.3),
             ),
             const SizedBox(width: 12),
@@ -744,7 +764,7 @@ class Header extends StatelessWidget {
             ),
             _Pill(
               dot: bridgeUp ? Serene.primary : Serene.outline,
-              label: bridgeUp ? 'Tarayıcı bağlı' : 'Tarayıcı yok',
+              label: bridgeUp ? T.browserConnected : T.browserMissing,
             ),
             if (speed > 0) ...[
               const SizedBox(width: 12),
@@ -758,7 +778,7 @@ class Header extends StatelessWidget {
             const SizedBox(width: 12),
             CircleButton(
               icon: 'tune',
-              title: 'Ayarlar',
+              title: T.settingsTitle,
               size: 32,
               iconSize: 17,
               background: Serene.surfaceContainer,
@@ -769,7 +789,7 @@ class Header extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Tooltip(
-              message: 'Yerel profil',
+              message: T.localProfile,
               child: Container(
                 width: 32,
                 height: 32,
@@ -807,7 +827,7 @@ class Header extends StatelessWidget {
                 children: [
                   CircleButton(
                     icon: 'remove',
-                    title: 'Küçült',
+                    title: T.minimize,
                     size: 32,
                     iconSize: 17,
                     background: Serene.surfaceContainer,
@@ -819,7 +839,7 @@ class Header extends StatelessWidget {
                   const SizedBox(width: 4),
                   CircleButton(
                     icon: maximized ? 'filter_none' : 'crop_square',
-                    title: maximized ? 'Geri Al' : 'Büyüt',
+                    title: maximized ? T.restore : T.maximize,
                     size: 32,
                     iconSize: 17,
                     background: Serene.surfaceContainer,
@@ -831,7 +851,7 @@ class Header extends StatelessWidget {
                   const SizedBox(width: 4),
                   CircleButton(
                     icon: 'close',
-                    title: 'Kapat',
+                    title: T.close,
                     size: 32,
                     iconSize: 17,
                     background: Serene.surfaceContainer,
@@ -879,7 +899,7 @@ class _SearchField extends StatelessWidget {
               decoration: InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
-                hintText: "İndirilenleri ara (örn: 'Nature')...",
+                hintText: T.searchPlaceholder,
                 hintStyle: body(
                   13,
                   color: Serene.outline.withValues(alpha: 0.8),
@@ -1027,20 +1047,21 @@ class Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const queues = [
-      ('all', 'Tüm İndirmeler', 'cloud_queue'),
-      ('active', 'Devam Edenler', 'autorenew'),
-      ('completed', 'Tamamlananlar', 'task_alt'),
-      ('queued', 'Kuyrukta', 'hourglass_bottom'),
-      ('failed', 'Hata Verenler', 'info'),
+    // Etiketler cagri aninda `T`den okunur; liste sabit olamaz.
+    final queues = [
+      ('all', filterTitles['all']!, 'cloud_queue'),
+      ('active', filterTitles['active']!, 'autorenew'),
+      ('completed', filterTitles['completed']!, 'task_alt'),
+      ('queued', filterTitles['queued']!, 'hourglass_bottom'),
+      ('failed', filterTitles['failed']!, 'info'),
     ];
-    const cats = [
-      ('video', 'Videolar', 'movie'),
-      ('audio', 'Sesler', 'music_note'),
-      ('document', 'Belgeler', 'description'),
-      ('software', 'Yazılımlar', 'code'),
-      ('archive', 'Sıkıştırılmış', 'folder_zip'),
-      ('image', 'Görseller', 'image'),
+    final cats = [
+      ('video', categoryTitles['video']!, 'movie'),
+      ('audio', categoryTitles['audio']!, 'music_note'),
+      ('document', categoryTitles['document']!, 'description'),
+      ('software', categoryTitles['software']!, 'code'),
+      ('archive', categoryTitles['archive']!, 'folder_zip'),
+      ('image', categoryTitles['image']!, 'image'),
     ];
 
     return SizedBox(
@@ -1061,7 +1082,7 @@ class Sidebar extends StatelessWidget {
                   SIcon('add_circle', size: 19, color: Serene.onPrimary),
                   const SizedBox(width: 10),
                   Text(
-                    'Yeni İndirme Başlat',
+                    T.newDownload,
                     style: body(
                       14,
                       weight: FontWeight.w500,
@@ -1083,7 +1104,7 @@ class Sidebar extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _GroupLabel('Kuyruklar'),
+                  _GroupLabel(T.queues),
                   for (final (key, label, icon) in queues) ...[
                     NavItem(
                       icon: icon,
@@ -1097,7 +1118,7 @@ class Sidebar extends StatelessWidget {
                   ],
                   NavItem(
                     icon: 'travel_explore',
-                    label: 'Tarayıcıdan',
+                    label: T.fromBrowser,
                     count: captures.length,
                     active: view == 'captures',
                     onTap: onCaptures,
@@ -1107,7 +1128,7 @@ class Sidebar extends StatelessWidget {
                     margin: const EdgeInsets.symmetric(vertical: 12),
                     color: Serene.borderSoft,
                   ),
-                  _GroupLabel('Kategoriler', dense: true),
+                  _GroupLabel(T.categories, dense: true),
                   for (final (key, label, icon) in cats)
                     NavItem(
                       icon: icon,
@@ -1248,7 +1269,7 @@ class _DiskCard extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  usage == null ? 'Disk' : '${usage.mount} sürücüsü',
+                  usage == null ? T.disk : T.driveOf(usage.mount),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: body(
@@ -1287,8 +1308,8 @@ class _DiskCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             usage == null
-                ? 'Hesaplanıyor…'
-                : '${fmtBytes(usage.used)} kullanılıyor / ${fmtBytes(usage.total)} toplam alan',
+                ? T.calculating
+                : T.diskUsed(fmtBytes(usage.used), fmtBytes(usage.total)),
             style: body(11, color: Serene.secondary, height: 1.3),
           ),
         ],
@@ -1332,7 +1353,7 @@ class _DemoSwitch extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Örnek veriyle göster',
+              T.demoWithSampleData,
               style: body(11, color: Serene.secondary),
             ),
           ),

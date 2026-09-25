@@ -159,6 +159,7 @@ class Settings {
     required this.closeToTray,
     required this.confirmBrowserDownload,
     required this.theme,
+    required this.language,
   });
 
   static Settings fromEngine(engine.AppConfig raw) => Settings(
@@ -169,6 +170,7 @@ class Settings {
     closeToTray: raw.closeToTray,
     confirmBrowserDownload: raw.confirmBrowserDownload,
     theme: raw.theme,
+    language: raw.language,
   );
 
   final String downloadDir;
@@ -180,4 +182,7 @@ class Settings {
 
   /// `system`, `light` ya da `dark`; motor taninmayan degeri varsayilana indirir.
   final String theme;
+
+  /// `tr` ya da `en`; motor taninmayan degeri varsayilana indirir.
+  final String language;
 }

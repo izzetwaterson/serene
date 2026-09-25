@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'strings.dart';
 import 'theme.dart';
 
 /// Aktif tema modu. Ayarlar katmani yazar, pencere kokleri dinler.
@@ -23,9 +24,9 @@ String themeModeSetting(ThemeMode mode) => switch (mode) {
     };
 
 String themeModeTitle(ThemeMode mode) => switch (mode) {
-      ThemeMode.light => 'Aydınlık',
-      ThemeMode.dark => 'Karanlık',
-      ThemeMode.system => 'Sistem',
+      ThemeMode.light => T.themeLight,
+      ThemeMode.dark => T.themeDark,
+      ThemeMode.system => T.themeSystem,
     };
 
 /// Modu uygular: once palet hazir olur, sonra kokler yeniden kurulur.

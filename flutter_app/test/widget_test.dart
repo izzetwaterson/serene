@@ -8,6 +8,7 @@ import 'package:serene_app/src/format.dart';
 import 'package:serene_app/src/handoff.dart';
 import 'package:serene_app/src/rust/api/dto.dart' as engine;
 import 'package:serene_app/src/settings_view.dart';
+import 'package:serene_app/src/strings.dart';
 import 'package:serene_app/src/theme.dart';
 
 Settings _engineSettings() => Settings(
@@ -18,11 +19,15 @@ Settings _engineSettings() => Settings(
       closeToTray: true,
       confirmBrowserDownload: true,
       theme: 'system',
+      language: 'tr',
     );
 
 void main() {
-  // Palet globaldir; bir testin biraktigi mod digerine sizmasin.
-  tearDown(() => applyThemeMode(ThemeMode.system));
+  // Palet ve metinler globaldir; bir testin biraktigi secim digerine sizmasin.
+  tearDown(() {
+    applyThemeMode(ThemeMode.system);
+    applyLanguage(AppLanguage.tr);
+  });
 
   test('bayt bicimlendirme', () {
     expect(fmtBytes(0), '0 B');
@@ -201,6 +206,7 @@ void main() {
           closeToTray: true,
           confirmBrowserDownload: true,
           theme: 'light',
+          language: 'tr',
         ),
         onClose: () {},
         onSaved: (_) {},
@@ -262,6 +268,73 @@ void main() {
     await tester.pump();
     expect(tester.widget<Checkbox>(boxes.at(1)).value, isFalse);
   });
+
+  testWidgets('mod degisince pencere agaci yeni dili okur', (tester) async {
+    await tester.pumpWidget(_settingsHost(const Center(child: _TextProbe())));
+    expect(_probeText(tester), 'Bugün ne indirmek istersiniz?');
+
+    applyLanguage(AppLanguage.en);
+    await tester.pump();
+    expect(_probeText(tester), 'What would you like to download today?');
+  });
+
+  testWidgets('ayarlar paneli dil seceneklerini gosterir', (tester) async {
+    await tester.pumpWidget(_settingsHost(
+      SettingsPanel(
+        settings: _engineSettings(),
+        onClose: () {},
+        onSaved: (_) {},
+      ),
+    ));
+
+    // Etiketler `Field` icinde buyuk harfe cevrilir; Dart'in buyutmesi
+    // yerel ayarsizdir, bu yuzden "Dil" -> "DIL".
+    expect(find.text('DIL'), findsOneWidget);
+    expect(find.text('Türkçe'), findsOneWidget);
+    expect(find.text('English'), findsOneWidget);
+  });
+
+  testWidgets('secilen dil panelin metinlerini hemen cevirir', (tester) async {
+    await tester.pumpWidget(_settingsHost(
+      SettingsPanel(
+        settings: _engineSettings(),
+        onClose: () {},
+        onSaved: (_) {},
+      ),
+    ));
+
+    await tester.tap(find.text('English'));
+    await tester.pump();
+
+    expect(T.settingsTitle, 'Settings');
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('GÖRÜNÜM'), findsNothing);
+    expect(find.text('APPEARANCE'), findsOneWidget);
+    // Dilin kendi adi her iki dilde de ayni yazilir.
+    expect(find.text('Türkçe'), findsOneWidget);
+  });
+
+  testWidgets('kaydedilmeden kapanan panel dil denemesini geri alir', (
+    tester,
+  ) async {
+    applyLanguage(AppLanguage.tr);
+    await tester.pumpWidget(_settingsHost(
+      SettingsPanel(
+        settings: _engineSettings(),
+        onClose: () {},
+        onSaved: (_) {},
+      ),
+    ));
+
+    await tester.tap(find.text('English'));
+    await tester.pump();
+    expect(appLanguage.value, AppLanguage.en);
+
+    // Kaydetmeden kapanis: secim yalnizca denemeydi, kayitli dil doner.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    expect(appLanguage.value, AppLanguage.tr);
+  });
 }
 
 /// Panel tek basina da ayni temayi seesin: katmanin sahibi ana pencere gibi.
@@ -271,6 +344,42 @@ Widget _settingsHost(Widget child) =>
 Color? _probeColor(WidgetTester tester) {
   final box = tester.widget<Container>(find.byKey(_PaletteProbe.boxKey));
   return (box.decoration as BoxDecoration).color;
+}
+
+String _probeText(WidgetTester tester) =>
+    tester.widget<Text>(find.byKey(_TextProbe.textKey)).data!;
+
+/// Ana pencerenin dil mekanizmasinin kucuk kopyasi: metinler globaldir ve
+/// degistiginde agac kendiliginden kurulmaz; dinleyen dugum `build`ini
+/// yeniden calistirmali ki yeni metni okusun.
+class _TextProbe extends StatefulWidget {
+  const _TextProbe();
+
+  static const textKey = ValueKey('metin-yoklamasi');
+
+  @override
+  State<_TextProbe> createState() => _TextProbeState();
+}
+
+class _TextProbeState extends State<_TextProbe> {
+  @override
+  void initState() {
+    super.initState();
+    appLanguage.addListener(_onLanguage);
+  }
+
+  @override
+  void dispose() {
+    appLanguage.removeListener(_onLanguage);
+    super.dispose();
+  }
+
+  void _onLanguage() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) => Text(T.heroTitle, key: _TextProbe.textKey);
 }
 
 /// Ana pencerenin tema mekanizmasinin kucuk kopyasi: modu dinler ve kendi

@@ -10,6 +10,7 @@ import 'folder_picker.dart';
 import 'handoff.dart' show engineReason;
 import 'rust/api/commands.dart' as ffi;
 import 'rust/api/dto.dart' as engine;
+import 'strings.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -97,6 +98,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late bool _tray = widget.settings.closeToTray;
   late bool _confirm = widget.settings.confirmBrowserDownload;
   late ThemeMode _theme = themeModeFrom(widget.settings.theme);
+  late AppLanguage _language = languageFrom(widget.settings.language);
 
   String? _status;
   Color _statusColor = Serene.primary;
@@ -105,12 +107,16 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   @override
   void dispose() {
-    // Kaydedilmeden kapanan panel tema denemesini geri alir: secim yalnizca
-    // "Kaydet" ile kalici olur. Mikro gorev, kapanma karesi bittikten sonra
-    // paleti eski haline dondurur.
-    final saved = themeModeFrom(widget.settings.theme);
-    if (saved != _theme) {
-      scheduleMicrotask(() => applyThemeMode(saved));
+    // Kaydedilmeden kapanan panel tema ve dil denemesini geri alir: secim
+    // yalnizca "Kaydet" ile kalici olur. Mikro gorev, kapanma karesi
+    // bittikten sonra paleti ve metinleri eski haline dondurur.
+    final savedTheme = themeModeFrom(widget.settings.theme);
+    if (savedTheme != _theme) {
+      scheduleMicrotask(() => applyThemeMode(savedTheme));
+    }
+    final savedLanguage = languageFrom(widget.settings.language);
+    if (savedLanguage != _language) {
+      scheduleMicrotask(() => applyLanguage(savedLanguage));
     }
     _closeTimer?.cancel();
     _dir.dispose();
@@ -125,9 +131,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
     applyThemeMode(mode);
   }
 
+  /// Panel metinleri de secim aninda degisir; kaydedilmezse geri alinir.
+  void _pickLanguage(AppLanguage language) {
+    setState(() => _language = language);
+    applyLanguage(language);
+  }
+
   Future<void> _browse() async {
     final picked = await pickFolder(
-      title: 'Kayıt klasörünü seçin',
+      title: T.chooseFolderTitle,
       initialDirectory: _dir.text.trim().isEmpty ? null : _dir.text.trim(),
     );
     if (picked == null || !mounted) return;
@@ -143,6 +155,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     closeToTray: _tray,
     confirmBrowserDownload: _confirm,
     theme: themeModeSetting(_theme),
+    language: languageSetting(_language),
   );
 
   Future<void> _save() async {
@@ -156,7 +169,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _status = 'Kaydedildi';
+        _status = T.savedWord;
         _statusColor = Serene.primary;
       });
       widget.onSaved(Settings.fromEngine(saved));
@@ -179,8 +192,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
       if (!mounted) return;
       setState(() {
         _status = removed > 0
-            ? '$removed kayıt silindi'
-            : 'Silinecek kayıt yok';
+            ? T.recordsDeleted(removed)
+            : T.nothingToDelete;
         _statusColor = Serene.secondary;
       });
     } catch (error) {
@@ -229,13 +242,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Ayarlar',
+                            T.settingsTitle,
                             style: head(20, color: Serene.onBackground),
                           ),
                         ),
                         CircleButton(
                           icon: 'close',
-                          title: 'Kapat',
+                          title: T.close,
                           size: 32,
                           iconSize: 17,
                           background: Serene.surfaceContainer,
@@ -254,7 +267,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
                       children: [
                         Field(
-                          label: 'Kayıt klasörü',
+                          label: T.folderLabel,
                           child: Row(
                             children: [
                               Expanded(child: ReadOnlyField(text: _dir.text)),
@@ -269,7 +282,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                                   vertical: 12,
                                 ),
                                 child: Text(
-                                  'Gözat',
+                                  T.browse,
                                   style: body(13, weight: FontWeight.w500),
                                 ),
                               ),
@@ -282,14 +295,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           children: [
                             Expanded(
                               child: Field(
-                                label: 'Eşzamanlı indirme',
+                                label: T.concurrentLabel,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
                                     _NumberField(controller: _concurrent),
                                     const SizedBox(height: 6),
                                     Text(
-                                      'Aynı anda kaç dosya iner',
+                                      T.concurrentHint,
                                       style: body(
                                         11,
                                         color: Serene.secondary,
@@ -303,14 +316,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             const SizedBox(width: 20),
                             Expanded(
                               child: Field(
-                                label: 'Bağlantı / dosya',
+                                label: T.connectionsLabel,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
                                     _NumberField(controller: _connections),
                                     const SizedBox(height: 6),
                                     Text(
-                                      'Parçalı indirmede bağlantı sayısı',
+                                      T.connectionsHint,
                                       style: body(
                                         11,
                                         color: Serene.secondary,
@@ -325,30 +338,42 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         ),
                         const SizedBox(height: 24),
                         Field(
-                          label: 'Görünüm',
-                          child: _ThemePicker(
+                          label: T.appearanceLabel,
+                          child: _SegmentedPicker<ThemeMode>(
                             value: _theme,
+                            values: ThemeMode.values,
+                            title: themeModeTitle,
                             onChanged: _pickTheme,
                           ),
                         ),
                         const SizedBox(height: 24),
+                        Field(
+                          label: T.languageLabel,
+                          child: _SegmentedPicker<AppLanguage>(
+                            value: _language,
+                            values: AppLanguage.values,
+                            title: languageTitle,
+                            onChanged: _pickLanguage,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
                         _Toggle(
-                          title: 'Panoyu izle',
-                          hint: 'Kopyaladığınız bağlantıları yakalayıp önerir',
+                          title: T.watchClipboardTitle,
+                          hint: T.watchClipboardHint,
                           value: _clipboard,
                           onChanged: (value) => setState(() => _clipboard = value),
                         ),
                         const SizedBox(height: 16),
                         _Toggle(
-                          title: 'Kapatınca tepsiye gizle',
-                          hint: 'Kapat düğmesi uygulamayı bitirmez, indirmeler sürer',
+                          title: T.closeToTrayTitle,
+                          hint: T.closeToTrayHint,
                           value: _tray,
                           onChanged: (value) => setState(() => _tray = value),
                         ),
                         const SizedBox(height: 16),
                         _Toggle(
-                          title: 'Tarayıcı indirmelerini önce sor',
-                          hint: 'Devralınan indirme, bilgileri onaylanana kadar başlamaz',
+                          title: T.confirmBrowserTitle,
+                          hint: T.confirmBrowserHint,
                           value: _confirm,
                           onChanged: (value) => setState(() => _confirm = value),
                         ),
@@ -364,7 +389,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                                 vertical: 6,
                               ),
                               child: Text(
-                                'Tamamlananları temizle',
+                                T.clearCompletedLabel,
                                 style: body(
                                   13,
                                   weight: FontWeight.w500,
@@ -397,7 +422,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                                   vertical: 10,
                                 ),
                                 child: Text(
-                                  'Kaydet',
+                                  T.save,
                                   style: body(
                                     13,
                                     weight: FontWeight.w500,
@@ -421,13 +446,21 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 }
 
-/// Uc secenekli gorunum secici: web arayuzundeki `select`in karsiligi,
-/// ayni satirda duran ve secilisi birincil renkle boyanan dugmeler.
-class _ThemePicker extends StatelessWidget {
-  const _ThemePicker({required this.value, required this.onChanged});
+/// Cok secenekli secici: web arayuzundeki `select`in karsiligi, ayni satirda
+/// duran ve secilisi birincil renkle boyanan dugmeler. Gorunum ve dil ayni
+/// bicimi paylasir.
+class _SegmentedPicker<T> extends StatelessWidget {
+  const _SegmentedPicker({
+    required this.value,
+    required this.values,
+    required this.title,
+    required this.onChanged,
+  });
 
-  final ThemeMode value;
-  final ValueChanged<ThemeMode> onChanged;
+  final T value;
+  final List<T> values;
+  final String Function(T value) title;
+  final ValueChanged<T> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -440,24 +473,27 @@ class _ThemePicker extends StatelessWidget {
       ),
       child: Row(
         children: [
-          for (final mode in ThemeMode.values) ...[
-            if (mode != ThemeMode.values.first) const SizedBox(width: 4),
+          for (final option in values) ...[
+            if (option != values.first) const SizedBox(width: 4),
             Expanded(
               child: HoverSurface(
-                onTap: () => onChanged(mode),
+                onTap: () => onChanged(option),
                 radius: 9,
                 background:
-                    mode == value ? Serene.primary : Colors.transparent,
-                hoverBackground:
-                    mode == value ? Serene.primaryHover : Serene.surfaceContainer,
+                    option == value ? Serene.primary : Colors.transparent,
+                hoverBackground: option == value
+                    ? Serene.primaryHover
+                    : Serene.surfaceContainer,
                 padding: const EdgeInsets.symmetric(vertical: 9),
                 child: Center(
                   child: Text(
-                    themeModeTitle(mode),
+                    title(option),
                     style: body(
                       12,
                       weight: FontWeight.w500,
-                      color: mode == value ? Serene.onPrimary : Serene.secondary,
+                      color: option == value
+                          ? Serene.onPrimary
+                          : Serene.secondary,
                     ),
                   ),
                 ),

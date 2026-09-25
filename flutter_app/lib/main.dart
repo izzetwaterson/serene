@@ -14,6 +14,7 @@ import 'src/rust/api/commands.dart' as ffi;
 import 'src/rust/api/events.dart' as ffi;
 import 'src/rust/api/lifecycle.dart' as ffi;
 import 'src/rust/frb_generated.dart';
+import 'src/strings.dart';
 import 'src/theme.dart';
 
 /// Iki kip:
@@ -22,11 +23,12 @@ import 'src/theme.dart';
 ///   `serene_app.exe --settings`    -> ana pencere ayarlar katmani acik halde
 ///   `serene_app.exe --handoff=<b64>` -> ayri "İndirme Bilgileri" penceresi
 ///        (`--handoff-theme=system|light|dark` ile o pencerenin temasi)
+///        (`--handoff-lang=tr|en` ile o pencerenin dili)
 ///   `serene_app.exe --selfcheck`   -> pencere acmadan Rust motorunu yoklar
 ///
 /// Onay penceresi kendi surecinde acilir; boylece gercek bir isletim sistemi
 /// penceresi olur ve ana pencere kapanip acilsa da bagimsiz kalir. Ayarlar
-/// yalnizca ana pencerenin motorunda durur; onay penceresi temayi komut
+/// yalnizca ana pencerenin motorunda durur; onay penceresi tema ve dili komut
 /// satirindan alir.
 Future<void> main(List<String> args) async {
   if (args.contains('--selfcheck')) {
@@ -39,6 +41,9 @@ Future<void> main(List<String> args) async {
 
   final payload = _arg(args, 'handoff');
   if (payload != null) {
+    // Dil yuk cozulmeden once kurulur: bozuk yukteki "bilinmeyen indirme"
+    // metni ve pencere basligi bu degeri okur.
+    applyLanguageSetting(_arg(args, 'handoff-lang') ?? 'tr');
     await _openHandoff(
       _decodeTask(payload),
       preview: args.contains('--handoff-demo'),
@@ -103,12 +108,14 @@ Future<void> _openMain({bool demo = false, bool settings = false}) async {
 
   await ffi.bootEngine();
 
-  // Palet pencereden once kurulur: `backgroundColor` ve ilk kare, kayitli
-  // temayi gormeli. Ayarlar okunamazsa varsayilan `system` kalir.
+  // Palet ve metinler pencereden once kurulur: `backgroundColor` ve ilk kare,
+  // kayitli temayi ve dili gormeli. Ayarlar okunamazsa varsayilanlar kalir.
   try {
-    applyThemeSetting(ffi.getSettings().theme);
+    final saved = ffi.getSettings();
+    applyThemeSetting(saved.theme);
+    applyLanguageSetting(saved.language);
   } catch (_) {
-    /* ayar okunamadi: varsayilan temayla devam */
+    /* ayar okunamadi: varsayilanlarla devam */
   }
 
   final options = WindowOptions(
@@ -116,13 +123,13 @@ Future<void> _openMain({bool demo = false, bool settings = false}) async {
     minimumSize: Size(940, 620),
     center: true,
     backgroundColor: Serene.background,
-    title: 'Serene',
+    title: T.appTitle,
   );
 
   await windowManager.waitUntilReadyToShow(options, () async {
     await windowManager.setAsFrameless();
     await windowManager.setResizable(true);
-    await windowManager.setTitle('Serene');
+    await windowManager.setTitle(T.appTitle);
     await windowManager.show();
     await windowManager.focus();
   });
@@ -161,7 +168,7 @@ Future<void> _openHandoff(
     backgroundColor: Serene.surfaceContainerLowest,
     skipTaskbar: true,
     alwaysOnTop: true,
-    title: 'İndirme Bilgileri',
+    title: T.handoffTitle,
   );
 
   await windowManager.waitUntilReadyToShow(options, () async {
@@ -169,7 +176,7 @@ Future<void> _openHandoff(
     await windowManager.setResizable(false);
     await windowManager.setAlwaysOnTop(true);
     await windowManager.setSkipTaskbar(true);
-    await windowManager.setTitle('İndirme Bilgileri');
+    await windowManager.setTitle(T.handoffTitle);
     await windowManager.show();
     await windowManager.focus();
   });
@@ -195,7 +202,7 @@ Task _decodeTask(String payload) {
     return Task(
       id: 'unknown',
       url: '',
-      filename: 'Bilinmeyen indirme',
+      filename: T.unknownDownload,
       dest: '',
       total: 0,
       downloaded: 0,
@@ -223,7 +230,7 @@ class SereneApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: appThemeMode,
       builder: (context, mode, _) => MaterialApp(
-        title: 'Serene',
+        title: T.appTitle,
         debugShowCheckedModeBanner: false,
         theme: sereneTheme(Brightness.light),
         darkTheme: sereneTheme(Brightness.dark),
@@ -245,7 +252,7 @@ class HandoffApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: appThemeMode,
       builder: (context, mode, _) => MaterialApp(
-        title: 'İndirme Bilgileri',
+        title: T.handoffTitle,
         debugShowCheckedModeBanner: false,
         theme: sereneTheme(Brightness.light),
         darkTheme: sereneTheme(Brightness.dark),

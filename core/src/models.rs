@@ -122,6 +122,8 @@ pub struct Settings {
     pub confirm_browser_download: bool,
     /// Arayuz temasi: `system`, `light` ya da `dark`.
     pub theme: String,
+    /// Arayuz dili: `tr` ya da `en`.
+    pub language: String,
 }
 
 /// Tema degerini taninan kumesine indirger. Ayar dosyasi elle duzenlenebilir
@@ -131,6 +133,15 @@ pub fn normalize_theme(value: &str) -> String {
         "light" => "light".to_string(),
         "dark" => "dark".to_string(),
         _ => "system".to_string(),
+    }
+}
+
+/// Dil degerini taninan kumesine indirger. Tema ile ayni sekilde eski
+/// ayar dosyalari alani hic yazmaz; varsayilan Turkce kalir.
+pub fn normalize_language(value: &str) -> String {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "en" => "en".to_string(),
+        _ => "tr".to_string(),
     }
 }
 
@@ -144,6 +155,7 @@ impl Default for Settings {
             close_to_tray: true,
             confirm_browser_download: true,
             theme: "system".to_string(),
+            language: "tr".to_string(),
         }
     }
 }

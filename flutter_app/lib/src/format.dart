@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'data.dart';
+import 'strings.dart';
 import 'theme.dart';
 
-/// app.js icindeki bicimlendirme yardimcilari.
+/// app.js icindeki bicimlendirme yardimcilari. Metinler `T`den okunur:
+/// bicimlendirme cagri aninda yapildigi icin dil degisince cikti da degisir.
 
 const _units = ['B', 'KB', 'MB', 'GB', 'TB'];
 
@@ -26,17 +28,14 @@ String fmtSpeed(double bytesPerSecond) {
 
 String? fmtEta(double seconds) {
   if (!seconds.isFinite || seconds <= 0) return null;
-  if (seconds < 60) return '${seconds.round()} sn';
+  if (seconds < 60) return '${seconds.round()} ${T.unitSeconds}';
   if (seconds < 3600) {
-    return '${(seconds ~/ 60)} dk ${(seconds % 60).round()} sn';
+    return '${(seconds ~/ 60)} ${T.unitMinutes} '
+        '${(seconds % 60).round()} ${T.unitSeconds}';
   }
-  return '${(seconds ~/ 3600)} sa ${((seconds % 3600) ~/ 60)} dk';
+  return '${(seconds ~/ 3600)} ${T.unitHours} '
+      '${((seconds % 3600) ~/ 60)} ${T.unitMinutes}';
 }
-
-const _months = [
-  'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz',
-  'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara',
-];
 
 String fmtWhen(int? unixSeconds) {
   if (unixSeconds == null || unixSeconds == 0) return '';
@@ -47,11 +46,12 @@ String fmtWhen(int? unixSeconds) {
   final dayDiff = startOfToday.difference(startOfThen).inDays;
   final clock = '${then.hour.toString().padLeft(2, '0')}:'
       '${then.minute.toString().padLeft(2, '0')}';
+  final month = T.shortMonths[then.month - 1];
 
-  if (dayDiff == 0) return 'Bugün, $clock';
-  if (dayDiff == 1) return 'Dün, $clock';
-  if (then.year == now.year) return '${then.day} ${_months[then.month - 1]}, $clock';
-  return '${then.day} ${_months[then.month - 1]} ${then.year}, $clock';
+  if (dayDiff == 0) return '${T.today}, $clock';
+  if (dayDiff == 1) return '${T.yesterday}, $clock';
+  if (then.year == now.year) return T.dateLine(then.day, month, null, clock);
+  return T.dateLine(then.day, month, then.year, clock);
 }
 
 double percentOf(Task task) {
@@ -63,20 +63,21 @@ double percentOf(Task task) {
 /// app.js metaLine ile ayni metin.
 String metaLine(Task task) {
   if (task.pending) {
-    final size = task.total > 0 ? fmtBytes(task.total) : 'Boyut bilinmiyor';
-    return '$size • Onay bekliyor';
+    final size = task.total > 0 ? fmtBytes(task.total) : T.unknownSize;
+    return '$size • ${T.statusPendingConfirm}';
   }
   switch (task.status) {
     case 'completed':
       return '${fmtBytes(task.total)} • ${fmtWhen(task.finishedAt)}';
     case 'failed':
       final message = task.error;
-      return (message == null || message.isEmpty) ? 'Bilinmeyen hata' : message;
+      return (message == null || message.isEmpty) ? T.unknownError : message;
     case 'queued':
       final size = task.total > 0 ? '${fmtBytes(task.total)} • ' : '';
-      return '${size}Kuyrukta bekliyor';
+      return '$size${T.queuedWaiting}';
     case 'paused':
-      return '${fmtBytes(task.downloaded)} / ${fmtBytes(task.total)} • Duraklatıldı';
+      return '${fmtBytes(task.downloaded)} / ${fmtBytes(task.total)} • '
+          '${T.statusPaused}';
   }
 
   final parts = [
@@ -85,9 +86,9 @@ String metaLine(Task task) {
   ];
   if (task.total > 0 && task.speed > 0) {
     final eta = fmtEta((task.total - task.downloaded) / task.speed);
-    if (eta != null) parts.add('Kalan süre: $eta');
+    if (eta != null) parts.add(T.timeLeft(eta));
   } else if (task.total == 0) {
-    parts.add('Boyut bilinmiyor');
+    parts.add(T.unknownSize);
   }
   return parts.join(' • ');
 }
@@ -120,29 +121,16 @@ CategoryStyle styleOf(Task task) {
 
 const inProgress = {'downloading', 'paused'};
 
-const filterTitles = <String, String>{
-  'all': 'Tüm İndirmeler',
-  'active': 'Devam Edenler',
-  'completed': 'Tamamlananlar',
-  'queued': 'Kuyrukta',
-  'failed': 'Hata Verenler',
-};
+/// Filtre ve kategori basliklari cagri aninda `T`den okunur.
+Map<String, String> get filterTitles => T.filterTitles;
 
-const categoryTitles = <String, String>{
-  'video': 'Videolar',
-  'audio': 'Sesler',
-  'image': 'Görseller',
-  'document': 'Belgeler',
-  'software': 'Yazılımlar',
-  'archive': 'Sıkıştırılmış',
-  'other': 'Diğer',
-};
+Map<String, String> get categoryTitles => T.categoryTitles;
 
 /// Durum rozetinin etiketi ve renkleri (statusChip).
 ({String label, Color bg, Color fg}) statusChip(Task task) {
   if (task.pending) {
     return (
-      label: 'Onay bekliyor',
+      label: T.statusPendingConfirm,
       bg: Serene.tintTertiaryStrong,
       fg: Serene.onTertiaryContainer,
     );
@@ -150,27 +138,31 @@ const categoryTitles = <String, String>{
   switch (task.status) {
     case 'downloading':
       return (
-        label: 'Devam ediyor',
+        label: T.statusDownloading,
         bg: Serene.tintPrimaryStrong,
         fg: Serene.onPrimaryFixed,
       );
     case 'paused':
-      return (label: 'Duraklatıldı', bg: Serene.surfaceContainer, fg: Serene.secondary);
+      return (
+        label: T.statusPaused,
+        bg: Serene.surfaceContainer,
+        fg: Serene.secondary,
+      );
     case 'failed':
       return (
-        label: 'Hata',
+        label: T.statusError,
         bg: Serene.tintError,
         fg: Serene.onErrorContainer,
       );
     case 'completed':
       return (
-        label: 'Tamamlandı',
+        label: T.statusCompleted,
         bg: Serene.tintPrimaryStrong,
         fg: Serene.onPrimaryFixed,
       );
   }
   return (
-    label: 'Kuyrukta',
+    label: T.statusQueued,
     bg: Serene.tintTertiaryStrong,
     fg: Serene.onTertiaryContainer,
   );
@@ -203,28 +195,28 @@ class TaskAction {
 List<TaskAction> actionsFor(Task task) {
   switch (task.status) {
     case 'downloading':
-      return const [
-        TaskAction('pause', 'pause', 'Duraklat', 0),
-        TaskAction('remove', 'close', 'İptal Et', 1),
+      return [
+        TaskAction('pause', 'pause', T.actionPause, 0),
+        TaskAction('remove', 'close', T.actionCancel, 1),
       ];
     case 'paused':
       return [
-        if (task.pending) const TaskAction('info', 'info', 'Bilgileri Aç', 2),
-        const TaskAction('resume', 'play_arrow', 'Devam Et', 2),
-        const TaskAction('remove', 'close', 'İptal Et', 1),
+        if (task.pending) TaskAction('info', 'info', T.actionDetails, 2),
+        TaskAction('resume', 'play_arrow', T.actionResume, 2),
+        TaskAction('remove', 'close', T.actionCancel, 1),
       ];
     case 'queued':
-      return const [TaskAction('remove', 'close', 'Kuyruktan Çıkar', 1)];
+      return [TaskAction('remove', 'close', T.actionDequeue, 1)];
     case 'failed':
-      return const [
-        TaskAction('retry', 'refresh', 'Yeniden Dene', 2),
-        TaskAction('remove', 'close', 'Kaldır', 1),
+      return [
+        TaskAction('retry', 'refresh', T.actionRetry, 2),
+        TaskAction('remove', 'close', T.actionRemove, 1),
       ];
     case 'completed':
-      return const [
-        TaskAction('open', 'open_in_new', 'Dosyayı Aç', 0),
-        TaskAction('reveal', 'folder_open', 'Klasörde Göster', 0),
-        TaskAction('remove', 'delete', 'Kaldır', 1),
+      return [
+        TaskAction('open', 'open_in_new', T.actionOpen, 0),
+        TaskAction('reveal', 'folder_open', T.actionReveal, 0),
+        TaskAction('remove', 'delete', T.actionRemove, 1),
       ];
   }
   return const [];
@@ -234,7 +226,7 @@ List<TaskAction> actionsFor(Task task) {
 String captureKindLabel(String kind) => switch (kind) {
       'hls' => 'HLS',
       'dash' => 'DASH',
-      _ => 'Dosya',
+      _ => T.fileKind,
     };
 
 CategoryStyle captureKindStyle(String kind, String contentType) {
@@ -266,5 +258,5 @@ String captureName(CaptureItem item) {
   final trimmed = decoded.trim();
   if (trimmed.isNotEmpty) return trimmed;
   final site = item.site.trim();
-  return site.isNotEmpty ? site : 'Medya';
+  return site.isNotEmpty ? site : T.mediaKind;
 }

@@ -16,7 +16,9 @@ use serene_core::engine::{
 use serene_core::hls::{aes_key_for, plan_segments as hls_plan, resolve_uri, select_variant};
 use serene_core::manager::DownloadManager;
 use serene_core::runtime;
-use serene_core::models::{normalize_theme, Category, CaptureItem, DownloadKind, DownloadMeta, Settings};
+use serene_core::models::{
+    normalize_language, normalize_theme, Category, CaptureItem, DownloadKind, DownloadMeta, Settings,
+};
 use serene_core::store::{load_captures, save_captures, upsert_capture};
 
 #[test]
@@ -181,6 +183,18 @@ fn theme_field_defaults_and_normalizes() {
     assert_eq!(normalize_theme("LIGHT"), "light");
     assert_eq!(normalize_theme(""), "system");
     assert_eq!(normalize_theme("sepya"), "system");
+}
+
+#[test]
+fn language_field_defaults_and_normalizes() {
+    let settings: Settings = serde_json::from_str(r#"{"downloadDir": "C:\\tmp"}"#)
+        .expect("dil alani olmadan da yuklenmeli");
+    assert_eq!(settings.language, "tr");
+
+    assert_eq!(normalize_language(" EN "), "en");
+    assert_eq!(normalize_language("Tr"), "tr");
+    assert_eq!(normalize_language(""), "tr");
+    assert_eq!(normalize_language("de"), "tr");
 }
 
 #[test]

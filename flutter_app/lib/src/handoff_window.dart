@@ -9,6 +9,7 @@ import 'folder_picker.dart';
 import 'format.dart';
 import 'handoff.dart';
 import 'rust/api/handoff.dart' as ffi;
+import 'strings.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -70,19 +71,18 @@ class _HandoffWindowState extends State<HandoffWindow>
 
   String get _note {
     if (widget.task.total == 0) {
-      return 'Sunucu boyutu bildirmedi; boyut indirme başlarken netleşecek.';
+      return T.serverSizeUnknown;
     }
     if (widget.task.resumable) {
-      return 'Sunucu parçalı indirmeyi destekliyor; dosya birden çok bağlantıyla '
-          'daha hızlı inebilir.';
+      return T.serverSegmented;
     }
-    return 'Sunucu parçalı indirmeyi desteklemiyor; dosya tek bağlantıyla inecek.';
+    return T.serverSingle;
   }
 
   /// Yerel klasor diyaloğu: secilen yol hem gostergeye hem karara girer.
   Future<void> _browse() async {
     final picked = await pickFolder(
-      title: 'Kayıt klasörünü seçin',
+      title: T.chooseFolderTitle,
       initialDirectory: _dir.trim().isEmpty ? null : _dir.trim(),
     );
     if (picked == null || !mounted) return;
@@ -94,15 +94,15 @@ class _HandoffWindowState extends State<HandoffWindow>
     final name = _name.text.trim();
     if (_busy) return;
     if (name.isEmpty) {
-      setState(() => _notice = 'Dosya adı boş bırakılamaz.');
+      setState(() => _notice = T.nameEmpty);
       return;
     }
     if (_dir.trim().isEmpty) {
-      setState(() => _notice = 'Kayıt klasörü boş olamaz.');
+      setState(() => _notice = T.dirEmpty);
       return;
     }
     if (widget.preview) {
-      setState(() => _notice = 'Örnek görev motorla konuşmaz.');
+      setState(() => _notice = T.sampleTaskNoEngine);
       return;
     }
 
@@ -131,7 +131,7 @@ class _HandoffWindowState extends State<HandoffWindow>
   Future<void> _cancel() async {
     if (_busy) return;
     if (widget.preview) {
-      setState(() => _notice = 'Örnek görev motorla konuşmaz.');
+      setState(() => _notice = T.sampleTaskNoEngine);
       return;
     }
 
@@ -161,8 +161,8 @@ class _HandoffWindowState extends State<HandoffWindow>
     final task = widget.task;
     final style = styleOf(task);
     final sizeLine = task.total > 0
-        ? '${fmtBytes(task.total)} (${_grouped(task.total)} bayt)'
-        : 'Boyut bilinmiyor';
+        ? T.sizeWithBytes(fmtBytes(task.total), _grouped(task.total))
+        : T.unknownSize;
 
     return Scaffold(
       backgroundColor: Serene.surfaceContainerLowest,
@@ -177,13 +177,13 @@ class _HandoffWindowState extends State<HandoffWindow>
                 children: [
                   Expanded(
                     child: Text(
-                      'İndirme Bilgileri',
+                      T.handoffTitle,
                       style: head(20, color: Serene.onBackground),
                     ),
                   ),
                   CircleButton(
                     icon: 'close',
-                    title: 'Kapat (sonra indir)',
+                    title: T.closeAndDownloadLater,
                     size: 32,
                     iconSize: 17,
                     background: Serene.surfaceContainer,
@@ -260,7 +260,7 @@ class _HandoffWindowState extends State<HandoffWindow>
                                           ),
                                           child: Text(
                                             categoryTitles[task.category] ??
-                                                'Diğer',
+                                                T.other,
                                             style: body(
                                               10,
                                               weight: FontWeight.w600,
@@ -289,10 +289,13 @@ class _HandoffWindowState extends State<HandoffWindow>
                           ),
                         ),
                         const SizedBox(height: 20),
-                        Field(label: 'Adres', child: ReadOnlyField(text: task.url)),
+                        Field(
+                          label: T.addressLabel,
+                          child: ReadOnlyField(text: task.url),
+                        ),
                         const SizedBox(height: 20),
                         Field(
-                          label: 'Kayıt klasörü',
+                          label: T.folderLabel,
                           child: Row(
                             children: [
                               Expanded(child: ReadOnlyField(text: _dir)),
@@ -307,7 +310,7 @@ class _HandoffWindowState extends State<HandoffWindow>
                                   vertical: 12,
                                 ),
                                 child: Text(
-                                  'Gözat',
+                                  T.browse,
                                   style: body(13, weight: FontWeight.w500),
                                 ),
                               ),
@@ -316,7 +319,7 @@ class _HandoffWindowState extends State<HandoffWindow>
                         ),
                         const SizedBox(height: 20),
                         Field(
-                          label: 'Dosya adı',
+                          label: T.fileNameLabel,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
@@ -404,7 +407,7 @@ class _HandoffWindowState extends State<HandoffWindow>
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Center(
                             child: Text(
-                              'İndirmeyi Başlat',
+                              T.startDownload,
                               style: body(
                                 13,
                                 weight: FontWeight.w500,
@@ -422,7 +425,7 @@ class _HandoffWindowState extends State<HandoffWindow>
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Center(
                             child: Text(
-                              'Sonra İndir',
+                              T.downloadLater,
                               style: body(13, weight: FontWeight.w500),
                             ),
                           ),
@@ -436,7 +439,7 @@ class _HandoffWindowState extends State<HandoffWindow>
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Center(
                             child: Text(
-                              'İptal',
+                              T.cancel,
                               style: body(13, color: Serene.secondary),
                             ),
                           ),
@@ -454,12 +457,14 @@ class _HandoffWindowState extends State<HandoffWindow>
   }
 }
 
-/// tr-TR binlik ayraci: 1.450.000
+/// Binlik ayraci dile gore: 1.450.000 ya da 1,450,000.
 String _grouped(int value) {
   final digits = value.abs().toString();
   final buffer = StringBuffer(value < 0 ? '-' : '');
   for (var i = 0; i < digits.length; i++) {
-    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
+    if (i > 0 && (digits.length - i) % 3 == 0) {
+      buffer.write(T.thousandSeparator);
+    }
     buffer.write(digits[i]);
   }
   return buffer.toString();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'data.dart';
 import 'format.dart';
+import 'strings.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -74,15 +75,15 @@ class TaskPane extends StatelessWidget {
       sections.add(
         _Section(
           header: SectionHeader(
-            title: 'Aktif İndirmeler',
-            badge: inFlight.isEmpty ? null : '${inFlight.length} görev',
+            title: T.activeDownloads,
+            badge: inFlight.isEmpty ? null : T.taskCount(inFlight.length),
             pulse: inFlight.isNotEmpty,
           ),
           child: inFlight.isEmpty
-              ? const EmptyState(
+              ? EmptyState(
                   icon: 'downloading',
-                  title: 'Şu an inen bir şey yok',
-                  hint: 'Yukarıdaki alana bir bağlantı yapıştırın; gerisini Serene halledecek.',
+                  title: T.nothingDownloading,
+                  hint: T.nothingDownloadingHint,
                 )
               : _CardList(tasks: inFlight, onAction: onAction),
         ),
@@ -92,13 +93,13 @@ class TaskPane extends StatelessWidget {
         sections.add(
           _Section(
             header: SectionHeader(
-              title: 'Son Tamamlananlar',
+              title: T.recentCompleted,
               action: HoverSurface(
                 onTap: () => onQueryJump('completed'),
                 background: Colors.transparent,
                 padding: EdgeInsets.zero,
                 child: Text(
-                  'Tümünü Gör',
+                  T.seeAll,
                   style: body(
                     12,
                     weight: FontWeight.w600,
@@ -117,17 +118,20 @@ class TaskPane extends StatelessWidget {
     } else {
       final list = _filtered;
       final title = category != null
-          ? (categoryTitles[category] ?? 'Kategori')
-          : (filterTitles[filter] ?? 'İndirmeler');
+          ? (categoryTitles[category] ?? T.categoryFallback)
+          : (filterTitles[filter] ?? T.downloads);
 
       sections.add(
         _Section(
-          header: SectionHeader(title: title, badge: '${list.length} görev'),
+          header: SectionHeader(
+            title: title,
+            badge: T.taskCount(list.length),
+          ),
           child: list.isEmpty
-              ? const EmptyState(
+              ? EmptyState(
                   icon: 'search_off',
-                  title: 'Burada bir şey yok',
-                  hint: 'Bu görünümde eşleşen bir indirme bulunamadı.',
+                  title: T.nothingHere,
+                  hint: T.nothingHereHint,
                 )
               : _CardList(tasks: list, onAction: onAction),
         ),
@@ -228,7 +232,7 @@ class Hero extends StatelessWidget {
                 SIcon('eco', size: 14, color: Serene.onPrimaryFixed),
                 const SizedBox(width: 6),
                 Text(
-                  'Huzurlu İndirme Alanı',
+                  T.heroKicker,
                   style: body(
                     12,
                     weight: FontWeight.w600,
@@ -241,7 +245,7 @@ class Hero extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Bugün ne indirmek istersiniz?',
+            T.heroTitle,
             textAlign: TextAlign.center,
             style: head(36, letterSpacing: -0.6, color: Serene.onBackground),
           ),
@@ -249,8 +253,7 @@ class Hero extends StatelessWidget {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 448),
             child: Text(
-              'Bir bağlantı yapıştırın veya hızlıca dosya arayın. '
-              'Her şey sakin ve düzenli bir şekilde arka planda hallolur.',
+              T.heroBody,
               textAlign: TextAlign.center,
               style: body(16, color: Serene.secondary, height: 1.6),
             ),
@@ -289,14 +292,14 @@ class Hero extends StatelessWidget {
                       decoration: InputDecoration(
                         isDense: true,
                         border: InputBorder.none,
-                        hintText: 'https:// bağlantısını buraya bırakın...',
+                        hintText: T.urlPlaceholder,
                         hintStyle: body(14, color: Serene.outline),
                       ),
                     ),
                   ),
                   CircleButton(
                     icon: 'create_new_folder',
-                    title: 'Bu indirme için farklı klasör seç',
+                    title: T.chooseDifferentFolder,
                     size: 40,
                     iconSize: 19,
                     background: Serene.surfaceContainer,
@@ -329,7 +332,7 @@ class Hero extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'İndir',
+                                T.downloadWord,
                                 style: body(
                                   14,
                                   weight: FontWeight.w500,
@@ -398,7 +401,7 @@ class Hero extends StatelessWidget {
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      'Bu indirme şuraya kaydedilecek:',
+                      T.willBeSavedTo,
                       style: body(11, color: Serene.onPrimaryFixed),
                     ),
                   ),
@@ -414,7 +417,7 @@ class Hero extends StatelessWidget {
                   ),
                   CircleButton(
                     icon: 'close',
-                    title: 'Özel klasörü kaldır',
+                    title: T.removeCustomFolder,
                     size: 24,
                     iconSize: 15,
                     background: Colors.transparent,
@@ -701,7 +704,7 @@ class CaptureCard extends StatelessWidget {
     final name = captureName(item);
     final line = [
       if (item.site.trim().isNotEmpty) item.site.trim(),
-      item.size > 0 ? fmtBytes(item.size) : 'Boyut bilinmiyor',
+      item.size > 0 ? fmtBytes(item.size) : T.unknownSize,
       fmtWhen(item.createdAt),
     ].join(' • ');
 
@@ -751,7 +754,7 @@ class CaptureCard extends StatelessWidget {
             children: [
               CircleButton(
                 icon: 'close',
-                title: 'Yoksay',
+                title: T.ignore,
                 background: Serene.surfaceContainer,
                 hoverBackground: Serene.surfaceContainerHigh,
                 foreground: Serene.secondary,
@@ -760,7 +763,7 @@ class CaptureCard extends StatelessWidget {
               const SizedBox(width: 6),
               CircleButton(
                 icon: 'download',
-                title: 'İndir',
+                title: T.downloadWord,
                 background: Serene.primary.withValues(alpha: 0.1),
                 hoverBackground: Serene.primary.withValues(alpha: 0.2),
                 foreground: Serene.primary,
@@ -797,8 +800,8 @@ class CapturesPane extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SectionHeader(
-            title: 'Tarayıcıdan',
-            badge: items.isEmpty ? null : '${items.length} medya',
+            title: T.fromBrowser,
+            badge: items.isEmpty ? null : T.mediaCount(items.length),
             trailing: items.isEmpty
                 ? null
                 : HoverSurface(
@@ -806,7 +809,7 @@ class CapturesPane extends StatelessWidget {
                     background: Colors.transparent,
                     padding: EdgeInsets.zero,
                     child: Text(
-                      'Tümünü Temizle',
+                      T.clearAll,
                       style: body(
                         12,
                         weight: FontWeight.w600,
@@ -839,10 +842,8 @@ class CapturesPane extends StatelessWidget {
           if (items.isEmpty)
             EmptyState(
               icon: 'travel_explore',
-              title: 'Yakalanan medya yok',
-              hint:
-                  'Tarayıcıda oynattığınız videolar ve sesler burada birikir; '
-                  'indirmek istediğinizi tek tıkla seçersiniz.',
+              title: T.noCapturedMedia,
+              hint: T.noCapturedMediaHint,
             )
           else
             Column(

@@ -1,4 +1,5 @@
 import 'data.dart';
+import 'strings.dart';
 
 /// Spike icin ornek gorevler. Gercek tasks.json'a hicbir sey yazilmaz;
 /// bu gorevler yalnizca arayuzu dolu gormek icin bellege eklenir.
@@ -87,7 +88,7 @@ List<Task> demoTasks() {
       status: 'failed',
       category: 'archive',
       createdAt: now - 7200,
-      error: 'Bağlantı zaman aşımına uğradı',
+      error: T.demoTimeoutError,
     ),
     Task(
       id: 'demo-7',

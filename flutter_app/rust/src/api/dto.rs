@@ -8,8 +8,8 @@
 use serene_core::bridge::BridgeStatus;
 use serene_core::manager::ProgressTick;
 use serene_core::models::{
-    normalize_theme, CaptureItem, Category, DiskUsage, DownloadKind, DownloadMeta, SegmentInfo,
-    Settings, Status,
+    normalize_language, normalize_theme, CaptureItem, Category, DiskUsage, DownloadKind,
+    DownloadMeta, SegmentInfo, Settings, Status,
 };
 
 /// Boyutu bilinmeyen parcalar `u64::MAX` ile isaretlenir; Dart'ta buyuk ama
@@ -224,6 +224,7 @@ pub struct AppConfig {
     pub close_to_tray: bool,
     pub confirm_browser_download: bool,
     pub theme: String,
+    pub language: String,
 }
 
 impl From<Settings> for AppConfig {
@@ -236,6 +237,7 @@ impl From<Settings> for AppConfig {
             close_to_tray: value.close_to_tray,
             confirm_browser_download: value.confirm_browser_download,
             theme: normalize_theme(&value.theme),
+            language: normalize_language(&value.language),
         }
     }
 }
@@ -250,6 +252,7 @@ impl From<AppConfig> for Settings {
             close_to_tray: value.close_to_tray,
             confirm_browser_download: value.confirm_browser_download,
             theme: normalize_theme(&value.theme),
+            language: normalize_language(&value.language),
         }
     }
 }
