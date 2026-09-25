@@ -48,12 +48,12 @@ flutter run -d windows
 ```
 
 `flutter build windows --debug` Rust motorunu cargokit ile birlikte derler ve
-`build\windows\x64\runner\Debug\serene_app.exe` ikilisini üretir.
+`build\windows\x64\runner\Debug\Serene.exe` ikilisini üretir.
 
 ### Tarayıcı köprüsü ikilisi
 
 `serene-nmh.exe` `native-host/` paketinden derlenir; tarayıcı entegrasyonu için
-`serene_app.exe`'nin yanında durmak zorundadır:
+`Serene.exe`'nin yanında durmak zorundadır:
 
 ```cmd
 cd native-host
@@ -71,7 +71,7 @@ cargo test
 
 `scripts/` altındaki koşumlar uygulamayı gerçekten başlatıp uçtan uca sınar. Hepsi
 bir uygulama örneği açtığı ve aynı yerel köprüden komut verdiği için **sırayla**
-koşulmalıdır; Flutter koşumları ayrıca ortada çalışan bir `serene_app.exe` görürse
+koşulmalıdır; Flutter koşumları ayrıca ortada çalışan bir `Serene.exe` görürse
 kullanıcının uygulamasını öldürmemek için hiç başlamaz.
 
 #### Uygulama koşumları
@@ -107,13 +107,13 @@ yerel köprüden komut verir ve pencereyi Win32'den okur (`scripts/list_windows.
 - `check_extension.mjs` `settings.json`'da `confirmBrowserDownload` ayarını geçici
   olarak kapatır (devralma adımı onay penceresinde takılmasın diye).
 
-Uygulama koşumları `flutter_app\build\windows\x64\runner\Debug\serene_app.exe`
+Uygulama koşumları `flutter_app\build\windows\x64\runner\Debug\Serene.exe`
 ikilisini kullanır; başka bir derlemeyi denemek için `SERENE_APP_EXE` verilir.
 Sessiz başlatmayı ve eklentiyi sınayan iki koşum ikili klasörünü
 `SERENE_TARGET_DIR` ile değiştirir.
 
 ```cmd
-set SERENE_APP_EXE=%CD%\flutter_app\build\windows\x64\runner\Release\serene_app.exe
+set SERENE_APP_EXE=%CD%\flutter_app\build\windows\x64\runner\Release\Serene.exe
 node scripts\check_flutter.mjs
 ```
 
@@ -213,7 +213,7 @@ Ayrıca:
   klasörle `node scripts\deploy_flutter.mjs --restore <yedek>` geri alınır.
   Kayıt kullanıcı durumuna dokunduğu için betiğin varsayılanı kayda dokunmaz.
 
-Klasörü taşırken `serene_app.exe`, `rust_lib_serene.dll`, `flutter_windows.dll`,
+Klasörü taşırken `Serene.exe`, `rust_lib_serene.dll`, `flutter_windows.dll`,
 ek plugin dll'leri, `data\` ve `serene-nmh.exe` birlikte gitmelidir.
 
 Native messaging kaydı **son çalıştırılan derlemeyi** işaret eder: uygulama her açılışta

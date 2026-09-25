@@ -21,7 +21,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DIR = join(fileURLToPath(new URL(".", import.meta.url)), "..");
-const APP = "serene_app.exe";
+const APP = "Serene.exe";
 const NMH = "serene-nmh.exe";
 const HOST_ID = "com.serene.nmh";
 

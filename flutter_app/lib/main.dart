@@ -18,13 +18,13 @@ import 'src/strings.dart';
 import 'src/theme.dart';
 
 /// Iki kip:
-///   serene_app.exe                 -> ana pencere (main window)
-///   `serene_app.exe --demo`        -> ana pencere ornek gorevlerle acilir
-///   `serene_app.exe --settings`    -> ana pencere ayarlar katmani acik halde
-///   `serene_app.exe --handoff=<b64>` -> ayri "İndirme Bilgileri" penceresi
+///   Serene.exe                    -> ana pencere (main window)
+///   `Serene.exe --demo`           -> ana pencere ornek gorevlerle acilir
+///   `Serene.exe --settings`       -> ana pencere ayarlar katmani acik halde
+///   `Serene.exe --handoff=<b64>`  -> ayri "İndirme Bilgileri" penceresi
 ///        (`--handoff-theme=system|light|dark` ile o pencerenin temasi)
 ///        (`--handoff-lang=tr|en` ile o pencerenin dili)
-///   `serene_app.exe --selfcheck`   -> pencere acmadan Rust motorunu yoklar
+///   `Serene.exe --selfcheck`      -> pencere acmadan Rust motorunu yoklar
 ///
 /// Onay penceresi kendi surecinde acilir; boylece gercek bir isletim sistemi
 /// penceresi olur ve ana pencere kapanip acilsa da bagimsiz kalir. Ayarlar

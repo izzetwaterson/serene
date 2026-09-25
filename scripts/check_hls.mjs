@@ -17,7 +17,7 @@
 //   cd flutter_app && flutter build windows --debug
 //   node scripts/check_hls.mjs
 //
-// Baska bir derlemeyi denemek icin: SERENE_APP_EXE=...\serene_app.exe
+// Baska bir derlemeyi denemek icin: SERENE_APP_EXE=...\Serene.exe
 // Her sey gecici bir klasorde yasar: kullanicinin %APPDATA%\Serene'i ve
 // Indirilenler'i etkilenmez.
 
@@ -37,8 +37,8 @@ import {
 const ROOT = resolve(import.meta.dirname, "..");
 const EXE =
   process.env.SERENE_APP_EXE ||
-  join(ROOT, "flutter_app", "build", "windows", "x64", "runner", "Debug", "serene_app.exe");
-const IMAGE = "serene_app";
+  join(ROOT, "flutter_app", "build", "windows", "x64", "runner", "Debug", "Serene.exe");
+const IMAGE = "Serene";
 const LIST_WINDOWS = join(ROOT, "scripts", "list_windows.ps1");
 const HTTP_PORT = 8796;
 

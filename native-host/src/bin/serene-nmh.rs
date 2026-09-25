@@ -70,9 +70,9 @@ fn read_ipc() -> Option<IpcInfo> {
 
 /// Uygulamayi pencere one cikarmadan baslatir.
 ///
-/// Ikilinin adi kabuga gore degisir: Tauri kabugu `serene.exe`, Flutter kabugu
-/// `serene_app.exe`. Hangisinin bu klasorde durdugu burada cozulur; iki kabuk
-/// ayni anda yan yana bulunmadigi icin karisiklik cikmaz.
+/// Ikilinin adi kabuga gore degisir: urun ikilisi `Serene.exe`, gecis donemi
+/// Flutter kabugu `serene_app.exe`, emekli Tauri kabugu `serene.exe`. Hangisi
+/// bu klasorde duruyorsa o baslatilir; ayni klasorde birden fazlasi bulunmaz.
 fn launch_app() {
     let Ok(nmh) = native_host::nmh_exe_path() else {
         return;
@@ -80,7 +80,7 @@ fn launch_app() {
     let Some(dir) = nmh.parent() else {
         return;
     };
-    let Some(exe) = ["serene.exe", "serene_app.exe"]
+    let Some(exe) = ["Serene.exe", "serene_app.exe", "serene.exe"]
         .iter()
         .map(|name| dir.join(name))
         .find(|path| path.exists())

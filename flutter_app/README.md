@@ -1,7 +1,7 @@
 # Serene — Flutter kabuğu
 
 Depodaki **asıl arayüz**. İndirme motoru (`core/`) `flutter_rust_bridge` ile bu
-projenin içine gömülür: ortaya tek `serene_app.exe` ve yanındaki
+projenin içine gömülür: ortaya tek `Serene.exe` ve yanındaki
 `rust_lib_serene.dll` çıkar, arayüz ile motor arasında soket ya da protokol
 yoktur.
 
@@ -31,8 +31,8 @@ görünecek her yeni komut ya da olay akışı oraya yazılır ve ardından yeni
 ```cmd
 flutter run -d windows
 flutter analyze && flutter test
-flutter build windows --debug      :: build\windows\x64\runner\Debug\serene_app.exe
-flutter build windows --release    :: ...\Release\serene_app.exe
+flutter build windows --debug      :: build\windows\x64\runner\Debug\Serene.exe
+flutter build windows --release    :: ...\Release\Serene.exe
 ```
 
 `flutter build windows` Rust'ı cargokit üzerinden kendisi derler; ayrı bir
@@ -41,7 +41,7 @@ flutter build windows --release    :: ...\Release\serene_app.exe
 ## Yayın klasörü
 
 Derlenmiş klasör tek başına tarayıcıyla konuşamaz: eklenti uygulamaya
-`serene-nmh.exe` üzerinden ulaşır ve o ikili her zaman `serene_app.exe`'nin
+`serene-nmh.exe` üzerinden ulaşır ve o ikili her zaman `Serene.exe`'nin
 yanında aranır. İkisini bir araya getiren adım:
 
 ```cmd
@@ -62,12 +62,12 @@ bayrakları kullanır:
 
 | Komut | Sonuç |
 |---|---|
-| `serene_app.exe` | Ana pencere; motor bu süreçte kurulur |
-| `serene_app.exe --demo` | Ana pencere örnek görevlerle (motor listesi boşa çıkmaz) |
-| `serene_app.exe --settings` | Ana pencere, ayarlar katmanı açık |
-| `serene_app.exe --handoff=<base64url>` | "İndirme Bilgileri" onayı, **ayrı süreçte** pencere |
-| `serene_app.exe --handoff-demo` | Aynı pencere örnek görevle; motora komut göndermez |
-| `serene_app.exe --selfcheck` | Pencere açmadan köprü yoklaması; `KOPRU ...` satırı yazar |
+| `Serene.exe` | Ana pencere; motor bu süreçte kurulur |
+| `Serene.exe --demo` | Ana pencere örnek görevlerle (motor listesi boşa çıkmaz) |
+| `Serene.exe --settings` | Ana pencere, ayarlar katmanı açık |
+| `Serene.exe --handoff=<base64url>` | "İndirme Bilgileri" onayı, **ayrı süreçte** pencere |
+| `Serene.exe --handoff-demo` | Aynı pencere örnek görevle; motora komut göndermez |
+| `Serene.exe --selfcheck` | Pencere açmadan köprü yoklaması; `KOPRU ...` satırı yazar |
 
 `SERENE_DATA_DIR` verilirse motor tüm durum dosyalarını (`tasks.json`,
 `settings.json`, `captures.json`, `ipc.json`) oraya yazar. `--selfcheck` bu
@@ -117,5 +117,5 @@ köprüden komut verir ve işletim sistemi penceresini Win32'den okur
 onu yakalayan yardımcı:
 
 ```cmd
-powershell -NoProfile -File scripts\capture_window.ps1 -ProcessName serene_app
+powershell -NoProfile -File scripts\capture_window.ps1 -ProcessName Serene
 ```

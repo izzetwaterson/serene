@@ -397,7 +397,7 @@ function processCount(name) {
 }
 
 function killAll() {
-  for (const name of ["serene_app.exe", "serene-nmh.exe"]) {
+  for (const name of ["Serene.exe", "serene-nmh.exe"]) {
     try {
       execSync(`taskkill /F /IM ${name} /T`, { stdio: "ignore", windowsHide: true });
     } catch {
@@ -522,10 +522,10 @@ async function main() {
 
     report.lazyStart = {
       nativePorts: mock.state.nativePorts.length,
-      sereneRunning: processCount("serene_app.exe"),
+      sereneRunning: processCount("Serene.exe"),
     };
     console.log(
-      `yukleme sonrasi: native baglanti=${report.lazyStart.nativePorts}, serene_app.exe=${report.lazyStart.sereneRunning}`
+      `yukleme sonrasi: native baglanti=${report.lazyStart.nativePorts}, Serene.exe=${report.lazyStart.sereneRunning}`
     );
     if (report.lazyStart.nativePorts !== 0) {
       problems.push("eklenti yuklenir yuklenmez native baglanti kurdu (tembel olmali)");
@@ -622,10 +622,10 @@ async function main() {
     // Tarama tek basina baglanti acmamali: uygulama baslamaz, mesaj tamponda.
     report.sniffLazy = {
       nativePorts: mock.state.nativePorts.length,
-      sereneRunning: processCount("serene_app.exe"),
+      sereneRunning: processCount("Serene.exe"),
     };
     console.log(
-      `tarama sonrasi: native baglanti=${report.sniffLazy.nativePorts}, serene_app.exe=${report.sniffLazy.sereneRunning}`
+      `tarama sonrasi: native baglanti=${report.sniffLazy.nativePorts}, Serene.exe=${report.sniffLazy.sereneRunning}`
     );
     if (report.sniffLazy.nativePorts !== 0) {
       problems.push("tarama native baglanti acti (uygulama baslatilmamali)");

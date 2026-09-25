@@ -17,7 +17,7 @@ import { tmpdir } from "node:os";
 const ROOT = resolve(import.meta.dirname, "..");
 const EXE =
   process.env.SERENE_APP_EXE ||
-  join(ROOT, "flutter_app", "build", "windows", "x64", "runner", "Debug", "serene_app.exe");
+  join(ROOT, "flutter_app", "build", "windows", "x64", "runner", "Debug", "Serene.exe");
 
 function fail(reason) {
   console.log("BASARISIZ: " + reason);

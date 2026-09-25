@@ -54,8 +54,8 @@ import { connect as netConnect } from "node:net";
 const ROOT = resolve(import.meta.dirname, "..");
 const EXE =
   process.env.SERENE_APP_EXE ||
-  join(ROOT, "flutter_app", "build", "windows", "x64", "runner", "Debug", "serene_app.exe");
-const IMAGE = "serene_app";
+  join(ROOT, "flutter_app", "build", "windows", "x64", "runner", "Debug", "Serene.exe");
+const IMAGE = "Serene";
 const LIST_WINDOWS = join(ROOT, "scripts", "list_windows.ps1");
 const HTTP_PORT = 8802;
 
@@ -342,7 +342,7 @@ const problems = [];
 async function main() {
   if (!existsSync(EXE)) fail("uygulama bulunamadi: " + EXE + " (once `flutter build windows --debug`)");
   if (!existsSync(join(EXE, "..", "rust_lib_serene.dll"))) fail("FFI kutuphanesi exe'nin yaninda degil");
-  if (openWindows().length) fail("calisan bir serene_app.exe var; kosumdan once onu kapat");
+  if (openWindows().length) fail("calisan bir Serene.exe var; kosumdan once onu kapat");
 
   const dataDir = mkdtempSync(join(tmpdir(), "serene-flutter-"));
   const downloadDir = join(dataDir, "indir");
