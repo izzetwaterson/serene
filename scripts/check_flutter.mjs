@@ -18,9 +18,12 @@
 //      iner, onay penceresi kendiliginden kapanir
 //   7. Pencere kapatilinca surec cikar ve ipc.json silinir
 //   8. confirmBrowserDownload kapaliysa onay penceresi acilmaz, indirme baslar
+//   9. closeToTray acikken kapat dugmesi sureci oldurmez: pencere gizlenir, kopru
+//      yanit vermeye devam eder; uygulama yeniden baslatilinca pencere geri gelir
 //
 // Onay kapali akisi ayri bir kalkis istediginden, kapanma yoklamasi (7) o
-// yeniden baslatmanin (8) hemen onunda yapilir.
+// yeniden baslatmanin (8) hemen onunda yapilir; tepsi adimi (9) yine kendi
+// temiz kalkisini kullanir.
 //
 // Kullanim:
 //   cd flutter_app && flutter build windows --debug
@@ -347,9 +350,9 @@ async function main() {
   mkdirSync(downloadDir);
   mkdirSync(altDir);
 
-  const writeSettings = (overrides) =>
+  const writeSettingsTo = (dir, overrides) =>
     writeFileSync(
-      join(dataDir, "settings.json"),
+      join(dir, "settings.json"),
       JSON.stringify(
         {
           downloadDir,
@@ -367,11 +370,12 @@ async function main() {
       ),
     );
 
-  writeSettings({});
+  writeSettingsTo(dataDir, {});
 
   const httpServer = await startHttpServer();
   let client = null;
   let app = null;
+  let trayDir = null;
 
   try {
     /* 1-2: kalkis, kopru ve ana pencere */
@@ -498,7 +502,7 @@ async function main() {
     }
 
     /* 8: onay kapaliyken devralma dogrudan baslar */
-    writeSettings({ confirmBrowserDownload: false });
+    writeSettingsTo(dataDir, { confirmBrowserDownload: false });
     const second = await startApp(dataDir);
     app = second.app;
     client = second.client;
@@ -514,6 +518,41 @@ async function main() {
 
     client.close();
     client = null;
+
+    /* 9: tepsiye gizleme — closeToTray acikken kapat dugmesi sureci oldurmez */
+    killAll();
+    await sleep(1200);
+    trayDir = mkdtempSync(join(tmpdir(), "serene-tray-"));
+    writeSettingsTo(trayDir, { downloadDir: trayDir, closeToTray: true, confirmBrowserDownload: false });
+    const tray = await startApp(trayDir);
+    const trayPid = tray.info.pid;
+    await until("tepsi penceresi", 30000, () => mainWindowOf(trayPid), 400);
+    console.log(`tepsi kalkisi: pid ${trayPid}`);
+
+    closeGracefully();
+    // Gizlenen pencere süreçte kalır; bu yüzden ölçüt "hiç pencere yok" degil,
+    // "gorunur ana pencere yok".
+    await until("pencerenin gizlenmesi", 20000, () => (mainWindowOf(trayPid) ? null : true), 400);
+    const alive = await call(tray.client, "ping");
+    report.trayHidden = { pid: trayPid, stillRunning: alive.payload.pid === trayPid };
+    console.log(`pencere gizlendi, surec yasiyor: ${report.trayHidden.stillRunning}`);
+    if (alive.payload.pid !== trayPid) {
+      problems.push(`tepsiye gizlenince surec degisti (${alive.payload.pid} != ${trayPid})`);
+    }
+
+    const restore = spawn(EXE, [], {
+      cwd: join(EXE, ".."),
+      env: { ...process.env, SERENE_DATA_DIR: trayDir },
+      stdio: "ignore",
+    });
+    await until("ikinci ornegin cikisi", 30000, () => (restore.exitCode === null ? null : true), 300);
+    await until("pencerenin geri gelmesi", 20000, () => mainWindowOf(trayPid), 400);
+    report.trayRestored = true;
+    console.log("yeniden baslatma pencereyi geri getirdi");
+
+    tray.client.close();
+    killAll();
+    await sleep(600);
   } catch (error) {
     problems.push(error.stack || String(error));
     if (app) console.log(app.log().slice(-2000));
@@ -522,6 +561,7 @@ async function main() {
     await sleep(800);
     httpServer.close();
     rmSync(dataDir, { recursive: true, force: true });
+    if (trayDir) rmSync(trayDir, { recursive: true, force: true });
   }
 
   console.log(JSON.stringify(report, null, 2));

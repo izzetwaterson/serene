@@ -84,66 +84,43 @@ bir uygulama örneği açtığı ve aynı yerel köprüden komut verdiği için 
 koşulmalıdır; Flutter koşumları ayrıca ortada çalışan bir `serene_app.exe` görürse
 kullanıcının uygulamasını öldürmemek için hiç başlamaz.
 
-#### Flutter kabuğu
+#### Uygulama koşumları
+
+Hepsi Flutter ikilisi üstünde koşar ve motoru `SERENE_DATA_DIR` ile geçici bir
+klasöre yönlendirir; indirmeler de o klasörün altına iner.
 
 | Koşum | Doğruladığı |
 |---|---|
 | `node scripts/check_ffi.mjs` | Motor ikilisi exe'nin yanında; `--selfcheck` pencere açmadan kuruyor, komut gidip geliyor |
-| `node scripts/check_flutter.mjs` | Gerçek uygulama: köprü, masaüstü penceresi, tek örnek, indirme, yakalama, **ayrı süreçteki onay penceresi**, kapanış |
-| `cd flutter_app && flutter test` | Arayüz birim ve widget testleri: onay kuyruğu sırası, ayar paneli, bayt biçimlendirme |
+| `node scripts/check_flutter.mjs` | Gerçek uygulama: köprü, masaüstü penceresi, tek örnek, indirme, yakalama, **ayrı süreçteki onay penceresi**, kapanış, tepsiye gizleme |
+| `node scripts/check_bridge.mjs` | Yerel köprü: token, el sıkışma, komutlar, olay akışı, duraklat/devam |
+| `node scripts/check_hls.mjs` | HLS: varyant seçimi, birleştirme, AES-128, başlıklar, DRM reddi |
+| `node scripts/check_dash.mjs` | DASH: SegmentTemplate/SegmentTimeline, sesin dışlanması, desteklenmeyen yapının reddi |
+| `node scripts/check_captures.mjs` | Yakalananlar: tekilleştirme, indirme (dosya + HLS), silme, kalıcılık |
+| `cd flutter_app && flutter test` | Arayüz birim ve widget testleri: onay kuyruğu sırası, ayar paneli, kenar çubuğu rozeti, yakalananlar panosu, onay penceresi önizlemesi |
+
+İkiliyi değil de uygulamanın yanında duran iki bileşeni sınayanlar:
+
+| Koşum | Doğruladığı |
+|---|---|
+| `node scripts/check_extension.mjs` | Eklenti mantığı, devralma, medya taraması, geri düşme |
+| `node scripts/check_nmh.mjs` | Native messaging kaydı, çerçeveleme, sessiz başlatma |
 
 Flutter'ın webview'i yok, üstelik Windows koşucusu `PostMessage` ile gönderilen
 tıklamaları almıyor; bu yüzden arayüzü tarayıcı taklidiyle süren CDP koşumları
-Flutter'a taşınmadı. `check_flutter.mjs` onun yerine uygulamayı başlatır, tarayıcı
-eklentisinin kullandığı yerel köprüden komut verir ve pencereyi Win32'den okur
-(`scripts/list_windows.ps1`).
+emekliye ayrıldı. Koşumlar uygulamayı başlatır, tarayıcı eklentisinin kullandığı
+yerel köprüden komut verir ve pencereyi Win32'den okur (`scripts/list_windows.ps1`).
 
-#### Eski Tauri kabuğu
+İki koşum kullanıcı durumuna dokunur; ikisi de önce kaydeder, sonunda geri koyar:
 
-| Koşum | Doğruladığı | Webview'e bağımlı mı |
-|---|---|---|
-| `node scripts/check_bridge.mjs` | Yerel köprü: token, el sıkışma, komutlar, olay akışı | Kısmen (hazırlık + durum yoklaması) |
-| `node scripts/check_hls.mjs` | HLS: varyant seçimi, birleştirme, AES-128, başlıklar, DRM reddi | Kısmen (durum + duraklat/devam) |
-| `node scripts/check_dash.mjs` | DASH: SegmentTemplate/SegmentTimeline, video seçimi | Kısmen (durum yoklaması) |
-| `node scripts/check_captures.mjs` | Yakalananlar: tekilleştirme, indirme, silme, kalıcılık | Kısmen (Tauri komutları) |
-| `node scripts/check_panel.mjs` | "Tarayıcıdan" panelinin kendisi: rozet, kartlar, kaçış denetimi | Evet |
-| `node scripts/check_tray.mjs` | Web kabuğunda tepsi, kapatınca gizleme, tek örnek | Evet |
-| `node scripts/check_handoff.mjs` | Web arayüzündeki onay penceresi: sayfa içi modal | Evet |
-| `node scripts/check_extension.mjs` | Eklenti mantığı, devralma, medya taraması, geri düşme | Hayır |
-| `node scripts/check_nmh.mjs` | Native messaging kaydı, çerçeveleme, sessiz başlatma | Hayır |
-
-Son iki satır arayüzden bağımsızdır: `serene-nmh.exe` uygulama ikilisinin yanında
-durdukça Flutter derlemesiyle de çalışır, çünkü sessiz başlatma hem `serene.exe`
-hem `serene_app.exe` adını çözer. "Kısmen" satırları motorun kendi doğrulamasını
-köprü üzerinden yapar, yalnızca hazırlık ve durum okuma için webview'e danışır;
-bunlar köprüye devredilmeden `src/` emekli edilemez.
-
-Üç koşum kullanıcı durumuna dokunur; hepsi önce yedekler, sonunda geri koyar:
-
-- `check_nmh.mjs` kayıt defteri anahtarını siler; kaydı geri kurmak için o
-  derlemenin `serene.exe --register-host` komutu çalıştırılır.
-- `check_handoff.mjs` `tasks.json`'u yedekleyip boşaltır ve
-  `confirmBrowserDownload` ayarını kendi ihtiyacına göre açıp kapatır.
+- `check_nmh.mjs` kayıt defteri anahtarını siler, koşum sonunda yeniden kurar.
 - `check_extension.mjs` `settings.json`'da `confirmBrowserDownload` ayarını geçici
   olarak kapatır (devralma adımı onay penceresinde takılmasın diye).
 
-`check_ffi.mjs` ve `check_flutter.mjs` bunları yapmaz: motoru `SERENE_DATA_DIR`
-ile geçici bir klasöre yönlendirir, indirmeleri de oraya açtıkları alt klasöre
-yapar. Kalan koşumlar kullanıcının gerçek `%APPDATA%\Serene` ve `İndirilenler`
-durumunu kullandığı için çalıştırırken tarayıcı kapalı olmalıdır.
-
-Tauri koşumları varsayılan olarak `target\debug` ikililerini kullanır. Başka bir
-derlemeyi denemek için `SERENE_EXE` (uygulama ikilisi) ve `SERENE_TARGET_DIR`
-(iki ikilinin klasörü) verilir:
-
-```cmd
-set SERENE_EXE=%CD%\src-tauri\target\release\serene.exe
-set SERENE_TARGET_DIR=%CD%\src-tauri\target\release
-node scripts\check_bridge.mjs
-```
-
-Flutter koşumları `flutter_app\build\windows\x64\runner\Debug\serene_app.exe`
-ikilisini kullanır; yolu değiştirmek için `SERENE_APP_EXE` verilir.
+Uygulama koşumları `flutter_app\build\windows\x64\runner\Debug\serene_app.exe`
+ikilisini kullanır; başka bir derlemeyi denemek için `SERENE_APP_EXE` verilir.
+Sessiz başlatmayı ve eklentiyi sınayan iki koşum ikili klasörünü
+`SERENE_TARGET_DIR` ile değiştirir.
 
 ```cmd
 set SERENE_APP_EXE=%CD%\flutter_app\build\windows\x64\runner\Release\serene_app.exe
@@ -151,9 +128,8 @@ node scripts\check_flutter.mjs
 ```
 
 > Uygulama her açılışta native messaging kaydını yanındaki `serene-nmh.exe`'ye
-> çevirir. Release Flutter klasöründe o ikili varsa kayıt da oraya döner;
-> kaydı geri almak için Tauri derlemesini bir kez `--register-host` ile
-> çalıştırın.
+> çevirir. Kaydı başka bir klasöre almak için o klasördeki `serene-nmh.exe`
+> bir kez `--register-host` ile çalıştırılır.
 
 `smoke_test.py`, `e2e_download.py` (klavye girdisi gönderir, pencere odağı ister) ve
 `e2e_cdp.mjs` (dış ağdan indirme) yardımcı koşumlardır; günlük doğrulama için yukarıdaki
@@ -167,9 +143,9 @@ Zen Browser bir Firefox çatalı olduğu için aynı adımlar geçerlidir.
 ### Kurulum
 
 1. Native messaging kaydını kurun. Normal başlatmada zaten otomatik tazelenir; elle
-   kurmak veya yolu tazelemek için:
+   kurmak veya yolu tazelemek için yayın klasöründeki host ikilisini çalıştırın:
    ```cmd
-   src-tauri\target\debug\serene.exe --register-host
+   flutter_app\build\windows\x64\runner\Debug\serene-nmh.exe --register-host
    ```
    Bu komut iki şey yapar:
    - `%APPDATA%\Serene\nmh\com.serene.nmh.json` host manifestini yazar
@@ -261,9 +237,9 @@ cd src-tauri
 cargo build --release
 ```
 
-`target\release\serene.exe` ve `target\release\serene-nmh.exe` birlikte kopyalanmalıdır;
-`serene-nmh.exe` her zaman `serene.exe`'nin yanında aranır. Tauri aynı klasöre
-`WebView2Loader.dll` de bırakır — klasörü olduğu gibi taşımak en güvenlisi. NSIS kurulum
+`target\release\serene.exe` ve `WebView2Loader.dll` birlikte kopyalanmalıdır. Host
+ikilisi artık bu paketten değil `native-host`'tan gelir; `serene.exe`'nin yanına
+konur (`cd native-host && cargo build --release --bin serene-nmh`). NSIS kurulum
 paketi için:
 
 ```cmd
@@ -302,7 +278,7 @@ dokunmaz: o kipte köprü geçici klasörde doğar, tarayıcı ise gerçek klas�
 | Dosya | Sorumluluk |
 |---|---|
 | `native-host/src/lib.rs` | Native messaging kaydı ve host manifesti (motoru linklemez) |
-| `src-tauri/src/bin/serene-nmh.rs` | Tarayıcı ile köprü arasında stdio aktarıcısı, sessiz başlatma |
+| `native-host/src/bin/serene-nmh.rs` | Tarayıcı ile köprü arasında stdio aktarıcısı, sessiz başlatma |
 | `extension/` | Firefox eklentisi: devralma, tarama, panel |
 
 ### Flutter kabuğu — asıl arayüz
@@ -373,18 +349,14 @@ Arayüz native Flutter'a taşındı ve motorunun içine gömüldü. Tamamlanan a
 `src/` ve `src-tauri/` bilinçli olarak duruyor; emeklilik ayrı bir karar. Kararın
 önündeki engeller:
 
-- Yukarıdaki tabloda "Evet" ve "Kısmen" satırlarında işaretlenen koşumlar webview'e
-  danışıyor. Bunlar köprüye ya da Flutter testlerine devredilmeden eski kabuk
-  silinemez.
-- `serene-nmh.exe` hâlâ `src-tauri` paketinin bir hedefi. Kodu Tauri'den bağımsız
-  (`native-host/` kutuphanesini linkler) ama ikiliyi üretmek için o pakette
-  `cargo build` gerekiyor; `deploy_flutter.mjs` oradan kopyalıyor. Emeklilikten
-  önce host'un `native-host/` paketine taşınması gerekir.
-- Native messaging kaydı tek bir uygulamayı işaret eder; iki kabuk yan yana
-  dururken son açılan kazanır. Bu yüzden `deploy_flutter.mjs` kaydı varsayılan
-  olarak çevirmez ve `--register` açıkça istenir.
 - Kurulum paketi (NSIS) yalnızca Tauri tarafında tanımlı; Flutter için henüz bir
   yükleyici yok, yayın klasörü elle taşınıyor.
+- Web kabuğunun kendi araçları (`e2e_cdp.mjs`, `e2e_download.py`, `smoke_test.py`,
+  `check_imports*.py`, `raise_window.ps1`, `screenshot.ps1`) hâlâ depoda;
+  `src/` ile birlikte silinmeleri gerekiyor.
+
+Koşumlar artık webview'e danışmıyor, `serene-nmh.exe` de `native-host/` paketinden
+derleniyor: emekliliğin önündeki iki eski engel kapandı.
 
 ## Bilinmeyenler / sınırlar
 

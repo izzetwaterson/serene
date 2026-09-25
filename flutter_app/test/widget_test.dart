@@ -3,9 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:serene_app/src/app_theme.dart';
+import 'package:serene_app/src/cards.dart';
 import 'package:serene_app/src/data.dart';
 import 'package:serene_app/src/format.dart';
 import 'package:serene_app/src/handoff.dart';
+import 'package:serene_app/src/handoff_window.dart';
+import 'package:serene_app/src/main_window.dart';
 import 'package:serene_app/src/rust/api/dto.dart' as engine;
 import 'package:serene_app/src/settings_view.dart';
 import 'package:serene_app/src/strings.dart';
@@ -335,7 +338,104 @@ void main() {
     await tester.pump();
     expect(appLanguage.value, AppLanguage.tr);
   });
+
+  testWidgets('kenar cubugu yakalananlar sayisini rozette gosterir', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_settingsHost(
+      Sidebar(
+        tasks: const [],
+        captures: _captureFixtures(),
+        settings: _engineSettings(),
+        disk: null,
+        filter: 'all',
+        category: null,
+        view: 'tasks',
+        demoOn: false,
+        onNewDownload: () {},
+        onFilter: (_) {},
+        onCategory: (_) {},
+        onCaptures: () {},
+        onDemo: (_) {},
+      ),
+    ));
+
+    expect(find.text(T.fromBrowser), findsOneWidget);
+    // Gorev listesi bos: tek sifir disi sayac yakalananlardir.
+    expect(find.text('2'), findsOneWidget);
+  });
+
+  testWidgets('yakalananlar panosu satirlari duz metin cizer', (tester) async {
+    final items = _captureFixtures();
+    await tester.pumpWidget(_settingsHost(
+      CapturesPane(
+        items: items,
+        notice: null,
+        onAction: (_, _) {},
+        onClear: () {},
+      ),
+    ));
+
+    expect(find.text(T.mediaCount(2)), findsOneWidget);
+    // Dosya adi HTML olarak yorumlanmaz: etiketler oldugu gibi gorunur.
+    expect(find.text('<b>kotu</b>.mp4'), findsOneWidget);
+    expect(find.text('serene-test.bin'), findsOneWidget);
+    // Satir ust bilgisi site, boyut ve zamanla kurulur.
+    expect(find.textContaining('ornek.test'), findsNWidgets(2));
+  });
+
+  testWidgets('onay penceresi onizlemede motoru cagirmaz', (tester) async {
+    final task = _handoffFixture();
+    await tester.pumpWidget(_settingsHost(HandoffWindow(task: task, preview: true)));
+
+    expect(find.text(T.handoffTitle), findsOneWidget);
+    expect(find.text(task.url), findsOneWidget);
+    expect(find.text(r'C:\indir'), findsOneWidget);
+
+    await tester.tap(find.text(T.startDownload));
+    await tester.pump();
+    expect(find.text(T.sampleTaskNoEngine), findsOneWidget);
+  });
 }
+
+List<CaptureItem> _captureFixtures() => [
+      CaptureItem(
+        id: 'cap-1',
+        url: 'https://cdn.ornek.test/<b>kotu</b>.mp4',
+        filename: '<b>kotu</b>.mp4',
+        size: 4 * 1024 * 1024,
+        contentType: 'video/mp4',
+        kind: 'file',
+        site: 'ornek.test',
+        createdAt: 1790000000,
+      ),
+      CaptureItem(
+        id: 'cap-2',
+        url: 'https://cdn.ornek.test/serene-test.bin',
+        filename: 'serene-test.bin',
+        size: 0,
+        contentType: 'application/octet-stream',
+        kind: 'file',
+        site: 'ornek.test',
+        createdAt: 1790000000,
+      ),
+    ];
+
+Task _handoffFixture() => Task(
+      id: 'gorev-1',
+      url: 'https://cdn.ornek.test/devralinan.bin',
+      filename: 'devralinan.bin',
+      dest: r'C:\indir\devralinan.bin',
+      total: 8 * 1024 * 1024,
+      downloaded: 0,
+      speed: 0,
+      status: 'paused',
+      category: 'software',
+      createdAt: 1790000000,
+      source: 'download',
+      pending: true,
+      resumable: true,
+    );
 
 /// Panel tek basina da ayni temayi seesin: katmanin sahibi ana pencere gibi.
 Widget _settingsHost(Widget child) =>
