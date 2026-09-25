@@ -11,10 +11,10 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
-const ROOT = "C:\\Users\\izzet\\Desktop\\serene";
+const ROOT = resolve(import.meta.dirname, "..");
 const EXE =
   process.env.SERENE_APP_EXE ||
   join(ROOT, "flutter_app", "build", "windows", "x64", "runner", "Debug", "serene_app.exe");

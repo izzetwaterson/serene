@@ -1,6 +1,8 @@
+from pathlib import Path
+
 from PIL import Image, ImageDraw
 
-OUT = r"C:\Users\ornek\Desktop\serene\src-tauri\icons"
+OUT = Path(__file__).resolve().parent.parent / "src-tauri" / "icons"
 
 
 def icon(size):
@@ -25,10 +27,10 @@ def icon(size):
 
 
 for name, s in {"32x32.png": 32, "128x128.png": 128, "128x128@2x.png": 256, "icon.png": 512}.items():
-    icon(s).save(OUT + "\\" + name)
+    icon(s).save(OUT / name)
 
 icon(256).save(
-    OUT + r"\icon.ico",
+    OUT / "icon.ico",
     sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
 )
 print("icons ok")
