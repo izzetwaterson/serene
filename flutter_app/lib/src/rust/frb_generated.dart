@@ -1239,8 +1239,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AppConfig dco_decode_app_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 8)
-      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
     return AppConfig(
       downloadDir: dco_decode_String(arr[0]),
       maxConcurrent: dco_decode_i_32(arr[1]),
@@ -1250,6 +1250,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       confirmBrowserDownload: dco_decode_bool(arr[5]),
       theme: dco_decode_String(arr[6]),
       language: dco_decode_String(arr[7]),
+      autostart: dco_decode_bool(arr[8]),
     );
   }
 
@@ -1557,6 +1558,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_confirmBrowserDownload = sse_decode_bool(deserializer);
     var var_theme = sse_decode_String(deserializer);
     var var_language = sse_decode_String(deserializer);
+    var var_autostart = sse_decode_bool(deserializer);
     return AppConfig(
       downloadDir: var_downloadDir,
       maxConcurrent: var_maxConcurrent,
@@ -1566,6 +1568,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       confirmBrowserDownload: var_confirmBrowserDownload,
       theme: var_theme,
       language: var_language,
+      autostart: var_autostart,
     );
   }
 
@@ -1999,6 +2002,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.confirmBrowserDownload, serializer);
     sse_encode_String(self.theme, serializer);
     sse_encode_String(self.language, serializer);
+    sse_encode_bool(self.autostart, serializer);
   }
 
   @protected

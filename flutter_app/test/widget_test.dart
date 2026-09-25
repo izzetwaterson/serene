@@ -23,6 +23,7 @@ Settings _engineSettings() => Settings(
       confirmBrowserDownload: true,
       theme: 'system',
       language: 'tr',
+      autostart: false,
     );
 
 void main() {
@@ -210,6 +211,7 @@ void main() {
           confirmBrowserDownload: true,
           theme: 'light',
           language: 'tr',
+          autostart: false,
         ),
         onClose: () {},
         onSaved: (_) {},

@@ -160,6 +160,7 @@ class Settings {
     required this.confirmBrowserDownload,
     required this.theme,
     required this.language,
+    required this.autostart,
   });
 
   static Settings fromEngine(engine.AppConfig raw) => Settings(
@@ -171,6 +172,7 @@ class Settings {
     confirmBrowserDownload: raw.confirmBrowserDownload,
     theme: raw.theme,
     language: raw.language,
+    autostart: raw.autostart,
   );
 
   final String downloadDir;
@@ -185,4 +187,8 @@ class Settings {
 
   /// `tr` ya da `en`; motor taninmayan degeri varsayilana indirir.
   final String language;
+
+  /// Gercek tutulmasi `HKCU\...\CurrentVersion\Run` anahtaridir; motor ayar
+  /// dosyasina yazmakla birlikte anahtari da yazar.
+  final bool autostart;
 }

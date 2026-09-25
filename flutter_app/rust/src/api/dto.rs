@@ -225,6 +225,7 @@ pub struct AppConfig {
     pub confirm_browser_download: bool,
     pub theme: String,
     pub language: String,
+    pub autostart: bool,
 }
 
 impl From<Settings> for AppConfig {
@@ -238,6 +239,7 @@ impl From<Settings> for AppConfig {
             confirm_browser_download: value.confirm_browser_download,
             theme: normalize_theme(&value.theme),
             language: normalize_language(&value.language),
+            autostart: value.autostart,
         }
     }
 }
@@ -253,6 +255,7 @@ impl From<AppConfig> for Settings {
             confirm_browser_download: value.confirm_browser_download,
             theme: normalize_theme(&value.theme),
             language: normalize_language(&value.language),
+            autostart: value.autostart,
         }
     }
 }

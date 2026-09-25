@@ -14,6 +14,7 @@ use crate::dash;
 use crate::engine;
 use crate::hls;
 use crate::models::{CaptureItem, DownloadKind, DownloadMeta, Settings, Status};
+use crate::platform;
 use crate::runtime;
 use crate::store;
 
@@ -151,6 +152,15 @@ impl DownloadManager {
     pub fn update_settings(self: &Arc<Self>, next: Settings) {
         self.clipboard_enabled
             .store(next.watch_clipboard, Ordering::Relaxed);
+        // Otomatik baslatma ayar dosyasinda durur ama gercek etkisini kayit
+        // defterindeki Run anahtari yazar; ikisi birlikte degismeli. Kurulum
+        // paketi de ayni anahtari yazdigindan tek dogruluk kaynagi bu degil,
+        // etkileyen tek yol.
+        if let Err(err) = platform::set_autostart(next.autostart) {
+            eprintln!(
+                "[depo] otomatik baslatma anahtari yazilamadi: {err}"
+            );
+        }
         store::save_settings(&self.settings_path, &next);
         *self.settings.lock().unwrap() = next;
         self.pump();

@@ -97,6 +97,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late bool _clipboard = widget.settings.watchClipboard;
   late bool _tray = widget.settings.closeToTray;
   late bool _confirm = widget.settings.confirmBrowserDownload;
+  late bool _autostart = widget.settings.autostart;
   late ThemeMode _theme = themeModeFrom(widget.settings.theme);
   late AppLanguage _language = languageFrom(widget.settings.language);
 
@@ -156,6 +157,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     confirmBrowserDownload: _confirm,
     theme: themeModeSetting(_theme),
     language: languageSetting(_language),
+    autostart: _autostart,
   );
 
   Future<void> _save() async {
@@ -376,6 +378,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           hint: T.confirmBrowserHint,
                           value: _confirm,
                           onChanged: (value) => setState(() => _confirm = value),
+                        ),
+                        const SizedBox(height: 16),
+                        _Toggle(
+                          title: T.autostartTitle,
+                          hint: T.autostartHint,
+                          value: _autostart,
+                          onChanged: (value) => setState(() => _autostart = value),
                         ),
                         const SizedBox(height: 20),
                         Row(

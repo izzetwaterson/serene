@@ -153,6 +153,8 @@ abstract class Strings {
   String get closeToTrayHint;
   String get confirmBrowserTitle;
   String get confirmBrowserHint;
+  String get autostartTitle;
+  String get autostartHint;
   String get clearCompletedLabel;
 
   // --- Onay penceresi ---
@@ -424,6 +426,11 @@ class TrStrings extends Strings {
   @override
   String get confirmBrowserHint =>
       'Devralınan indirme, bilgileri onaylanana kadar başlamaz';
+  @override
+  String get autostartTitle => 'Windows açılışında başlat';
+  @override
+  String get autostartHint =>
+      'Bilgisayar açıldığında Serene kendiliğinden çalışır';
   @override
   String get clearCompletedLabel => 'Tamamlananları temizle';
 
@@ -710,6 +717,10 @@ class EnStrings extends Strings {
   @override
   String get confirmBrowserHint =>
       'A taken-over download waits until its details are confirmed';
+  @override
+  String get autostartTitle => 'Start when Windows starts';
+  @override
+  String get autostartHint => 'Serene launches itself when you sign in';
   @override
   String get clearCompletedLabel => 'Clear completed';
 
