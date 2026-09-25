@@ -119,10 +119,15 @@ Future<void> _openMain({bool demo = false, bool settings = false}) async {
   // Firefox native messaging kaydi ikilinin yolunu gosterir; surum
   // yukseltmesinde degistigi icin her acilista tazele. Gelistirme derlemesinin
   // yaninda serene-nmh.exe yoktur, kayit defterine dokunmadan basarisiz olur.
-  try {
-    ffi.registerBrowserHost();
-  } catch (_) {
-    /* kayit zorunlu degil: eklenti olmadan da indirme baslar */
+  // `SERENE_DATA_DIR` yaliniz yoklama icin verilir: o kipte kopru kaydi gecici
+  // klasorde durur, tarayici ise gercek klasore bakar. Bu yuzden yoklama sirasi
+  // tarayiciyi kendine baglamamali.
+  if (Platform.environment['SERENE_DATA_DIR'] == null) {
+    try {
+      ffi.registerBrowserHost();
+    } catch (_) {
+      /* kayit zorunlu degil: eklenti olmadan da indirme baslar */
+    }
   }
 }
 

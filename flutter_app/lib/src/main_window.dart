@@ -450,20 +450,24 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     return null;
   }
 
-  void _spawnHandoff(Task task) {
+  /// Onay penceresi kendi surecinde acilir; karari beklenir, cunku kapanisin
+  /// haberi siradaki onayi one getirir. `detached` kipinde `exitCode` yoktur,
+  /// bu yuzden borular normal kipde acilip bosaltilir.
+  Future<void> _spawnHandoff(Task task) async {
     final payload = base64Url.encode(utf8.encode(jsonEncode(task.toJson())));
-    Process.start(Platform.resolvedExecutable, [
-          '--handoff=$payload',
-          if (_demoOn) '--handoff-demo',
-        ], mode: ProcessStartMode.detached)
-        .then((process) {
-          _handoffProc = process;
-          return process.exitCode;
-        })
-        .then((_) => _handoffClosed(task.id))
-        .catchError((Object _) {
-          _handoffClosed(task.id);
-        });
+    try {
+      final process = await Process.start(Platform.resolvedExecutable, [
+        '--handoff=$payload',
+        if (_demoOn) '--handoff-demo',
+      ]);
+      unawaited(process.stdout.drain());
+      unawaited(process.stderr.drain());
+      _handoffProc = process;
+      await process.exitCode;
+    } catch (_) {
+      /* surec acilamazsa da sira kilitlenmesin */
+    }
+    _handoffClosed(task.id);
   }
 
   void _handoffClosed(String id) {
