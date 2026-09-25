@@ -11,11 +11,13 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc};
+use tokio::time::Instant;
 
 use crate::bus::{CoreEvent, EventBus};
 use crate::engine;
@@ -26,6 +28,24 @@ use crate::runtime;
 use crate::store;
 
 pub const IPC_FILE: &str = "ipc.json";
+
+/// Tel biciminde gonderilen olayin turu: abonenin geride kaldigini bildirir.
+/// Eski istemci bilinmeyen turu yok sayar ve koprunun hemen ardindan
+/// gonderdigi tam durumla yine de yaklasir; yani ekleme geriye donuk
+/// uyumludur.
+pub const RESYNC_TYPE: &str = "resync";
+
+/// Koprunun kendi yayin kanalindaki kapasite. Gonderme bloklamaz, doldugu
+/// icin en eski mesaj dusmeye baslar; kapasite buyutuldukce yavas istemci
+/// daha gek yakalar. Asil duzeltme yine de `Lagged` yakalandiginda durumun
+/// yeniden okunmasidir.
+const CLIENT_QUEUE: usize = 512;
+
+/// Ayni istemciye arka arkaya toparlama bildiriminin gonderilme araligi.
+/// Tasma bir kez olustu mu durum zaten tam gonderilmistir; saniyede bir
+/// bildirim yeter, aradaki tasmalar bir sonraki tam listeyle ya da istemcinin
+/// `list` istegiyle kapanir.
+const RESYNC_MIN_GAP: Duration = Duration::from_millis(500);
 
 /// Kopruye baglanmak icin gereken bilgiler; diske yazilir.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -149,6 +169,28 @@ fn error_message(req_id: Option<String>, message: &str) -> String {
     .to_string()
 }
 
+/// Kopru tel biciminde tek bir olay satiri: `{ type, payload }`.
+fn event_line(kind: &str, payload: serde_json::Value) -> String {
+    serde_json::json!({ "type": kind, "payload": payload }).to_string()
+}
+
+/// Abonenin geride kaldigini bildiren satir. `missed` kac olayin dusdugunu
+/// soyler; eski istemci bu turu bilmez ve yok sayar.
+fn resync_line(missed: u64) -> String {
+    event_line(RESYNC_TYPE, serde_json::json!({ "missed": missed }))
+}
+
+/// Motorun gosterdigi son durum: gorevler ve yakalananlar.
+///
+/// Motor tek dogrudur; bu iki satir her yerde (kuyruk tasmasi, yeni abone)
+/// liste yerine gecer, boylece abone tahmin yapmaz.
+fn state_lines(manager: &DownloadManager) -> Vec<String> {
+    vec![
+        event_line("tasks", serde_json::json!(manager.snapshot())),
+        event_line("captures", serde_json::json!(manager.captures())),
+    ]
+}
+
 /// Cekirdek olayini kopru tel bicimine cevirip abonelere dagitir.
 /// Koprunun umursamadigi olaylar (onay penceresi, pano) atlanir.
 fn forward(events: &broadcast::Sender<String>, event: &CoreEvent) {
@@ -159,8 +201,18 @@ fn forward(events: &broadcast::Sender<String>, event: &CoreEvent) {
         CoreEvent::HandoffPending(_) | CoreEvent::ClipboardLink(_) => return,
         CoreEvent::PresentWindow => return,
     };
-    let message = serde_json::json!({ "type": kind, "payload": payload });
-    let _ = events.send(message.to_string());
+    let _ = events.send(event_line(kind, payload));
+}
+
+/// Cekirdek kutusu tasirmis: gonderilemeyen olaylarin yerine motorun gosterdigi
+/// son durum konur. Gonderme bloklamadigi icin yavas istemci bu yoldan da
+/// engellenmez; acik bildirim once, tam durum hemen ardindan gider, boylece
+/// abone neyin dustugunu bilir ve listeden sonra yarisini gormez.
+fn replay(events: &broadcast::Sender<String>, manager: &DownloadManager, missed: u64) {
+    let _ = events.send(resync_line(missed));
+    for line in state_lines(manager) {
+        let _ = events.send(line);
+    }
 }
 
 /// Kopruyu baslatir, `ipc.json`'u yazar ve kabul dongusunu arka planda kurar.
@@ -180,7 +232,7 @@ pub async fn start(bus: EventBus, manager: Arc<DownloadManager>) -> anyhow::Resu
     let path = store::data_dir().join(IPC_FILE);
     store::write_json(&path, &info)?;
 
-    let (events, _) = broadcast::channel::<String>(256);
+    let (events, _) = broadcast::channel::<String>(CLIENT_QUEUE);
     let bridge = Arc::new(Bridge {
         info,
         path,
@@ -191,13 +243,19 @@ pub async fn start(bus: EventBus, manager: Arc<DownloadManager>) -> anyhow::Resu
     {
         let events = events.clone();
         let mut rx = bus.subscribe();
+        let manager = Arc::clone(&manager);
         runtime::spawn(async move {
             loop {
                 match rx.recv().await {
                     Ok(event) => forward(&events, &event),
-                    // Yavas bir istemci kuyrugu tasirirsa bir sonraki olayla
-                    // devam edilir; kopru kendini kaybettirmemeli.
-                    Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                    // Kuyruk tasirdi: yarim olay paketi iletilmez, sadece
+                    // sonraki olayla devam edilmez. Motor tek dogrudur; bu
+                    // yuzden durum yeniden okunur ve tum abonelere tam liste
+                    // olarak geri verilir. Ilerleme zaten anlik sayilardir ve
+                    // tam listedeki `downloaded` ile duzelir.
+                    Err(broadcast::error::RecvError::Lagged(missed)) => {
+                        replay(&events, &manager, missed);
+                    }
                     Err(_) => break,
                 }
             }
@@ -469,10 +527,41 @@ where
                 if subscription.is_none() {
                     let mut events = bridge.events.subscribe();
                     let tx = tx.clone();
+                    let manager = Arc::clone(manager);
                     subscription = Some(runtime::spawn(async move {
-                        while let Ok(message) = events.recv().await {
-                            if tx.send(message).await.is_err() {
-                                break;
+                        // Ardisik tasmalarda (ornegin birikmis binlerce olay)
+                        // saniyede bir toparlama gonderilir: durum her seferinde
+                        // tam oldugu icin istemci ilk toparlamada yaklasir,
+                        // kalanlar `list` istegi ya da bir sonraki tam liste
+                        // ile kapanir.
+                        let mut last_resync: Option<Instant> = None;
+                        loop {
+                            match events.recv().await {
+                                Ok(message) => {
+                                    if tx.send(message).await.is_err() {
+                                        break;
+                                    }
+                                }
+                                Err(broadcast::error::RecvError::Lagged(missed)) => {
+                                    let now = Instant::now();
+                                    if let Some(last) = last_resync {
+                                        if now.duration_since(last) < RESYNC_MIN_GAP {
+                                            continue;
+                                        }
+                                    }
+                                    last_resync = Some(now);
+                                    // Once acik bildirim, sonra motorun
+                                    // gosterdigi tam durum: yarim paket asla
+                                    // gonderilmez.
+                                    let mut burst = vec![resync_line(missed)];
+                                    burst.extend(state_lines(&manager));
+                                    for line in burst {
+                                        if tx.send(line).await.is_err() {
+                                            return;
+                                        }
+                                    }
+                                }
+                                Err(_) => break,
                             }
                         }
                     }));

@@ -79,6 +79,9 @@ class _MainWindowState extends State<MainWindow>
   final HandoffQueue _handoffs = HandoffQueue();
   Process? _handoffProc;
 
+  /// Yayindan dusmus olay sonrasi motorla ayni duruma donus kapisi.
+  final ResyncGate _resync = ResyncGate();
+
   List<Task> get _tasks => _demoOn ? [..._demo, ..._real] : _real;
 
   @override
@@ -112,7 +115,7 @@ class _MainWindowState extends State<MainWindow>
     _streams.add(ffi.watchProgress().listen(_applyProgress));
     _streams.add(ffi.watchCaptures().listen(_applyCaptures));
     // Ikinci acilis ya da eklentideki "Serene'yi Ac": pencere one gelir.
-    _streams.add(ffi.watchPresent().listen((_) => _present()));
+    _streams.add(ffi.watchPresent().listen(_applyPresent));
     // Yeni bir tarayici devralmasi: onay penceresi sirasina girer.
     //
     // Iki ayri FRB akisi sirayi garanti etmez: olay, gorevi tasiyan liste
@@ -128,9 +131,7 @@ class _MainWindowState extends State<MainWindow>
     );
 
     // Kapanip acildiktan sonra onay bekleyen gorevler yeniden sorulur.
-    for (final task in _real) {
-      if (task.pending) _handoffs.request(task.id);
-    }
+    _queuePendingHandoffs();
     _pumpHandoffs();
 
     _setupShell();
@@ -275,6 +276,9 @@ class _MainWindowState extends State<MainWindow>
   void onWindowUnmaximize() => setState(() => _maximized = false);
 
   void _applyTasks(List<engine.Task> raw) {
+    // Uygulanan her tam liste motorun gosterdigi durumun kendisidir: bekleyen
+    // bir esitleme gereksizlesir.
+    _resync.onFullList();
     if (!mounted) return;
     setState(() {
       _real = raw.map(Task.fromEngine).toList();
@@ -292,16 +296,65 @@ class _MainWindowState extends State<MainWindow>
   /// Ticker yalnizca inen gorevleri taşir; tam liste yeniden cizilmez.
   void _applyProgress(List<engine.Progress> ticks) {
     if (!mounted) return;
-    var changed = false;
-    for (final tick in ticks) {
-      final task = _byId[tick.id];
-      if (task == null) continue;
-      task
-        ..downloaded = tick.downloaded.toInt()
-        ..speed = tick.speed;
-      changed = true;
+    // Esitleme beklerken indeks bayat olabilir, o yuzden paket uygulanmaz.
+    final batch = applyProgress(_byId, ticks, stale: _resync.pending);
+    if (batch.lost) {
+      _onLostEvents();
+      return;
     }
-    if (changed) setState(() {});
+    if (batch.changed) setState(() {});
+  }
+
+  /// Ikinci acilis ya da eklentideki "Serene'yi Ac": pencere one gelir.
+  ///
+  /// `0` bir kayit bildirimidir; dusen istek sayilmaz, yanlis yere one
+  /// getirmek yerine durum yeniden okunur.
+  void _applyPresent(int tick) {
+    if (tick == lostPresent) {
+      _onLostEvents();
+      return;
+    }
+    _present();
+  }
+
+  /// Yayindan dusmus olay: motorun gosterdigi durum yeniden okunur.
+  ///
+  /// En cok bir esitleme istegi bekler. Ayni donus icinde siraya girmis daha
+  /// yeni bir tam liste bekleyen istegi gereksiz bir sorguyla degistirmemesi
+  /// icin yineleme bir sonraki devreye birakilir.
+  void _onLostEvents() {
+    if (!_resync.onLost()) return;
+    debugPrint(
+      '[serene] yayin kuyrugu tasildi, motor listesi yeniden okunuyor',
+    );
+    scheduleMicrotask(_resyncFromEngine);
+  }
+
+  /// Esitleme: motorun anlik durumu. Gecmise dair tahmin yok - gostervler,
+  /// yakalananlar ve onay bekleyenler tek tek yeniden sorulur.
+  void _resyncFromEngine() {
+    if (!mounted || !_resync.pending) return;
+    try {
+      final tasks = ffi.listTasks();
+      final captures = ffi.listCaptures();
+      if (!mounted) return;
+      _applyTasks(tasks);
+      _applyCaptures(captures);
+      _queuePendingHandoffs();
+      _pumpHandoffs();
+    } catch (error) {
+      // Motor okunamadi: bayat liste sessizce gosterilmez. Kapi acilir ki
+      // sonraki bir kayit bildirimi yeniden deneyebilsin.
+      _resync.cancel();
+      _notify(engineReason(error));
+    }
+  }
+
+  /// Onay bekleyen gorevleri kuyruga alir.
+  void _queuePendingHandoffs() {
+    for (final id in pendingHandoffIds(_real)) {
+      _handoffs.request(id);
+    }
   }
 
   /// Demo gorevler kendi kendine ilerler; motor kapaliyken de canli gorunsun
@@ -1361,4 +1414,99 @@ class _DemoSwitch extends StatelessWidget {
       ),
     );
   }
+}
+
+/* ---------- Yayindan dusmus olaylar ---------- */
+
+/// Yayindan dusmus olay bildirimi. Motor kimlikleri UUID uretir; bu deger
+/// cift alt cizgiyle basladigi icin gercek bir gorev ya da yakalama ile
+/// caprazlamaz. Rust tarafi: `rust/src/api/events.rs` (`LOST_EVENTS_ID`).
+const String lostEventsId = '__serene_lost__';
+
+/// Panoya kopyalanan baglanti icin bildirim isareti; `http` olmayan tek deger.
+/// Flutter kabugu `watchClipboard` akisina abone olmadigi icin bu isaretin
+/// Dart'ta henuz bir alici yok; motor tasma halinde bunu yine de yayar.
+const String lostLink = 'serene://lost';
+
+/// "Pencereyi one getir" icin bildirim isareti; gercek istek `1` ile gelir.
+const int lostPresent = 0;
+
+/// Listede onay bekleyen gorev kimlikleri.
+///
+/// Acilista ve her toparlamadan sonra kuyruga alinirlar: dusen bir onay
+/// olayinda gorev listede duruyor olabilir, kuyruga girmeyince pencere hic
+/// acilmaz ve gorev uzerinde onay beklerken kalir.
+List<String> pendingHandoffIds(List<Task> tasks) =>
+    [for (final task in tasks) if (task.pending) task.id];
+
+/// Ilerleme paketinin ne ture uydugunu soyler.
+class ProgressBatch {
+  const ProgressBatch({required this.lost, required this.changed});
+
+  /// Paket kayit bildirimi tasiyor: hicbir tik uygulanmaz, durum yeniden
+  /// okunur.
+  final bool lost;
+
+  /// Agac yeniden cizilmeli.
+  final bool changed;
+}
+
+/// Ilerleme paketini gorev indeksine uygular.
+///
+/// Uc kural birlikte korunur:
+///   * paket kayit bildirimi tasiyorsa hicbir tik uygulanmaz - yarim veri
+///     gosterilmez,
+///   * `stale` iken paket uygulanmaz, cunku indeks bayat olabilir,
+///   * indekste olmayan bir kimlik yoksayilir ve agac yeniden cizilmez.
+ProgressBatch applyProgress(
+  Map<String, Task> index,
+  List<engine.Progress> ticks, {
+  required bool stale,
+}) {
+  if (stale) return const ProgressBatch(lost: false, changed: false);
+  if (ticks.any((tick) => tick.id == lostEventsId)) {
+    return const ProgressBatch(lost: true, changed: false);
+  }
+  var changed = false;
+  for (final tick in ticks) {
+    final task = index[tick.id];
+    if (task == null) continue;
+    task
+      ..downloaded = tick.downloaded.toInt()
+      ..speed = tick.speed;
+    changed = true;
+  }
+  return ProgressBatch(lost: false, changed: changed);
+}
+
+/// Yayindan dusmus olay sonrasi arayuzun motorla ayni duruma donmesini
+/// yonetir.
+///
+/// Kurallar:
+///
+///   * en cok bir esitleme istegi bekler; arka arkaya gelen kayit
+///     bildirimleri tek istege birlestirilir,
+///   * istekten sonra daha yeni bir tam liste ulastiysa sorgu yapilmaz -
+///     o liste zaten motorun gosterdigi durumdur.
+///
+/// Saat olcmez: esitleme motora yeni olay gondermez, bu yuzden kendini
+/// besleyen bir dongu olusamaz.
+class ResyncGate {
+  bool _pending = false;
+
+  /// Bir esitleme bekliyor mu? Beklerken ilerleme paketleri uygulanmaz.
+  bool get pending => _pending;
+
+  /// Kayit bildirimi geldi: yeni bir esitleme baslatilmali mi?
+  bool onLost() {
+    if (_pending) return false;
+    return _pending = true;
+  }
+
+  /// Motorun tam listesi uygulandi; bekleyen istek gereksizlesir.
+  void onFullList() => _pending = false;
+
+  /// Esitleme yapilamadi (motor okunamadi); sonraki kayit bildiriminin
+  /// yeniden denemesi icin kapi acilir.
+  void cancel() => _pending = false;
 }

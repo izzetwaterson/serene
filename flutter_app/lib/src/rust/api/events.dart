@@ -8,6 +8,8 @@ import 'dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These functions are ignored because they are not marked as `pub`: `count`, `note_lost`
+
 /// Tam gorev listesi degistiginde akar.
 Stream<List<Task>> watchTasks() =>
     RustLib.instance.api.crateApiEventsWatchTasks();
