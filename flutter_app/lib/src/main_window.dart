@@ -102,8 +102,14 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     // Ikinci acilis ya da eklentideki "Serene'yi Ac": pencere one gelir.
     _streams.add(ffi.watchPresent().listen((_) => _present()));
     // Yeni bir tarayici devralmasi: onay penceresi sirasina girer.
+    //
+    // Iki ayri FRB akisi sirayi garanti etmez: olay, gorevi tasiyan liste
+    // yayinini gecebilir. Bu yuzden sira once motorun kendi listesinden
+    // tazelenir; yoksa `sync` gorevi "artik onay beklemiyor" sanip siradan
+    // duser ve pencere hic acilmaz.
     _streams.add(
       ffi.watchHandoff().listen((task) {
+        _applyTasks(ffi.listTasks());
         _handoffs.request(task.id);
         _pumpHandoffs();
       }),
