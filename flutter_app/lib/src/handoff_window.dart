@@ -16,6 +16,10 @@ import 'widgets.dart';
 ///
 /// Pencere kendi motorunu kurmaz: karari `ipc.json` uzerinden calisan ornegin
 /// motoruna iletir. Boylece iki surec ayni gorev listesine yazmaz.
+///
+/// Yerlesim yataydir: solda indirme bilgileri, sagda karar dugmeleri. Pencere
+/// ekranin ortasinda kisa ve genis durur, boylece uzun adresler tek satir
+/// kaydirmadan okunur.
 class HandoffWindow extends StatefulWidget {
   const HandoffWindow({super.key, required this.task, this.preview = false});
 
@@ -173,217 +177,214 @@ class _HandoffWindowState extends State<HandoffWindow> {
             ),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Serene.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(Serene.radiusTile),
-                      border: Border.all(color: const Color(0x80DCD8CE)),
-                    ),
-                    child: Row(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(28, 0, 24, 28),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Container(
-                          width: 48,
-                          height: 48,
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: style.box,
+                            color: Serene.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(
                               Serene.radiusTile,
                             ),
+                            border: Border.all(color: const Color(0x80DCD8CE)),
                           ),
-                          child: Center(
-                            child: SIcon(
-                              style.icon,
-                              size: 24,
-                              color: style.tone,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
                             children: [
-                              Text(
-                                task.filename,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: body(15, weight: FontWeight.w600),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Serene.surfaceContainer,
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: Text(
-                                      categoryTitles[task.category] ?? 'Diğer',
-                                      style: body(
-                                        10,
-                                        weight: FontWeight.w600,
-                                        color: Serene.secondary,
-                                      ),
-                                    ),
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: style.box,
+                                  borderRadius: BorderRadius.circular(
+                                    Serene.radiusTile,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      sizeLine,
+                                ),
+                                child: Center(
+                                  child: SIcon(
+                                    style.icon,
+                                    size: 24,
+                                    color: style.tone,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      task.filename,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: mono(11, color: Serene.secondary),
+                                      style: body(15, weight: FontWeight.w600),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Serene.surfaceContainer,
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            categoryTitles[task.category] ??
+                                                'Diğer',
+                                            style: body(
+                                              10,
+                                              weight: FontWeight.w600,
+                                              color: Serene.secondary,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            sizeLine,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: mono(
+                                              11,
+                                              color: Serene.secondary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Field(
-                    label: 'Adres',
-                    child: ReadOnlyField(text: task.url),
-                  ),
-                  const SizedBox(height: 20),
-                  Field(
-                    label: 'Kayıt klasörü',
-                    child: Row(
-                      children: [
-                        Expanded(child: ReadOnlyField(text: _dir)),
-                        const SizedBox(width: 8),
-                        HoverSurface(
-                          onTap: _busy ? null : _browse,
-                          radius: Serene.radiusField,
-                          background: Serene.surfaceContainer,
-                          hoverBackground: Serene.surfaceContainerHigh,
+                        const SizedBox(height: 20),
+                        Field(label: 'Adres', child: ReadOnlyField(text: task.url)),
+                        const SizedBox(height: 20),
+                        Field(
+                          label: 'Kayıt klasörü',
+                          child: Row(
+                            children: [
+                              Expanded(child: ReadOnlyField(text: _dir)),
+                              const SizedBox(width: 8),
+                              HoverSurface(
+                                onTap: _busy ? null : _browse,
+                                radius: Serene.radiusField,
+                                background: Serene.surfaceContainer,
+                                hoverBackground: Serene.surfaceContainerHigh,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                child: Text(
+                                  'Gözat',
+                                  style: body(13, weight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Field(
+                          label: 'Dosya adı',
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Serene.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(
+                                Serene.radiusField,
+                              ),
+                              border: Border.all(
+                                color: const Color(0x99DCD8CE),
+                              ),
+                            ),
+                            child: TextField(
+                              controller: _name,
+                              cursorColor: Serene.primary,
+                              style: body(13),
+                              onSubmitted: (_) => _decide(start: true),
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                border: InputBorder.none,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Serene.surfaceContainerLow.withValues(
+                              alpha: 0.7,
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              Serene.radiusField,
+                            ),
+                            border: Border.all(color: const Color(0x66DCD8CE)),
                           ),
                           child: Text(
-                            'Gözat',
-                            style: body(13, weight: FontWeight.w500),
+                            _note,
+                            style: body(11, color: Serene.secondary, height: 1.6),
                           ),
                         ),
+                        if (_notice != null) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Serene.errorContainer.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              _notice!,
+                              style: body(12, color: Serene.onErrorContainer),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  Field(
-                    label: 'Dosya adı',
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Serene.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(Serene.radiusField),
-                        border: Border.all(color: const Color(0x99DCD8CE)),
-                      ),
-                      child: TextField(
-                        controller: _name,
-                        cursorColor: Serene.primary,
-                        style: body(13),
-                        onSubmitted: (_) => _decide(start: true),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          border: InputBorder.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Serene.surfaceContainerLow.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(Serene.radiusField),
-                      border: Border.all(color: const Color(0x66DCD8CE)),
-                    ),
-                    child: Text(
-                      _note,
-                      style: body(11, color: Serene.secondary, height: 1.6),
-                    ),
-                  ),
-                  if (_notice != null) ...[
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Serene.errorContainer.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        _notice!,
-                        style: body(12, color: Serene.onErrorContainer),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      HoverSurface(
-                        onTap: _cancel,
-                        background: Colors.transparent,
-                        hoverBackground: Serene.surfaceContainer,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        child: Text(
-                          'İptal',
-                          style: body(13, color: Serene.secondary),
-                        ),
-                      ),
-                      const Spacer(),
-                      HoverSurface(
-                        onTap: () => _decide(start: false),
-                        radius: 999,
-                        background: Serene.surfaceContainer,
-                        hoverBackground: Serene.surfaceContainerHigh,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                        child: Text(
-                          'Sonra İndir',
-                          style: body(13, weight: FontWeight.w500),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      HoverSurface(
-                        onTap: () => _decide(start: true),
-                        radius: 999,
-                        background: Serene.primary,
-                        hoverBackground: const Color(0xE63D6A4B),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                        child: Row(
-                          children: [
-                            Text(
+                ),
+                Container(
+                  width: 1,
+                  color: Serene.outlineVariant.withValues(alpha: 0.5),
+                ),
+                SizedBox(
+                  width: 236,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 28, 28),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Spacer(),
+                        HoverSurface(
+                          onTap: () => _decide(start: true),
+                          radius: 999,
+                          background: Serene.primary,
+                          hoverBackground: const Color(0xE63D6A4B),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                            child: Text(
                               'İndirmeyi Başlat',
                               style: body(
                                 13,
@@ -391,13 +392,41 @@ class _HandoffWindowState extends State<HandoffWindow> {
                                 color: Serene.onPrimary,
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+                        HoverSurface(
+                          onTap: () => _decide(start: false),
+                          radius: 999,
+                          background: Serene.surfaceContainer,
+                          hoverBackground: Serene.surfaceContainerHigh,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                            child: Text(
+                              'Sonra İndir',
+                              style: body(13, weight: FontWeight.w500),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        HoverSurface(
+                          onTap: _cancel,
+                          radius: 999,
+                          background: Colors.transparent,
+                          hoverBackground: Serene.surfaceContainer,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                            child: Text(
+                              'İptal',
+                              style: body(13, color: Serene.secondary),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],

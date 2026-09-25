@@ -137,7 +137,7 @@ Future<void> _openHandoff(Task task, {required bool preview}) async {
   await RustLib.init();
 
   const options = WindowOptions(
-    size: Size(520, 680),
+    size: Size(860, 480),
     center: true,
     backgroundColor: Serene.surfaceContainerLowest,
     skipTaskbar: true,
@@ -168,7 +168,9 @@ String? _arg(List<String> args, String name) {
 
 Task _decodeTask(String payload) {
   try {
-    final json = utf8.decode(base64Url.decode(payload));
+    // `normalize` dolguyu tamamlar: yuku ureten taraf `base64Url.encode`
+    // olsa da olmasa da ayni komut elle calistirilabilir kalsin.
+    final json = utf8.decode(base64Url.decode(base64Url.normalize(payload)));
     return Task.fromJson(jsonDecode(json) as Map<String, dynamic>);
   } catch (_) {
     return Task(
