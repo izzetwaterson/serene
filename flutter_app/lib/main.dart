@@ -163,7 +163,7 @@ Future<void> _openHandoff(
   applyThemeSetting(theme);
 
   final options = WindowOptions(
-    size: Size(860, 480),
+    size: Size(460, 600),
     center: true,
     backgroundColor: Serene.surfaceContainerLowest,
     skipTaskbar: true,

@@ -19,9 +19,9 @@ import 'widgets.dart';
 /// Pencere kendi motorunu kurmaz: karari `ipc.json` uzerinden calisan ornegin
 /// motoruna iletir. Boylece iki surec ayni gorev listesine yazmaz.
 ///
-/// Yerlesim yataydir: solda indirme bilgileri, sagda karar dugmeleri. Pencere
-/// ekranin ortasinda kisa ve genis durur, boylece uzun adresler tek satir
-/// kaydirmadan okunur.
+/// Yerlesim dikeydir: indirme bilgileri tek sutunda alt alta kayar, karar
+/// dugmeleri pencerenin altina sabit durur. Pencere kisa oldugu icin alanlar
+/// tastiginda dugmelerin kaybolmamasi gerekir.
 class HandoffWindow extends StatefulWidget {
   const HandoffWindow({super.key, required this.task, this.preview = false});
 
@@ -196,255 +196,218 @@ class _HandoffWindowState extends State<HandoffWindow>
             ),
           ),
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(28, 0, 24, 28),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(28, 0, 28, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Serene.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(Serene.radiusTile),
+                      border: Border.all(color: Serene.borderSoft),
+                    ),
+                    child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(16),
+                          width: 48,
+                          height: 48,
                           decoration: BoxDecoration(
-                            color: Serene.surfaceContainerLow,
+                            color: style.box,
                             borderRadius: BorderRadius.circular(
                               Serene.radiusTile,
                             ),
-                            border: Border.all(color: Serene.borderSoft),
                           ),
-                          child: Row(
+                          child: Center(
+                            child: SIcon(style.icon, size: 24, color: style.tone),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: style.box,
-                                  borderRadius: BorderRadius.circular(
-                                    Serene.radiusTile,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: SIcon(
-                                    style.icon,
-                                    size: 24,
-                                    color: style.tone,
-                                  ),
-                                ),
+                              Text(
+                                task.filename,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: body(15, weight: FontWeight.w600),
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      task.filename,
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Serene.surfaceContainer,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      categoryTitles[task.category] ?? T.other,
+                                      style: body(
+                                        10,
+                                        weight: FontWeight.w600,
+                                        color: Serene.secondary,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      sizeLine,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: body(15, weight: FontWeight.w600),
+                                      style: mono(11, color: Serene.secondary),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Serene.surfaceContainer,
-                                            borderRadius: BorderRadius.circular(
-                                              999,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            categoryTitles[task.category] ??
-                                                T.other,
-                                            style: body(
-                                              10,
-                                              weight: FontWeight.w600,
-                                              color: Serene.secondary,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Flexible(
-                                          child: Text(
-                                            sizeLine,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: mono(
-                                              11,
-                                              color: Serene.secondary,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        Field(
-                          label: T.addressLabel,
-                          child: ReadOnlyField(text: task.url),
-                        ),
-                        const SizedBox(height: 20),
-                        Field(
-                          label: T.folderLabel,
-                          child: Row(
-                            children: [
-                              Expanded(child: ReadOnlyField(text: _dir)),
-                              const SizedBox(width: 8),
-                              HoverSurface(
-                                onTap: _busy ? null : _browse,
-                                radius: Serene.radiusField,
-                                background: Serene.surfaceContainer,
-                                hoverBackground: Serene.surfaceContainerHigh,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                child: Text(
-                                  T.browse,
-                                  style: body(13, weight: FontWeight.w500),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Field(
-                          label: T.fileNameLabel,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Serene.surfaceContainerLow,
-                              borderRadius: BorderRadius.circular(
-                                Serene.radiusField,
-                              ),
-                              border: Border.all(
-                                color: Serene.borderInput,
-                              ),
-                            ),
-                            child: TextField(
-                              controller: _name,
-                              cursorColor: Serene.primary,
-                              style: body(13),
-                              onSubmitted: (_) => _decide(start: true),
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                border: InputBorder.none,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Serene.surfaceContainerLow.withValues(
-                              alpha: 0.7,
-                            ),
-                            borderRadius: BorderRadius.circular(
-                              Serene.radiusField,
-                            ),
-                            border: Border.all(color: Serene.borderFaint),
-                          ),
-                          child: Text(
-                            _note,
-                            style: body(11, color: Serene.secondary, height: 1.6),
-                          ),
-                        ),
-                        if (_notice != null) ...[
-                          const SizedBox(height: 14),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Serene.errorContainer.withValues(alpha: 0.6),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              _notice!,
-                              style: body(12, color: Serene.onErrorContainer),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
-                ),
-                Container(
-                  width: 1,
-                  color: Serene.outlineVariant.withValues(alpha: 0.5),
-                ),
-                SizedBox(
-                  width: 236,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 28, 28),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                  const SizedBox(height: 20),
+                  Field(label: T.addressLabel, child: ReadOnlyField(text: task.url)),
+                  const SizedBox(height: 20),
+                  Field(
+                    label: T.folderLabel,
+                    child: Row(
                       children: [
-                        const Spacer(),
+                        Expanded(child: ReadOnlyField(text: _dir)),
+                        const SizedBox(width: 8),
                         HoverSurface(
-                          onTap: () => _decide(start: true),
-                          radius: 999,
-                          background: Serene.primary,
-                          hoverBackground: Serene.primaryHover,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Center(
-                            child: Text(
-                              T.startDownload,
-                              style: body(
-                                13,
-                                weight: FontWeight.w500,
-                                color: Serene.onPrimary,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        HoverSurface(
-                          onTap: () => _decide(start: false),
-                          radius: 999,
+                          onTap: _busy ? null : _browse,
+                          radius: Serene.radiusField,
                           background: Serene.surfaceContainer,
                           hoverBackground: Serene.surfaceContainerHigh,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Center(
-                            child: Text(
-                              T.downloadLater,
-                              style: body(13, weight: FontWeight.w500),
-                            ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        HoverSurface(
-                          onTap: _cancel,
-                          radius: 999,
-                          background: Colors.transparent,
-                          hoverBackground: Serene.surfaceContainer,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Center(
-                            child: Text(
-                              T.cancel,
-                              style: body(13, color: Serene.secondary),
-                            ),
+                          child: Text(
+                            T.browse,
+                            style: body(13, weight: FontWeight.w500),
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Field(
+                    label: T.fileNameLabel,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Serene.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(Serene.radiusField),
+                        border: Border.all(color: Serene.borderInput),
+                      ),
+                      child: TextField(
+                        controller: _name,
+                        cursorColor: Serene.primary,
+                        style: body(13),
+                        onSubmitted: (_) => _decide(start: true),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Serene.surfaceContainerLow.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(Serene.radiusField),
+                      border: Border.all(color: Serene.borderFaint),
+                    ),
+                    child: Text(
+                      _note,
+                      style: body(11, color: Serene.secondary, height: 1.6),
+                    ),
+                  ),
+                  if (_notice != null) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Serene.errorContainer.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        _notice!,
+                        style: body(12, color: Serene.onErrorContainer),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 12, 28, 24),
+            child: Row(
+              children: [
+                HoverSurface(
+                  onTap: _cancel,
+                  background: Colors.transparent,
+                  hoverBackground: Serene.surfaceContainer,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Text(
+                    T.cancel,
+                    style: body(13, color: Serene.secondary),
+                  ),
+                ),
+                const Spacer(),
+                HoverSurface(
+                  onTap: () => _decide(start: false),
+                  radius: 999,
+                  background: Serene.surfaceContainer,
+                  hoverBackground: Serene.surfaceContainerHigh,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  child: Text(
+                    T.downloadLater,
+                    style: body(13, weight: FontWeight.w500),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                HoverSurface(
+                  onTap: () => _decide(start: true),
+                  radius: 999,
+                  background: Serene.primary,
+                  hoverBackground: Serene.primaryHover,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  child: Text(
+                    T.startDownload,
+                    style: body(
+                      13,
+                      weight: FontWeight.w500,
+                      color: Serene.onPrimary,
                     ),
                   ),
                 ),
