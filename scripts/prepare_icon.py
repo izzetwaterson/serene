@@ -40,7 +40,8 @@ MASTER = ROOT / "ui" / "serene-icon.png"
 
 GAMMA = 0.60       # <1 aydinlatir
 SATURATION = 1.04  # hafif doygunluk
-MARGIN = 0.14      # cercevenin bir kenari kadar bosluk (oran)
+MARGIN = 0.05      # cercevenin bir kenari kadar bosluk (oran). Buyuk ikonlarda
+                  # normalde %5-8 bosluk olur; daha fazlasi yapragi kucultur.
 MASTER_SIZE = 1024
 
 
