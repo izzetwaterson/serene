@@ -18,7 +18,10 @@ SOURCE = ROOT / "ui" / "serene-icon.png"
 ICO = ROOT / "flutter_app" / "windows" / "runner" / "resources" / "app_icon.ico"
 TRAY = ROOT / "flutter_app" / "assets" / "icons" / "serene_tray.png"
 
-ICO_SIZES = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+ICO_SIZES = [(16, 16), (20, 20), (24, 24), (32, 32), (48, 48), (64, 64),
+             (128, 128), (256, 256)]
+# 20 ve 24 eklendi: Windows gorev cubugu 24px ister, dosya gezgini 20px. Bu
+# kareler olmadan Windows 32'den kucultup bulaniklastiriyordu.
 
 
 def main() -> None:
