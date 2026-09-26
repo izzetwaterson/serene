@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use reqwest::Client;
 use serde::Serialize;
+use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
 use crate::bus::{CoreEvent, EventBus};
@@ -56,8 +57,10 @@ impl DownloadEntry {
             .iter()
             .map(|_| Arc::new(AtomicU64::new(0)))
             .collect();
-        self.base_bytes
-            .store(meta.segments.iter().map(|s| s.downloaded).sum(), Ordering::Relaxed);
+        self.base_bytes.store(
+            meta.segments.iter().map(|s| s.downloaded).sum(),
+            Ordering::Relaxed,
+        );
         *self.parts.lock().unwrap() = counters;
         *self.rate.lock().unwrap() = RateMeter::default();
     }
@@ -67,8 +70,23 @@ struct Inner {
     /// Gorunum sirasi: en yeni is basta.
     order: Vec<String>,
     entries: HashMap<String, Arc<DownloadEntry>>,
-    running: HashMap<String, CancellationToken>,
+    running: HashMap<String, Running>,
     dirty: bool,
+}
+
+/// Calisan bir gorevin iptal jetonu ve "gercekten bitti" mandali.
+///
+/// Neden ikisi de gerekiyor: iptal jetonu yalnizca motorun *bakim* oldugu
+/// yerlerde (okunan veri akisi) gorulur. `request.send().await` ve dosya
+/// yazimi yarida kesilmez; `run` sonundaki `merge_parts` tamamen iptal
+/// disidir. Bu yuzden dosya silmeden once sabit bir sure beklemek yerine
+/// motorun gercekten bitmesini bekleriz.
+///
+/// `finished` bir `watch` kanali: degeri tutar, yani `remove` motor
+/// bittikten sonra gels bile `borrow()` dogrudan `true` der.
+struct Running {
+    cancel: CancellationToken,
+    finished: watch::Receiver<bool>,
 }
 
 /// Arayuze gonderilen hafif ilerleme paketi.
@@ -157,9 +175,7 @@ impl DownloadManager {
         // paketi de ayni anahtari yazdigindan tek dogruluk kaynagi bu degil,
         // etkileyen tek yol.
         if let Err(err) = platform::set_autostart(next.autostart) {
-            eprintln!(
-                "[depo] otomatik baslatma anahtari yazilamadi: {err}"
-            );
+            eprintln!("[depo] otomatik baslatma anahtari yazilamadi: {err}");
         }
         store::save_settings(&self.settings_path, &next);
         *self.settings.lock().unwrap() = next;
@@ -274,6 +290,7 @@ impl DownloadManager {
     pub fn pump(self: &Arc<Self>) {
         let max = self.settings.lock().unwrap().max_concurrent.max(1);
         let mut to_start: Vec<String> = Vec::new();
+        let mut finish_signals: Vec<watch::Sender<bool>> = Vec::new();
 
         {
             let mut inner = self.inner.lock().unwrap();
@@ -299,20 +316,29 @@ impl DownloadManager {
             }
 
             for id in &to_start {
-                inner.running.insert(id.clone(), CancellationToken::new());
+                let cancel = CancellationToken::new();
+                let (finished_tx, finished_rx) = watch::channel(false);
+                inner.running.insert(
+                    id.clone(),
+                    Running {
+                        cancel,
+                        finished: finished_rx,
+                    },
+                );
+                finish_signals.push(finished_tx);
             }
         }
 
-        for id in &to_start {
+        for (id, finished) in to_start.iter().cloned().zip(finish_signals) {
             let (entry, cancel) = {
                 let inner = self.inner.lock().unwrap();
-                let Some(entry) = inner.entries.get(id).cloned() else {
+                let Some(entry) = inner.entries.get(&id).cloned() else {
                     continue;
                 };
-                let Some(cancel) = inner.running.get(id).cloned() else {
+                let Some(running) = inner.running.get(&id) else {
                     continue;
                 };
-                (entry, cancel)
+                (entry, running.cancel.clone())
             };
 
             entry.seed_counters();
@@ -326,6 +352,10 @@ impl DownloadManager {
                     DownloadKind::Hls => hls::run(mgr, entry, cancel).await,
                     DownloadKind::Dash => dash::run(mgr, entry, cancel).await,
                 }
+                // Motor gercekten bitti: mandali kaldir. `remove` bunu
+                // bekleyip dosyalari sildigi icin "bitti" buradan once
+                // bildirilmemis olmamalidir.
+                let _ = finished.send(true);
             });
         }
 
@@ -351,10 +381,10 @@ impl DownloadManager {
     }
 
     pub fn pause(&self, id: &str) -> Result<(), String> {
-        let (entry, cancel) = {
+        let (entry, running) = {
             let inner = self.inner.lock().unwrap();
             let entry = inner.entries.get(id).cloned().ok_or("Gorev bulunamadi")?;
-            (entry, inner.running.get(id).cloned())
+            (entry, inner.running.get(id).map(|r| r.cancel.clone()))
         };
 
         {
@@ -366,8 +396,8 @@ impl DownloadManager {
             meta.speed = 0.0;
         }
 
-        if let Some(token) = cancel {
-            token.cancel();
+        if let Some(cancel) = running {
+            cancel.cancel();
         }
         self.emit_full();
         self.persist_now();
@@ -483,30 +513,39 @@ impl DownloadManager {
     }
 
     pub fn remove(self: &Arc<Self>, id: &str, delete_file: bool) -> Result<(), String> {
-        let (entry, cancel) = {
+        let (entry, running) = {
             let mut inner = self.inner.lock().unwrap();
             let entry = inner.entries.remove(id).ok_or("Gorev bulunamadi")?;
-            let cancel = inner.running.remove(id);
+            let running = inner.running.remove(id);
             inner.order.retain(|x| x != id);
             inner.dirty = true;
-            (entry, cancel)
+            (entry, running)
         };
 
-        if let Some(token) = cancel {
-            token.cancel();
+        if let Some(state) = running.as_ref() {
+            state.cancel.cancel();
         }
 
         let (temp, dest) = {
             let meta = entry.meta.lock().unwrap();
-            (
-                PathBuf::from(&meta.temp_dir),
-                PathBuf::from(&meta.dest),
-            )
+            (PathBuf::from(&meta.temp_dir), PathBuf::from(&meta.dest))
         };
 
-        // Motorun dosya tutamaclarini birakmasi icin kisa bir pencere birak.
+        // Dosyalar ancak motor gercekten durduktan sonra silinir. Sabit bir
+        // sure beklemek iki hatayi birden birakiyordu: yavaş diskte dosya
+        // tutamaci kapali degildi ve `run` sonundaki `merge_parts` silinen
+        // nihai dosyayi geri olusturabiliyordu. Artik motor bitisini bildirir,
+        // burada o isaret beklenir.
         runtime::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(400)).await;
+            if let Some(state) = running {
+                let mut finished = state.finished;
+                while !*finished.borrow_and_update() {
+                    if finished.changed().await.is_err() {
+                        // Sinyal gonderen motor kayboldu: demek ki bitmistir.
+                        break;
+                    }
+                }
+            }
             let _ = tokio::fs::remove_dir_all(&temp).await;
             // Yarim kalan islerde nihai dosya henuz olusmamis olur; dosya
             // silme istegi asil olarak tamamlanmis indirmeler icin anlamli.

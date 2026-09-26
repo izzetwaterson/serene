@@ -1,12 +1,12 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use futures_util::StreamExt;
 use reqwest::header::{
-    HeaderMap, ACCEPT_RANGES, COOKIE, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, ETAG,
+    HeaderMap, ACCEPT_RANGES, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, COOKIE, ETAG,
     IF_RANGE, RANGE, REFERER, USER_AGENT as UA_HEADER,
 };
 use reqwest::{Client, StatusCode};
@@ -22,6 +22,173 @@ pub const USER_AGENT: &str = "Serene/0.1 (Windows)";
 /// Bir parcayi bolmeye degmeyecek minimum boyut.
 const MIN_SEGMENT_BYTES: u64 = 1 << 20;
 const MAX_SEGMENTS: usize = 16;
+
+/// Gecici bir hata icin ilk bekleme. Sonraki denemeler bunu ikiye katlar.
+const RETRY_BASE: Duration = Duration::from_millis(500);
+/// Bekleme bu tavanda kesilir; kullanici sonsuza kadar beklemez.
+const RETRY_CAP: Duration = Duration::from_secs(30);
+/// Bir istek icin en fazla deneme sayisi (ilk deneme dahil).
+const MAX_ATTEMPTS: u32 = 5;
+
+/// Bir aktarimin neden basarisiz oldugunu ayirt eder.
+///
+/// `Transient` yeniden denemeye deger: baglanti koptu, zaman asimi, sunucu
+/// gecici olarak bos geldi. `Fatal` yeniden denemekle duzelmez: adres yanlis,
+/// yetki yok, yapı desteklenmiyor. Kullanici "Yeniden Dene" dediginde elde
+/// edecegi sonuc bu ayrimla belli olur.
+#[derive(Debug, Clone)]
+pub enum TransferError {
+    Transient(String),
+    Fatal(String),
+}
+
+impl TransferError {
+    pub fn message(&self) -> &str {
+        match self {
+            TransferError::Transient(m) | TransferError::Fatal(m) => m,
+        }
+    }
+
+    pub fn is_transient(&self) -> bool {
+        matches!(self, TransferError::Transient(_))
+    }
+}
+
+impl std::fmt::Display for TransferError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.message())
+    }
+}
+
+impl std::error::Error for TransferError {}
+
+impl TransferError {
+    /// `anyhow` yigininda bu turu geri almak icin: `downcast_ref::<TransferError>()`.
+    pub fn into_anyhow(self) -> anyhow::Error {
+        anyhow::Error::new(self)
+    }
+}
+
+/// HTTP durum kodunu gecici mi kalici mi sayar.
+///
+/// 408/425/429 gecici sinifta: sunucu ya da ara katman gecici olarak
+/// basarisiz oldugunu bildiriyor. 401/403 kalicidir; kullanici baska bir
+/// kimlikle girmiyorsa tekrar denemek anlamsiz.
+pub fn status_is_transient(status: StatusCode) -> bool {
+    matches!(status.as_u16(), 408 | 425 | 429 | 500 | 502 | 503 | 504)
+}
+
+/// `reqwest` hatasini siniflandirir. Baglaga donus hatalari (kopma, red,
+/// zaman asimi, DNS) gecicidir; govde/ cozumleme hatalari da kismen gecicidir
+/// cunku cevrimdisi bir baglanti ortada kesilmis olabilir.
+pub fn request_error_is_transient(err: &reqwest::Error) -> bool {
+    err.is_timeout() || err.is_connect() || err.is_request() || err.is_body() || err.is_decode()
+}
+
+/// Geri cekilme gecikmesi: ustel, `RETRY_CAP` ile sinirli, esit jitter'li.
+///
+/// Jitter tesadüfî olsaydı test kırılgan olurdu; bu yüzden `seed` parametrik
+/// verilir. Üretimde parça numarası ve deneme sayısından türetilir, testte
+/// sabit bir tohum kullanılır.
+///
+/// Jitter **esit** (equal jitter), tam jitter değil: gecikme daima
+/// `[span/2, span]` aralığındadır. Tam jitter sıfıra düşebilir ve sıfır
+/// bekleme "yeniden deneme" degil, sunucuya ayni anda tekrar tekrar gitmek
+/// demektir; bu da 429 firtinasini besler.
+///
+/// `attempt` 0 tabanlıdır: ilk başarısızlıkta `attempt == 0` ve gecikme
+/// `RETRY_BASE` içinde kalır.
+pub fn backoff_delay(attempt: u32, seed: u64) -> Duration {
+    let shift = attempt.min(20);
+    let span =
+        ((RETRY_BASE.saturating_mul(1u32 << shift).min(RETRY_CAP)).as_millis() as u64).max(2);
+    let half = span / 2;
+    // xorshift64*: tohum verildiginde deterministik, tohum degistiginde dagilmis.
+    let mut x = seed ^ 0x9E37_79B9_7F4A_7C15;
+    x ^= x >> 12;
+    x ^= x << 25;
+    x ^= x >> 27;
+    let noise = x.wrapping_mul(0x2545_F491_4F6C_DD1D) >> 33;
+    Duration::from_millis(half + (half * noise / (1u64 << 31)))
+}
+
+/// `Retry-After` basligini sureye cevirir.
+///
+/// Iki bicim de RFC 7231'de tanimlidir: delta-saniye ve HTTP-tarih. Sunucu
+/// absurd deger yazabilir; sonuc `RETRY_CAP` ile sinirlanir, boylece hicbir
+/// indirme kasten sonsuza kadar bekleyemez.
+pub fn parse_retry_after(headers: &HeaderMap, now_unix: i64) -> Option<Duration> {
+    let raw = headers
+        .get("retry-after")?
+        .to_str()
+        .ok()?
+        .trim()
+        .to_string();
+
+    if let Ok(seconds) = raw.parse::<u64>() {
+        return Some(Duration::from_secs(seconds).min(RETRY_CAP));
+    }
+
+    let target = http_date_to_unix(&raw)?;
+    if target <= now_unix {
+        return Some(Duration::ZERO);
+    }
+    Some(Duration::from_secs((target - now_unix) as u64).min(RETRY_CAP))
+}
+
+/// RFC 7231 `IMF-fixdate` bicimini Unix saniyeye cevirir.
+///
+/// Bicim sabit genisliktedir: `Sun, 06 Nov 1994 08:49:37 GMT`. Tarih kitapligi
+/// eklemeden cozmek icin gun sayisi hesabi elle yapilir (Howard Hinnant'in
+/// `days_from_civ` algoritmasi).
+pub fn http_date_to_unix(raw: &str) -> Option<i64> {
+    let raw = raw.trim();
+    let rest = raw.split_once(", ")?.1;
+    let mut parts = rest.split(' ');
+    let day: u32 = parts.next()?.parse().ok()?;
+    let month = match parts.next()? {
+        "Jan" => 1,
+        "Feb" => 2,
+        "Mar" => 3,
+        "Apr" => 4,
+        "May" => 5,
+        "Jun" => 6,
+        "Jul" => 7,
+        "Aug" => 8,
+        "Sep" => 9,
+        "Oct" => 10,
+        "Nov" => 11,
+        "Dec" => 12,
+        _ => return None,
+    };
+    let year: i64 = parts.next()?.parse().ok()?;
+    let time = parts.next()?;
+    let zone = parts.next().unwrap_or("GMT");
+    if zone != "GMT" {
+        return None;
+    }
+    let mut clock = time.split(':');
+    let hour: i64 = clock.next()?.parse().ok()?;
+    let minute: i64 = clock.next()?.parse().ok()?;
+    let second: i64 = clock.next()?.parse().ok()?;
+
+    if !(1..=31).contains(&day) || hour > 23 || minute > 59 || second > 60 {
+        return None;
+    }
+    Some(days_from_civil(year, month, day) * 86_400 + hour * 3_600 + minute * 60 + second)
+}
+
+/// Gregory takviminda bir tarihin 1970-01-01'den gun farkini verir.
+fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
+    let y = if month <= 2 { year - 1 } else { year };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let m = month as i64;
+    let d = day as i64;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
 
 pub fn build_client() -> Result<Client> {
     Client::builder()
@@ -56,13 +223,57 @@ pub struct Probe {
 }
 
 /// `Range: bytes=0-0` ile tek baytlik bir istek atip boyut / aralik destegini ogrenir.
-/// Sunucu araliklari desteklemiyorsa 200 doner ve govdeyi okumadan baglanti kapatilir.
+///
+/// Bu ilk istek de gecici hataya acik: aksi halde kabloda tek bir blip tum
+/// gorevi daha hicbir parca inmeden oldururdu. Ayni sinirli yeniden deneme
+/// mantigi burada da gecerlidir.
 pub async fn probe(client: &Client, url: &str, meta: &DownloadMeta) -> Result<Probe> {
-    let resp = build_request(client, url, meta)
+    let mut attempt: u32 = 0;
+    loop {
+        let result = probe_once(client, url, meta).await;
+        match result {
+            Ok(probe) => return Ok(probe),
+            Err(err) => {
+                let transient = matches!(
+                    err.downcast_ref::<TransferError>(),
+                    Some(TransferError::Transient(_))
+                );
+                if !transient || attempt + 1 >= MAX_ATTEMPTS {
+                    if attempt > 0 {
+                        return Err(TransferError::Fatal(format!(
+                            "{} kez yeniden denendi, son deneme basarisiz: {}",
+                            attempt + 1,
+                            err
+                        ))
+                        .into_anyhow());
+                    }
+                    return Err(err);
+                }
+                let seed = 0x5EED_0000u64 ^ u64::from(attempt);
+                tokio::time::sleep(backoff_delay(attempt, seed)).await;
+                attempt += 1;
+            }
+        }
+    }
+}
+/// Sunucu araliklari desteklemiyorsa 200 doner ve govdeyi okumadan baglanti kapatilir.
+/// `probe`'un tek denemesi. Yeniden deneme dongusu `probe` icindedir.
+async fn probe_once(client: &Client, url: &str, meta: &DownloadMeta) -> Result<Probe> {
+    let resp = match build_request(client, url, meta)
         .header(RANGE, "bytes=0-0")
         .send()
         .await
-        .context("Sunucuya baglanilamadi")?;
+    {
+        Ok(resp) => resp,
+        Err(err) => {
+            let text = format!("Sunucuya baglanilamadi: {err}");
+            return Err(if request_error_is_transient(&err) {
+                TransferError::Transient(text).into_anyhow()
+            } else {
+                TransferError::Fatal(text).into_anyhow()
+            });
+        }
+    };
 
     let status = resp.status();
     let final_url = resp.url().to_string();
@@ -70,7 +281,12 @@ pub async fn probe(client: &Client, url: &str, meta: &DownloadMeta) -> Result<Pr
     drop(resp);
 
     if !status.is_success() {
-        return Err(anyhow!("Sunucu {} yanitini dondurdu", status.as_u16()));
+        let text = format!("Sunucu {} yanitini dondurdu", status.as_u16());
+        return Err(if status_is_transient(status) {
+            TransferError::Transient(text).into_anyhow()
+        } else {
+            TransferError::Fatal(text).into_anyhow()
+        });
     }
 
     let filename = parse_content_disposition(&headers);
@@ -121,7 +337,11 @@ pub fn plan_segments(total: u64, requested: usize) -> Vec<SegmentInfo> {
     let mut segments = Vec::with_capacity(count);
     let mut start = 0u64;
     for i in 0..count {
-        let end = if i + 1 == count { total - 1 } else { start + base - 1 };
+        let end = if i + 1 == count {
+            total - 1
+        } else {
+            start + base - 1
+        };
         segments.push(SegmentInfo {
             index: i as u32,
             start,
@@ -134,16 +354,68 @@ pub fn plan_segments(total: u64, requested: usize) -> Vec<SegmentInfo> {
 }
 
 /// Tek bir araligi indirir; var olan parca dosyasinin boyutundan devam eder.
-async fn run_segment(
-    client: &Client,
-    url: &str,
-    meta: &DownloadMeta,
-    etag: Option<&str>,
-    seg: &SegmentInfo,
-    part_path: &Path,
-    counter: &AtomicU64,
-    cancel: &CancellationToken,
-) -> Result<()> {
+/// Bir goreve ait hiz sinyali. 429 dondugunde butun parcaklar bir araya
+/// gelip bekleme zamanini paylasir; boylece sunucu reddederken biz de
+/// tekrar tekrar istek atip durmaziz. Kullanici `connections` ayarini elle
+/// dusurmek zorunda kalmaz.
+#[derive(Default)]
+pub struct CoolDown {
+    until: Mutex<Option<Instant>>,
+}
+
+impl CoolDown {
+    /// Hangi saate kadar beklenmeli. `Instant` tabanli oldugu icin saat
+    /// degisimi (NTP, yaz saati) beklemeyi bozmaz.
+    pub fn wait_until(&self) -> Option<Instant> {
+        *self.until.lock().unwrap()
+    }
+
+    /// Yeni bir bekleme kaydeder; daha gecis bir bekleme varsa onu ezmez.
+    pub fn push(&self, delay: Duration) {
+        let target = Instant::now() + delay;
+        let mut slot = self.until.lock().unwrap();
+        if slot.map(|current| current < target).unwrap_or(true) {
+            *slot = Some(target);
+        }
+    }
+
+    pub fn clear(&self) {
+        *self.until.lock().unwrap() = None;
+    }
+}
+
+/// Bir parcayı indirmek için gereken her şey. Argüman listesini taşımak yerine
+/// tek bir kayıt taşınır: `run_segment` ve `run_segment_once` aynı paketi kullanır.
+pub(crate) struct SegmentJob<'a> {
+    client: &'a Client,
+    url: &'a str,
+    meta: &'a DownloadMeta,
+    etag: Option<&'a str>,
+    seg: &'a SegmentInfo,
+    part_path: &'a Path,
+    counter: &'a AtomicU64,
+    cancel: &'a CancellationToken,
+    cooldown: &'a CoolDown,
+}
+
+/// `run_segment` icin tek bir deneme. Hata turu `TransferError` olarak cikar,
+/// cunku cagirici (ve test) gecici mi kalici mi oldugunu bilmelidir.
+async fn run_segment_once(job: &SegmentJob<'_>) -> Result<()> {
+    let SegmentJob {
+        client,
+        url,
+        meta,
+        etag,
+        seg,
+        part_path,
+        counter,
+        cancel,
+        ..
+    } = *job;
+    let (client, url, meta, etag, seg, part_path, counter, cancel) =
+        (client, url, meta, etag, seg, part_path, counter, cancel);
+    let cooldown = job.cooldown;
+
     let unknown_end = seg.end == u64::MAX;
     let want = if unknown_end {
         u64::MAX
@@ -179,38 +451,157 @@ async fn run_segment(
         }
     }
 
-    let resp = request.send().await.context("Istek gonderilemedi")?;
+    let resp = match request.send().await {
+        Ok(resp) => resp,
+        Err(err) => {
+            let text = format!("Istek gonderilemedi: {err}");
+            return Err(if request_error_is_transient(&err) {
+                TransferError::Transient(text).into_anyhow()
+            } else {
+                TransferError::Fatal(text).into_anyhow()
+            });
+        }
+    };
     let status = resp.status();
 
     if !status.is_success() {
-        return Err(anyhow!("Sunucu {} yanitini dondurdu", status.as_u16()));
+        // Sunucu ne kadar beklememizi istiyorsa onu gireriz. 429'da bu genelde
+        // tek gondermede gelir ve butun parcalarin kapida toplanmasini saglar.
+        if let Some(delay) = parse_retry_after(resp.headers(), now_secs()) {
+            if !delay.is_zero() {
+                cooldown.push(delay);
+            }
+        }
+        let text = format!("Sunucu {} yanitini dondurdu", status.as_u16());
+        return Err(if status_is_transient(status) {
+            TransferError::Transient(text).into_anyhow()
+        } else {
+            TransferError::Fatal(text).into_anyhow()
+        });
     }
     if !unknown_end && status == StatusCode::OK {
-        return Err(anyhow!("Sunucu aralik istegini yok saydi"));
+        return Err(TransferError::Fatal("Sunucu aralik istegini yok saydi".into()).into_anyhow());
     }
 
     let mut stream = resp.bytes_stream();
     loop {
         let next = tokio::select! {
-            _ = cancel.cancelled() => return Err(anyhow!("iptal edildi")),
+            _ = cancel.cancelled() => return Err(TransferError::Fatal("iptal edildi".into()).into_anyhow()),
             next = stream.next() => next,
         };
         let Some(chunk) = next else { break };
-        let chunk = chunk.context("Veri akisi kesildi")?;
-        file.write_all(&chunk).await?;
+        let chunk = match chunk {
+            Ok(chunk) => chunk,
+            Err(err) => {
+                // Baglanti ortada koptu: dosya uzerinde kalan baytlar durur,
+                // bir sonraki deneme `If-Range` ile kaldigi yerden devam eder.
+                let text = format!("Veri akisi kesildi: {err}");
+                return Err(TransferError::Transient(text).into_anyhow());
+            }
+        };
+        if let Err(err) = file.write_all(&chunk).await {
+            // Disk hatasi kalicidir; yeniden denemek dosyayi kurtarmaz.
+            return Err(TransferError::Fatal(format!("Parca yazilamadi: {err}")).into_anyhow());
+        }
         have += chunk.len() as u64;
         counter.fetch_add(chunk.len() as u64, Ordering::Relaxed);
     }
     file.flush().await?;
 
     if !unknown_end && have < want {
-        return Err(anyhow!(
+        // Sunucu erken kapatti: gecici sayilir, devam edilebilir.
+        return Err(TransferError::Transient(format!(
             "Baglanti erken kapandi ({}/{} bayt)",
-            have,
-            want
-        ));
+            have, want
+        ))
+        .into_anyhow());
     }
     Ok(())
+}
+
+/// Bir parcayi indirir; gecici hatalarda sinirli sayida yeniden dener.
+///
+/// Yeniden deneme yalnizca `Transient` hatalarda olur. Her deneme diskteki
+/// mevcut baytlari devralir, yani kullanici gormese bile ilerleme kaybolmaz.
+/// Kalici hata ilk denemede gorevi bitirir.
+pub(crate) async fn run_segment(job: SegmentJob<'_>) -> Result<()> {
+    let cancel = job.cancel;
+    let cooldown = job.cooldown;
+    let seg = job.seg;
+    let mut attempt: u32 = 0;
+    loop {
+        if cancel.is_cancelled() {
+            return Err(TransferError::Fatal("iptal edildi".into()).into_anyhow());
+        }
+
+        // 429 sonrasi butun parcalar ayni kapida bekler.
+        if let Some(until) = cooldown.wait_until() {
+            let now = Instant::now();
+            if until > now {
+                tokio::select! {
+                    _ = cancel.cancelled() => {
+                        return Err(TransferError::Fatal("iptal edildi".into()).into_anyhow())
+                    }
+                    _ = tokio::time::sleep_until(until.into()) => {}
+                }
+            }
+        }
+
+        let outcome = run_segment_once(&job).await;
+
+        match outcome {
+            Ok(()) => {
+                cooldown.clear();
+                return Ok(());
+            }
+            Err(err) => {
+                let transient = match err.downcast_ref::<TransferError>() {
+                    Some(TransferError::Transient(_)) => true,
+                    // `Fatal` icinde iptal de vardir; her iki durumda da
+                    // yeniden denemek yanlis.
+                    Some(TransferError::Fatal(_)) => false,
+                    // Bizim katmanimizdan gelmeyen hata: dosya acma, aralik
+                    // hesabi gibi. Yeniden denemek zararsiz ama anlamli degil.
+                    None => false,
+                };
+
+                if !transient || attempt + 1 >= MAX_ATTEMPTS {
+                    if attempt > 0 {
+                        return Err(TransferError::Fatal(format!(
+                            "{} kez yeniden denendi, son deneme basarisiz: {}",
+                            attempt + 1,
+                            err
+                        ))
+                        .into_anyhow());
+                    }
+                    return Err(err);
+                }
+
+                // Sunucu `Retry-After` verdiyse onu esas al; yoksa jitter'li
+                // ustel geri cekilme.
+                let delay = match cooldown.wait_until() {
+                    Some(until) => until
+                        .saturating_duration_since(Instant::now())
+                        .max(backoff_delay(attempt, seed_for(seg.index, attempt))),
+                    None => backoff_delay(attempt, seed_for(seg.index, attempt)),
+                };
+
+                attempt += 1;
+                tokio::select! {
+                    _ = cancel.cancelled() => {
+                        return Err(TransferError::Fatal("iptal edildi".into()).into_anyhow())
+                    }
+                    _ = tokio::time::sleep(delay) => {}
+                }
+            }
+        }
+    }
+}
+
+/// Parca ve denemeden turetilen tohum. Ayni parca ayni denemede ayni jitter'i
+/// alir; testler bunu deterministik bulmak icin kullanir.
+fn seed_for(index: u32, attempt: u32) -> u64 {
+    (u64::from(index) << 32) ^ u64::from(attempt).wrapping_mul(0x9E37_79B9_7F4A_7C15)
 }
 
 /// Parca dosyalarini sirayla nihai dosyaya birlestirir, sonra nihai adi verir.
@@ -361,6 +752,8 @@ async fn run_inner(
 
     let child = cancel.child_token();
     let first_error: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    // 429 gorulurse butun parcalar bu kapida bekler.
+    let cooldown = Arc::new(CoolDown::default());
 
     let mut handles = Vec::with_capacity(segments.len());
     for (seg, counter) in segments.iter().cloned().zip(counters.iter().cloned()) {
@@ -371,11 +764,21 @@ async fn run_inner(
         let path = part_path(&temp_dir, seg.index);
         let cancel = child.clone();
         let first_error = Arc::clone(&first_error);
+        let cooldown = Arc::clone(&cooldown);
 
         handles.push(runtime::spawn(async move {
-            let outcome =
-                run_segment(&client, &url, &meta, etag.as_deref(), &seg, &path, &counter, &cancel)
-                    .await;
+            let outcome = run_segment(SegmentJob {
+                client: &client,
+                url: &url,
+                meta: &meta,
+                etag: etag.as_deref(),
+                seg: &seg,
+                part_path: &path,
+                counter: &counter,
+                cancel: &cancel,
+                cooldown: &cooldown,
+            })
+            .await;
             if let Err(err) = &outcome {
                 let mut slot = first_error.lock().unwrap();
                 if slot.is_none() {
@@ -401,7 +804,10 @@ async fn run_inner(
     }
 
     // Tum parcalar tamam: birlestir ve gecici klasoru temizle.
-    let parts: Vec<PathBuf> = segments.iter().map(|s| part_path(&temp_dir, s.index)).collect();
+    let parts: Vec<PathBuf> = segments
+        .iter()
+        .map(|s| part_path(&temp_dir, s.index))
+        .collect();
     merge_parts(&parts, &dest).await?;
 
     let final_len = fs::metadata(&dest).await.map(|m| m.len()).unwrap_or(0);
@@ -503,7 +909,8 @@ pub fn sanitize_filename(name: &str) -> Option<String> {
     let cleaned: String = last
         .chars()
         .map(|c| {
-            if matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*') || (c as u32) < 0x20
+            if matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*')
+                || (c as u32) < 0x20
             {
                 '_'
             } else {
@@ -523,7 +930,10 @@ pub fn sanitize_filename(name: &str) -> Option<String> {
 /// URL yolundan dosya adi tahmini.
 pub fn filename_from_url(url: &str) -> Option<String> {
     let parsed = reqwest::Url::parse(url).ok()?;
-    let last = parsed.path_segments()?.filter(|s| !s.is_empty()).next_back()?;
+    let last = parsed
+        .path_segments()?
+        .filter(|s| !s.is_empty())
+        .next_back()?;
     let decoded = percent_encoding::percent_decode_str(last)
         .decode_utf8_lossy()
         .to_string();
