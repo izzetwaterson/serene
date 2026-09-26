@@ -7,6 +7,11 @@
 //!
 //! Tel bicimi: satir sonu ayrilmis JSON. Uygulamadan giden her mesaj
 //! `{ type, reqId?, payload }` seklindedir.
+//!
+//! `subscribe` cevabi: once `subscribed` (istegin `reqId` yankisi), hemen
+//! ardindan motorun gosterdigi tam durum - `tasks` ve `captures`. Yeni tur
+//! eklenmez; eski istemci zaten bildigi `tasks`/`captures` satirlarini
+//! alir, `reqId` ile eslestirmeyen istemci ise bu satirlari yok sayar.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -285,8 +290,18 @@ pub async fn start(bus: EventBus, manager: Arc<DownloadManager>) -> anyhow::Resu
 }
 
 /// Kopru dosyasini siler; uygulama duzgun kapanirken cagrilir.
+///
+/// `store::write_json` her yazma icin bir `.bak` kardesini birakir (bozuk bir
+/// birincil dosyadan kurtulmanin yolu bu), yalnizca birincili silmek duzgun
+/// kapanmadan sonra bayat bir yedegi sonsuza kadar birakirdi. Ikisi de bu
+/// dosyadan turetilir; data klasorundeki baska hicbir dosyaya dokunulmaz.
 pub fn cleanup(path: &Path) {
     let _ = std::fs::remove_file(path);
+    if let Some(name) = path.file_name() {
+        let mut backup = name.to_os_string();
+        backup.push(".bak");
+        let _ = std::fs::remove_file(path.with_file_name(backup));
+    }
 }
 
 /// `ipc.json`'daki kopruye tek bir istek yollar ve eslesen yaniti donerir.
@@ -527,11 +542,45 @@ where
                     .await;
             }
             "subscribe" => {
-                if subscription.is_none() {
+                let first_subscription = subscription.is_none();
+                // Onay once yazilir, durum satirlari ardindan gelir; boylece
+                // istemci `reqId` yankisini her zaman ilk hatta gorur.
+                let _ = tx
+                    .send(
+                        serde_json::json!({
+                            "type": "subscribed",
+                            "reqId": msg.req_id.clone(),
+                            "payload": {},
+                        })
+                        .to_string(),
+                    )
+                    .await;
+                if first_subscription {
+                    // Kanal istemcinin `subscribe` satiri islenirken kurulur:
+                    // bu andan sonra olusan hicbir degisiklik kacmaz.
                     let mut events = bridge.events.subscribe();
                     let tx = tx.clone();
                     let manager = Arc::clone(manager);
                     subscription = Some(runtime::spawn(async move {
+                        // Yeni abone motorun gosterdigi tam durumu beklemez:
+                        // gorevler ve yakalananlar hemen gider, yoksa uygulama
+                        // bos bir liste sanir. Satirlar kuyruk tasmasi
+                        // yolundakilerle ayni (`state_lines`), ayri bir kural
+                        // yoktur.
+                        //
+                        // Okuma kanal kurulduktan sonra yapilir; tam listede
+                        // olmayan bir degisiklik bu yuzden kacamaz. Ayni anda
+                        // olmus bir olay listede zaten vardir, en kotu
+                        // ihtiyalle bir satir yinelenir - motor tek dogrudur,
+                        // bir sonraki olay ya da `list` duzeltir.
+                        //
+                        // Okuma burada, ilerleyen kanalda degil: buyuk bir
+                        // listenin okunmasi komut dongusunu bekletmez.
+                        for line in state_lines(&manager) {
+                            if tx.send(line).await.is_err() {
+                                return;
+                            }
+                        }
                         // Ardisik tasmalarda (ornegin birikmis binlerce olay)
                         // saniyede bir toparlama gonderilir: durum her seferinde
                         // tam oldugu icin istemci ilk toparlamada yaklasir,
@@ -568,28 +617,17 @@ where
                             }
                         }
                     }));
+                } else {
+                    // Ikinci ve sonraki `subscribe` yeni kanal kurmaz ama yine
+                    // de tam durumu hatta gonderir; her abonelik ayni sonucu
+                    // vermeli, istemci kendi durumunu sifirlamak zorunda
+                    // kalmasin.
+                    for line in state_lines(manager) {
+                        if tx.send(line).await.is_err() {
+                            break;
+                        }
+                    }
                 }
-                let _ = tx
-                    .send(
-                        serde_json::json!({
-                            "type": "subscribed",
-                            "reqId": msg.req_id.clone(),
-                            "payload": {},
-                        })
-                        .to_string(),
-                    )
-                    .await;
-                // Abonelikle birlikte mevcut yakalananlar da verilir; arayuz
-                // ilk listeyi ayrica istemek zorunda kalmasin.
-                let _ = tx
-                    .send(
-                        serde_json::json!({
-                            "type": "captures",
-                            "payload": manager.captures(),
-                        })
-                        .to_string(),
-                    )
-                    .await;
             }
             "show" => {
                 // Eklentinin "Serene'yi Ac" dugmesi: pencereyi one getir.
@@ -652,8 +690,8 @@ where
                     Some(url) => {
                         // Adres `enqueue` ile ayni sekilde kanoniklestirilir;
                         // ayni medya iki kez listeye dusmesin.
-                        let normalized = enqueue::normalize_url(&url)
-                            .unwrap_or_else(|_| url.trim().to_string());
+                        let normalized =
+                            enqueue::normalize_url(&url).unwrap_or_else(|_| url.trim().to_string());
                         let item = CaptureItem {
                             id: uuid::Uuid::new_v4().to_string(),
                             url: normalized,
