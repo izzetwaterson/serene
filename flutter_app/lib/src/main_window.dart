@@ -67,6 +67,14 @@ class _MainWindowState extends State<MainWindow>
   String? _clipboardUrl;
   Timer? _clipboardTimer;
 
+  /// Durum dosyasi yazilamadiginda gosterilen kalici uyari.
+  ///
+  /// Bu bir anlik bildirim degil: kullanici bir seyi kapatmadikca ve yazma
+  /// duzelmedikce ekranda kalir. Indirmeler calisirken liste kaydedilmiyorsa
+  /// kullanici bunu bilmelidir, yoksa uygulama kapandiniginda islerini kaybetti
+  /// sanir.
+  String? _storageError;
+
   final TextEditingController _search = TextEditingController();
   final TextEditingController _url = TextEditingController();
 
@@ -121,6 +129,8 @@ class _MainWindowState extends State<MainWindow>
     // Panoya kopyalanan baglanti oneri olarak gosterilir; motor indirmeyi
     // kendi basina baslatmaz, karar kullaniciya birakilir.
     _streams.add(ffi.watchClipboard().listen(_offerClipboard));
+    // Durum dosyasi yazilamiyorsa kalici uyari: sessizce yutulmaz.
+    _streams.add(ffi.watchStorageError().listen(_showStorageError));
     // Ikinci acilis ya da eklentideki "Serene'yi Ac": pencere one gelir.
     _streams.add(ffi.watchPresent().listen(_applyPresent));
     // Yeni bir tarayici devralmasi: onay penceresi sirasina girer.
@@ -463,6 +473,21 @@ class _MainWindowState extends State<MainWindow>
     if (mounted) setState(() => _clipboardUrl = null);
   }
 
+  /// Motor "durum dosyasi yazilamadi" dedi.
+  ///
+  /// Ayni hatayi tekrar tekrar gostermek kullaniciyi bunaltir; bu yuzden
+  /// yalnizca ilk mesaj gosterilir, sonrakiler konsola dusar. Kullanici
+  /// kapatmadikça uyari kalir.
+  void _showStorageError(String message) {
+    debugPrint('[serene] depolama hatasi: $message');
+    if (_storageError != null || !mounted) return;
+    setState(() => _storageError = message);
+  }
+
+  void _dismissStorageError() {
+    if (mounted) setState(() => _storageError = null);
+  }
+
   /// Toast'taki "Indir": adresi dogrudan gecirilir, alana yazilip gonderilmez.
   Future<void> _downloadClipboardUrl() async {
     final url = _clipboardUrl;
@@ -770,6 +795,18 @@ class _MainWindowState extends State<MainWindow>
                 url: _clipboardUrl!,
                 onDismiss: _dismissClipboard,
                 onDownload: _downloadClipboardUrl,
+              ),
+            ),
+          // Depolama hatasi her seyin ustunde: bu bir anlik bildirim degil,
+          // kullanici kapatmadikça duran bir durum.
+          if (_storageError != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: StorageErrorBanner(
+                detail: _storageError!,
+                onDismiss: _dismissStorageError,
               ),
             ),
         ],

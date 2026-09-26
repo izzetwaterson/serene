@@ -16,6 +16,7 @@ public class Win32Cap {
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
 }
 "@
@@ -28,6 +29,17 @@ $h = $proc.MainWindowHandle
 [void][Win32Cap]::ShowWindow($h, 9)   # SW_RESTORE
 [void][Win32Cap]::SetForegroundWindow($h)
 Start-Sleep -Milliseconds 400
+
+# One alma denerken basarisiz olabilir: Windows arka plandaki bir surece odak
+# degistirmeyi reddeder. O zaman ekranin ayni bolgesinde baska bir pencere
+# durur ve `CopyFromScreen` onun icerigini kaydeder. Bu, once denendi (bir
+# tasarim araci ustteydi) ve sonuc **yanlis** oldu; o yuzden olcu bastan
+# sona denetlenir ve uyusmazsa hata verilir.
+$fg = [Win32Cap]::GetForegroundWindow()
+if ($fg -ne $h) {
+    Write-Output "BASARISIZ: pencere one getirilemedi (baska bir uygulama one gecti; ekran goruntusu yanlis olurdu)"
+    exit 1
+}
 
 $r = New-Object 'Win32Cap+RECT'
 [void][Win32Cap]::GetWindowRect($h, [ref]$r)
@@ -43,6 +55,16 @@ $bmp = New-Object System.Drawing.Bitmap $w, $ht
 $g = [System.Drawing.Graphics]::FromImage($bmp)
 $g.CopyFromScreen($r.Left, $r.Top, 0, 0, $bmp.Size)
 $g.Dispose()
+
+# Odak degistiyse bile ustte baska bir pencere (orn. her zaman ustte kalan bir
+# araç) ekranin ayni dikdortgenini kaplayabilir. Bu durumda goruntu hedef
+# pencereye ait degildir; boyle bir sahte dogrulamayi kesinlikle reddediyoruz.
+$fg2 = [Win32Cap]::GetForegroundWindow()
+if ($fg2 -ne $h) {
+    $bmp.Dispose()
+    Write-Output "BASARISIZ: kayit aninda baska bir pencere one gecti; goruntu yanlis olurdu"
+    exit 1
+}
 
 # Duz renkli bir goruntu (bos pencere, ustunu kapatan pencere) sessizce gecmesin.
 $colors = New-Object 'System.Collections.Generic.HashSet[int]'

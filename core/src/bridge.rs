@@ -200,6 +200,9 @@ fn forward(events: &broadcast::Sender<String>, event: &CoreEvent) {
         CoreEvent::Captures(items) => ("captures", serde_json::json!(items)),
         CoreEvent::HandoffPending(_) | CoreEvent::ClipboardLink(_) => return,
         CoreEvent::PresentWindow => return,
+        // Depolama hatasi tarayiciya degil, masaustu kullanicisina aittir;
+        // eklenti bunu gormemeli, hatta bildirim olarak gostermemeli.
+        CoreEvent::StorageError(_) => return,
     };
     let _ = events.send(event_line(kind, payload));
 }

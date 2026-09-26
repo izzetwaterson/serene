@@ -466,6 +466,39 @@ void main() {
     // kendiliginden kapanir; sure web kablugundaki eski degerle ayni.
     expect(clipboardToastVisible, const Duration(seconds: 12));
   });
+
+  testWidgets('depolama hatasi bandi sebebi ve kapat dugmesi gosterir', (tester) async {
+    const detail = r'C:\Users\ornek\AppData\Roaming\Serene\tasks.json yazilamadi';
+    var dismissed = 0;
+
+    await tester.pumpWidget(
+      _settingsHost(
+        StorageErrorBanner(detail: detail, onDismiss: () => dismissed++),
+      ),
+    );
+
+    expect(find.text(T.storageErrorTitle), findsOneWidget);
+    expect(find.text(detail), findsOneWidget);
+    expect(find.text(T.storageErrorDismiss), findsOneWidget);
+
+    await tester.tap(find.text(T.storageErrorDismiss));
+    await tester.pump();
+    expect(dismissed, 1);
+  });
+
+  testWidgets('depolama bandinda sebep tasmaz, bir satirda kalir', (tester) async {
+    // Dosya yolu uzun olabilir; bant yatay degil, dikey buyumesin.
+    const detail = r'C:\Users\ornek\AppData\Roaming\Serene\tasks.json yazilamadi: '
+        'yeterli disk alani yok';
+    await tester.pumpWidget(
+      _settingsHost(
+        StorageErrorBanner(detail: detail, onDismiss: () {}),
+      ),
+    );
+    final text = tester.widget<Text>(find.text(detail));
+    expect(text.maxLines, 1);
+    expect(text.overflow, TextOverflow.ellipsis);
+  });
 }
 
 List<CaptureItem> _captureFixtures() => [

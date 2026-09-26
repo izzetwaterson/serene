@@ -240,3 +240,33 @@ pub fn watch_present(sink: StreamSink<u32>) -> Result<(), String> {
     });
     Ok(())
 }
+
+/// Durum dosyasi yazilamadiginda bir kez uyari metni gonderir.
+///
+/// Onemli: bu bir *anlik* olay degil, kalici bir durum. Kullanici uyariyi
+/// kapatmadikca ve yazma duzelmedikce ekranda kalmalidir; bu yuzden Dart
+/// tarafinda sunucudan tasima yapilmaz, uyari dogrudan gosterilir.
+pub fn watch_storage_error(sink: StreamSink<String>) -> Result<(), String> {
+    let mut rx = state::core()?.bus.subscribe();
+    runtime::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(CoreEvent::StorageError(message)) => {
+                    if sink.add(message).is_err() {
+                        return;
+                    }
+                }
+                Ok(_) => {}
+                Err(RecvError::Lagged(missed)) => {
+                    // Dusen yazma hatasi bir daha gelmez; konsolda birakip
+                    // cikiyoruz. Sonraki hata zaten yeni bir olay olarak
+                    // gelecegi icin bu akis odurur.
+                    note_lost("depolama", missed);
+                    return;
+                }
+                Err(_) => return,
+            }
+        }
+    });
+    Ok(())
+}

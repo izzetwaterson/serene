@@ -32,3 +32,11 @@ Stream<String> watchClipboard() =>
 
 /// Eklentinin "Serene'yi one getir" istegi; her istek bir tik uretir.
 Stream<int> watchPresent() => RustLib.instance.api.crateApiEventsWatchPresent();
+
+/// Durum dosyasi yazilamadiginda bir kez uyari metni gonderir.
+///
+/// Onemli: bu bir *anlik* olay degil, kalici bir durum. Kullanici uyariyi
+/// kapatmadikca ve yazma duzelmedikce ekranda kalmalidir; bu yuzden Dart
+/// tarafinda sunucudan tasima yapilmaz, uyari dogrudan gosterilir.
+Stream<String> watchStorageError() =>
+    RustLib.instance.api.crateApiEventsWatchStorageError();

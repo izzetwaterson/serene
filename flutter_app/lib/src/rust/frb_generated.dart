@@ -73,7 +73,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1983806659;
+  int get rustContentHash => -875528436;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -177,6 +177,8 @@ abstract class RustLibApi extends BaseApi {
   Stream<int> crateApiEventsWatchPresent();
 
   Stream<List<Progress>> crateApiEventsWatchProgress();
+
+  Stream<String> crateApiEventsWatchStorageError();
 
   Stream<List<Task>> crateApiEventsWatchTasks();
 }
@@ -1152,6 +1154,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "watch_progress", argNames: ["sink"]);
 
   @override
+  Stream<String> crateApiEventsWatchStorageError() {
+    final sink = RustStreamSink<String>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_StreamSink_String_Sse(sink, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 35,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData: sse_decode_unit,
+            decodeErrorData: sse_decode_String,
+          ),
+          constMeta: kCrateApiEventsWatchStorageErrorConstMeta,
+          argValues: [sink],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiEventsWatchStorageErrorConstMeta =>
+      const TaskConstMeta(debugName: "watch_storage_error", argNames: ["sink"]);
+
+  @override
   Stream<List<Task>> crateApiEventsWatchTasks() {
     final sink = RustStreamSink<List<Task>>();
     unawaited(
@@ -1163,7 +1197,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 35,
+              funcId: 36,
               port: port_,
             );
           },

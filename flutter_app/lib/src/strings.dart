@@ -158,6 +158,8 @@ abstract class Strings {
   String get clipboardToastTitle;
   String get clipboardDismiss;
   String get clipboardDownload;
+  String get storageErrorTitle;
+  String get storageErrorDismiss;
   String get clearCompletedLabel;
 
   // --- Onay penceresi ---
@@ -440,6 +442,10 @@ class TrStrings extends Strings {
   String get clipboardDismiss => 'Yoksay';
   @override
   String get clipboardDownload => 'İndir';
+  @override
+  String get storageErrorTitle => 'Görev listesi kaydedilemiyor';
+  @override
+  String get storageErrorDismiss => 'Kapat';
   @override
   String get clearCompletedLabel => 'Tamamlananları temizle';
 
@@ -736,6 +742,10 @@ class EnStrings extends Strings {
   String get clipboardDismiss => 'Ignore';
   @override
   String get clipboardDownload => 'Download';
+  @override
+  String get storageErrorTitle => 'The task list cannot be saved';
+  @override
+  String get storageErrorDismiss => 'Dismiss';
   @override
   String get clearCompletedLabel => 'Clear completed';
 

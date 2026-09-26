@@ -792,6 +792,67 @@ class ClipboardToast extends StatelessWidget {
   }
 }
 
+/// Durum dosyasi yazilamadiginda gosterilen kalici uyari bandi.
+///
+/// Kirmizi bir "kayit yok" uyarisi; iki satirlik kisa bir mesaj ve tek bir
+/// kapat dugmesi. Amacı kullaniciyi kandirmamak: indirmeler sürebilir ama
+/// liste kaydedilmiyor, uygulama kapanınca liste geri döner.
+class StorageErrorBanner extends StatelessWidget {
+  const StorageErrorBanner({
+    super.key,
+    required this.detail,
+    required this.onDismiss,
+  });
+
+  /// Motorun yazdigi dosya yolu ve sebep; kullaniciya gosterilebilir bicimde.
+  final String detail;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Serene.errorContainer,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: Row(
+            children: [
+              SIcon('error', size: 18, color: Serene.onErrorContainer),
+              const SizedBox(width: 10),
+              Text(
+                T.storageErrorTitle,
+                style: body(13, weight: FontWeight.w600, color: Serene.onErrorContainer),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: mono(11, color: Serene.onErrorContainer),
+                ),
+              ),
+              const SizedBox(width: 12),
+              HoverSurface(
+                onTap: onDismiss,
+                background: Colors.transparent,
+                hoverBackground: Serene.error,
+                radius: 999,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                child: Text(
+                  T.storageErrorDismiss,
+                  style: body(12, weight: FontWeight.w500, color: Serene.onErrorContainer),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Toast'un iki dugmesi: birincil dolu, ikincil saydam.
 class _ToastButton extends StatelessWidget {
   const _ToastButton({

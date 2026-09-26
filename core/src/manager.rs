@@ -179,6 +179,7 @@ impl DownloadManager {
         }
         store::save_settings(&self.settings_path, &next);
         *self.settings.lock().unwrap() = next;
+        self.report_storage_error();
         self.pump();
     }
 
@@ -258,6 +259,8 @@ impl DownloadManager {
     fn persist_captures(&self) {
         let items = self.captures.lock().unwrap();
         store::save_captures(&self.capture_path, &items);
+        drop(items);
+        self.report_storage_error();
     }
 
     /// Arayuz ve kopru icin tam liste olayi; `tasks:update` ile ayni kural.
@@ -669,6 +672,19 @@ impl DownloadManager {
 
     pub fn persist_now(&self) {
         store::save_tasks(&self.tasks_path, &self.snapshot());
+        self.report_storage_error();
+    }
+
+    /// Yazma hatasini arayuze tasir.
+    ///
+    /// `save_*` imzalari geriye donuk uyum icin `()` donduruyor; hataOnce
+    /// `store` icinde biriktiriliyordu ama kimse okumadigi icin kullanici
+    /// "gorevlerim kaydedilmiyor" durumunu hic ogrenmiyordu. Burada okunup
+    /// `StorageError` olarak yayinlanir.
+    fn report_storage_error(&self) {
+        if let Some(message) = store::take_persist_error() {
+            self.bus.publish(CoreEvent::StorageError(message));
+        }
     }
 
     /// Arayuzu canli tutan kalp atisi: hiz olcumu, ilerleme yayini, kuyruk besleme.

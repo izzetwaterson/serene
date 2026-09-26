@@ -29,6 +29,9 @@ pub enum CoreEvent {
     ClipboardLink(String),
     /// Eklentinin "Serene'yi Ac" dugmesi: kabuk pencereyi one getirmeli.
     PresentWindow,
+    /// Durum dosyasi yazilamadi. Kullanici verisini kaybetmek en kotu hata
+    /// sinifidir, bu yuzden sessizce yutulmaz: arayuz uyari gosterir.
+    StorageError(String),
 }
 
 #[derive(Clone)]
