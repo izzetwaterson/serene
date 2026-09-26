@@ -155,6 +155,9 @@ abstract class Strings {
   String get confirmBrowserHint;
   String get autostartTitle;
   String get autostartHint;
+  String get clipboardToastTitle;
+  String get clipboardDismiss;
+  String get clipboardDownload;
   String get clearCompletedLabel;
 
   // --- Onay penceresi ---
@@ -431,6 +434,12 @@ class TrStrings extends Strings {
   @override
   String get autostartHint =>
       'Bilgisayar açıldığında Serene kendiliğinden çalışır';
+  @override
+  String get clipboardToastTitle => 'Panodan bağlantı yakalandı';
+  @override
+  String get clipboardDismiss => 'Yoksay';
+  @override
+  String get clipboardDownload => 'İndir';
   @override
   String get clearCompletedLabel => 'Tamamlananları temizle';
 
@@ -721,6 +730,12 @@ class EnStrings extends Strings {
   String get autostartTitle => 'Start when Windows starts';
   @override
   String get autostartHint => 'Serene launches itself when you sign in';
+  @override
+  String get clipboardToastTitle => 'Link caught from the clipboard';
+  @override
+  String get clipboardDismiss => 'Ignore';
+  @override
+  String get clipboardDownload => 'Download';
   @override
   String get clearCompletedLabel => 'Clear completed';
 

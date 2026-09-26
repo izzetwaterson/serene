@@ -691,6 +691,140 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
+/// Panoda yakalanan baglanti uyarisi.
+///
+/// Tauri kabugundaki `showClipboardToast` tasariminin Flutter karsiligi: alt
+/// saga yaslanmis kart, baglantiyi tek satirlik mono yaziyla gosterir ve
+/// kullaniciya iki secenek verir. Kendi basina indirme yapmaz; onay kullaniciya
+/// birakilir. `cards.dart` icinde tutulur cunku kayan kartlar bu dosyada.
+class ClipboardToast extends StatelessWidget {
+  const ClipboardToast({
+    super.key,
+    required this.url,
+    required this.onDismiss,
+    required this.onDownload,
+  });
+
+  final String url;
+  final VoidCallback onDismiss;
+  final VoidCallback onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 370,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Serene.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(Serene.radiusCard),
+        border: Border.all(color: Serene.borderSoft),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1232281E),
+            blurRadius: 30,
+            spreadRadius: -6,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Serene.primaryFixed.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Center(
+                  child: SIcon(
+                    'link',
+                    size: 19,
+                    color: Serene.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      T.clipboardToastTitle,
+                      style: body(13, weight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      url,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: mono(11, color: Serene.secondary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _ToastButton(
+                label: T.clipboardDismiss,
+                onTap: onDismiss,
+              ),
+              const SizedBox(width: 8),
+              _ToastButton(
+                label: T.clipboardDownload,
+                onTap: onDownload,
+                filled: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Toast'un iki dugmesi: birincil dolu, ikincil saydam.
+class _ToastButton extends StatelessWidget {
+  const _ToastButton({
+    required this.label,
+    required this.onTap,
+    this.filled = false,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return HoverSurface(
+      onTap: onTap,
+      background: filled ? Serene.primary : Colors.transparent,
+      hoverBackground:
+          filled ? Serene.primaryHover : Serene.surfaceContainerHigh,
+      radius: 999,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Text(
+        label,
+        style: body(
+          12,
+          weight: FontWeight.w500,
+          color: filled ? Serene.onPrimary : Serene.secondary,
+        ),
+      ),
+    );
+  }
+}
+
 /// "Tarayıcıdan" panelindeki kart.
 class CaptureCard extends StatelessWidget {
   const CaptureCard({super.key, required this.item, required this.onAction});

@@ -63,6 +63,10 @@ class _MainWindowState extends State<MainWindow>
   DiskUsage? _disk;
   String? _notice;
 
+  /// Panoda yakalanan baglanti; toast'ta gosterilir. `null` ise toast yok.
+  String? _clipboardUrl;
+  Timer? _clipboardTimer;
+
   final TextEditingController _search = TextEditingController();
   final TextEditingController _url = TextEditingController();
 
@@ -114,6 +118,9 @@ class _MainWindowState extends State<MainWindow>
     );
     _streams.add(ffi.watchProgress().listen(_applyProgress));
     _streams.add(ffi.watchCaptures().listen(_applyCaptures));
+    // Panoya kopyalanan baglanti oneri olarak gosterilir; motor indirmeyi
+    // kendi basina baslatmaz, karar kullaniciya birakilir.
+    _streams.add(ffi.watchClipboard().listen(_offerClipboard));
     // Ikinci acilis ya da eklentideki "Serene'yi Ac": pencere one gelir.
     _streams.add(ffi.watchPresent().listen(_applyPresent));
     // Yeni bir tarayici devralmasi: onay penceresi sirasina girer.
@@ -236,6 +243,7 @@ class _MainWindowState extends State<MainWindow>
     _clock?.cancel();
     _bridgeClock?.cancel();
     _noticeTimer?.cancel();
+    _clipboardTimer?.cancel();
     for (final sub in _streams) {
       sub.cancel();
     }
@@ -431,6 +439,38 @@ class _MainWindowState extends State<MainWindow>
     });
   }
 
+  /// Panoda yeni baglanti goruldu.
+  ///
+  /// Motor yalnizca gercek bir adres gecirir, yine de guvenli tarafta durulur:
+  /// bos ya da `http` olmayan bir sey, kullaniciya gosterilecek bir oneriyi
+  /// hak etmez. Kullanici alana zaten yapistirdiysa tekrar onermek gurultu
+  /// olur; bu yuzden sessizce yoksayilir.
+  void _offerClipboard(String raw) {
+    final url = raw.trim();
+    if (url.isEmpty || !url.startsWith('http')) return;
+    if (!_settings.watchClipboard) return;
+    if (url == _url.text.trim()) return;
+    if (!mounted) return;
+    _clipboardTimer?.cancel();
+    setState(() => _clipboardUrl = url);
+    _clipboardTimer = Timer(clipboardToastVisible, () {
+      if (mounted) setState(() => _clipboardUrl = null);
+    });
+  }
+
+  void _dismissClipboard() {
+    _clipboardTimer?.cancel();
+    if (mounted) setState(() => _clipboardUrl = null);
+  }
+
+  /// Toast'taki "Indir": adresi dogrudan gecirilir, alana yazilip gonderilmez.
+  Future<void> _downloadClipboardUrl() async {
+    final url = _clipboardUrl;
+    if (url == null) return;
+    _dismissClipboard();
+    await _submitUrl(url);
+  }
+
   /// Demo gorevler yerinde degistirilebilir; gercek gorevlere dokunulmaz.
   Task? _mutable(String id) {
     if (!_demoOn) return null;
@@ -584,10 +624,14 @@ class _MainWindowState extends State<MainWindow>
     if (mounted) _pumpHandoffs();
   }
 
-  Future<void> _submitUrl() async {
-    final value = _url.text.trim();
+  Future<void> _submitUrl([String? override]) async {
+    final value = (override ?? _url.text).trim();
     if (value.isEmpty) return;
-    _url.clear();
+    // Toast'tan gelen adres alana hic yazilmaz; yazilirsa kullanici onu
+    // sonra elle silmek zorunda kalir.
+    if (override == null) {
+      _url.clear();
+    }
     try {
       await ffi.addDownload(
         url: value,
@@ -714,6 +758,18 @@ class _MainWindowState extends State<MainWindow>
                 settings: _settings,
                 onClose: _closeSettings,
                 onSaved: _applySettings,
+              ),
+            ),
+          // Pano onerisi icin ayarlar katmaninin altinda kalir: ayarlar
+          // acikken yeni bir pano olayi kullaniciyi bölmemeli.
+          if (_clipboardUrl != null && !_showSettings)
+            Positioned(
+              right: 32,
+              bottom: 32,
+              child: ClipboardToast(
+                url: _clipboardUrl!,
+                onDismiss: _dismissClipboard,
+                onDownload: _downloadClipboardUrl,
               ),
             ),
         ],
@@ -1417,6 +1473,13 @@ class _DemoSwitch extends StatelessWidget {
 }
 
 /* ---------- Yayindan dusmus olaylar ---------- */
+
+/// Panodan yakalanan baglanti onerisinin ekranda kalma suresi.
+///
+/// Web kablugundaki `showClipboardToast` 12 saniye bekletiyordu; ayni sure
+/// Flutter'da da gecerli. Yanlislıkla yopilan bir kopyalama bu kadar sonra
+/// kendiliginden temizlenir, karsisiz kalici bir kart birikmez.
+const Duration clipboardToastVisible = Duration(seconds: 12);
 
 /// Yayindan dusmus olay bildirimi. Motor kimlikleri UUID uretir; bu deger
 /// cift alt cizgiyle basladigi icin gercek bir gorev ya da yakalama ile

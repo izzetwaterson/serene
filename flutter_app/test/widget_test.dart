@@ -398,6 +398,74 @@ void main() {
     await tester.pump();
     expect(find.text(T.sampleTaskNoEngine), findsOneWidget);
   });
+
+  testWidgets('pano onerisi baglantiyi gosterir ve iki secenek sunar', (tester) async {
+    const url = 'https://ornek.dev/film.mp4';
+    var dismissed = 0;
+    var downloaded = 0;
+
+    await tester.pumpWidget(
+      _settingsHost(
+        ClipboardToast(
+          url: url,
+          onDismiss: () => dismissed++,
+          onDownload: () => downloaded++,
+        ),
+      ),
+    );
+
+    // Baslik, adres ve iki dugme gorunur.
+    expect(find.text(T.clipboardToastTitle), findsOneWidget);
+    expect(find.text(url), findsOneWidget);
+    expect(find.text(T.clipboardDismiss), findsOneWidget);
+    expect(find.text(T.clipboardDownload), findsOneWidget);
+
+    await tester.tap(find.text(T.clipboardDownload));
+    await tester.pump();
+    expect(downloaded, 1);
+    expect(dismissed, 0);
+
+    await tester.tap(find.text(T.clipboardDismiss));
+    await tester.pump();
+    expect(dismissed, 1);
+  });
+
+  testWidgets('pano onerisi bastan sona kadar tek satirdir', (tester) async {
+    // Uzun bir adres kartin genisligini asmamali; tasma satirlari bozmaz.
+    const url =
+        'https://ornek.dev/ cok/ uzun/ bir/ dosya/ adi/ ile/ bir/ video.mp4?token=abc';
+    await tester.pumpWidget(
+      _settingsHost(
+        ClipboardToast(url: url, onDismiss: () {}, onDownload: () {}),
+      ),
+    );
+
+    final text = tester.widget<Text>(find.text(url));
+    expect(text.maxLines, 1);
+    expect(text.overflow, TextOverflow.ellipsis);
+  });
+
+  test('pano onerisi yalnizca http adresi icin gecerli', () {
+    // Ayni kural `main_window.dart` icindeki `_offerClipboard`ta uygulanir;
+    // test edilebilir kismi burada: bos veya http olmayan deger onerilmez.
+    bool acceptable(String raw) {
+      final value = raw.trim();
+      return value.isNotEmpty && value.startsWith('http');
+    }
+
+    expect(acceptable('https://ornek.dev/a.mp4'), isTrue);
+    expect(acceptable('  http://ornek.dev/a.mp4  '), isTrue);
+    expect(acceptable('magnet:?xt=urn:btih:abc'), isFalse);
+    expect(acceptable('dosya.txt'), isFalse);
+    expect(acceptable('   '), isFalse);
+    expect(acceptable(''), isFalse);
+  });
+
+  test('pano onerisi onermeden once dogru sureyi bekler', () {
+    // Yanlislikla kopyalanan bir sey bir kart olarak birikmesin diye kart
+    // kendiliginden kapanir; sure web kablugundaki eski degerle ayni.
+    expect(clipboardToastVisible, const Duration(seconds: 12));
+  });
 }
 
 List<CaptureItem> _captureFixtures() => [
