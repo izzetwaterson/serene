@@ -22,6 +22,16 @@ use serene_core::models::DownloadMeta;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
+/// `SERENE_DATA_DIR` surec genelidir ve motor her okumada degiskene bakar.
+/// Asagidaki iki test motor kuruyor; biri digerinin gecici klasorunu
+/// kullanmasin diye aralarinda sirali calisirlar. Diger 19 test saf
+/// fonksiyonlardir ve degiskene dokunmaz, onlar paralel kalabilir.
+static DATA_DIR: Mutex<()> = Mutex::new(());
+
+fn lock_dir() -> std::sync::MutexGuard<'static, ()> {
+    DATA_DIR.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 // ---------------------------------------------------------------- siniflandirma
 
 #[test]
@@ -269,6 +279,7 @@ fn soguma_kapisi_ileri_sureyi_ezmez() {
 /// yuzden motor denemeleri tuketip ancak ondan sonra basarisiz olur.
 #[test]
 fn gecici_hata_tuketilir_kalici_hata_hemen_biter() {
+    let _guard = lock_dir();
     let dir = std::env::temp_dir().join(format!("serene-net-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("indir")).expect("gecici klasor");
@@ -336,6 +347,7 @@ fn gecici_hata_tuketilir_kalici_hata_hemen_biter() {
 /// gorulur.
 #[test]
 fn remove_bekleme_oyu_kullanmaz() {
+    let _guard = lock_dir();
     let dir = std::env::temp_dir().join(format!("serene-rm-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let temp = dir.join("is-gecici");

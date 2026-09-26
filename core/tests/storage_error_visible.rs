@@ -15,6 +15,17 @@ use serene_core::manager::DownloadManager;
 use serene_core::models::{Category, DownloadKind, DownloadMeta, Status};
 use tokio::sync::broadcast::error::TryRecvError;
 
+/// `SERENE_DATA_DIR` surec genelidir ve motor her okumada degiskene bakar.
+/// Bu dosyadaki iki test de farkli birer bozuk saglam klasoru kuruyor; testler
+/// varsayilan olarak paralel calistigi icin biri digerinin hatasini gormezdi.
+/// Ayni kilit `bridge_resync.rs` ve `bridge_subscribe.rs` dosyalarinda da var.
+/// (Kilit test dosyasi basina ayri oldugu icin bu ucu birbirini korumaz.)
+static DATA_DIR: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn lock_dir() -> std::sync::MutexGuard<'static, ()> {
+    DATA_DIR.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 fn meta(id: &str, temp_dir: &str) -> DownloadMeta {
     DownloadMeta {
         id: id.into(),
@@ -47,6 +58,7 @@ fn meta(id: &str, temp_dir: &str) -> DownloadMeta {
 /// makineye ozel bir numara yok, davranisin kendisi yeterli.
 #[test]
 fn yazma_basarisiz_olunca_kullaniciya_ulasiyor() {
+    let _guard = lock_dir();
     let dir = std::env::temp_dir().join(format!("serene-depo-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("tasks.json")).expect("gecici klasor");
@@ -90,6 +102,7 @@ fn yazma_basarisiz_olunca_kullaniciya_ulasiyor() {
 /// yanip sonmesini onler.
 #[test]
 fn yazma_basarisiz_olunca_uyari_yok() {
+    let _guard = lock_dir();
     let dir = std::env::temp_dir().join(format!("serene-depo-iyi-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("gecici klasor");

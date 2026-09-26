@@ -4,6 +4,13 @@
 # Test kosumlarinin ekran goruntuleri
 artifacts/
 
+# Yayin ciktilari: `release.mjs` uretir, depoda tutulmaz
+dist/
+build/
+
+# Oturum kayitlari (asistan gorusmelerinin disa aktarimi, 18 MB)
+selam_*.md
+
 # Python onbellegi
 __pycache__/
 *.pyc
