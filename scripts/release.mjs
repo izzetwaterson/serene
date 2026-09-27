@@ -78,7 +78,7 @@ function mb(path) {
 
 // `pubspec.yaml`daki tek satir. Build number (`1.0.0+1`) kabul edilmez:
 // `windows/CMakeLists.txt` bunu dogrudan VERSION_AS_STRING yapip gecersiz bir
-// kaynak surumu uretiyor (DURUM.md 3.2).
+// kaynak surumu uretiyor (docs/planning/STATUS.md 3.2).
 function readVersion() {
   const pubspec = readFileSync(join(DIR, "flutter_app", "pubspec.yaml"), "utf8");
   const match = /^version:\s*(\S+)\s*$/m.exec(pubspec);

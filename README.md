@@ -2,6 +2,14 @@
   <img src="ui/serene-icon.png" width="96" alt="Serene">
   <h3>Serene</h3>
   <p><b>A calm, tidy download manager for Windows.</b></p>
+  <p>
+    <a href="https://github.com/izzetwaterson/serene/actions/workflows/ci.yml">
+      <img src="https://github.com/izzetwaterson/serene/actions/workflows/ci.yml/badge.svg" alt="CI">
+    </a>
+    <a href="https://github.com/izzetwaterson/serene/releases">
+      <img src="https://img.shields.io/github/v/release/izzetwaterson/serene?label=release" alt="Release">
+    </a>
+  </p>
   <p>MIT licensed · <a href="#turkce">Türkçe</a></p>
 </div>
 
@@ -235,7 +243,7 @@ node scripts/check_extension.mjs   # extension logic (under a browser mock)
 ```
 
 > **The scripts must run sequentially** and refuse to start while another
-> instance is open. See `DURUM.md` for the details.
+> instance is open. See `docs/planning/STATUS.md` for the details.
 </details>
 
 <details>
@@ -251,8 +259,10 @@ node scripts/check_extension.mjs   # extension logic (under a browser mock)
 | `installer/` | NSIS installer script |
 | `scripts/` | Verification scripts, icon generation, release pipeline |
 | `ui/` | Design source and mockups |
-| `docs/superpowers/` | Product plan and phase records |
-| `DURUM.md` | **What is done and what is left** — current project state |
+
+The `docs/planning/` folder is the project's internal log — phase plans,
+decisions, and the pitfalls hit along the way. It is not needed to *use*
+Serene; it exists for anyone continuing the work.
 </details>
 
 ---
@@ -260,7 +270,7 @@ node scripts/check_extension.mjs   # extension logic (under a browser mock)
 ## Contributing
 
 Use the **Issues** and **Pull requests** sections on the repository page.
-For product status and architecture, see `DURUM.md` — the pitfalls discovered
+For product status and architecture, see `docs/planning/STATUS.md` — the pitfalls discovered
 during development are collected there.
 
 ---

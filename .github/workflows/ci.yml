@@ -1,8 +1,8 @@
 # Serene — Windows sürekli doğrulama
 #
-# Bu dosya DURUM.md §3.3 "Tur B — CI" kararının uygulamasıdır: README'deki
+# Bu dosya docs/planning/STATUS.md §3.3 "Tur B — CI" kararının uygulamasıdır: README'deki
 # "Doğrulama koşumları" takımı artık her değişiklikte elle hatırlanmak
-# zorunda değil. Adımlar DURUM.md'deki sırayı birebir izler:
+# zorunda değil. Adımlar docs/planning/STATUS.md'deki sırayı birebir izler:
 #
 #   engine -> shell -> bridge
 #
@@ -23,7 +23,7 @@
 #
 #   check_extension.mjs  SERENE_DATA_DIR **tanımlıyken çalışmaz** (o değişken
 #   check_nmh.mjs        varken köprü geçici klasörde doğar ve iki koşum da
-#                        gerçek profili beklediği için düşer — DURUM.md §2.3/§3.1)
+#                        gerçek profili beklediği için düşer — docs/planning/STATUS.md §2.3/§3.1)
 #                        ve kullanıcı durumuna dokunur: check_nmh kayıt defteri
 #                        anahtarını silip yeniden kurar, check_extension
 #                        settings.json'daki confirmBrowserDownload ayarını geçici
@@ -95,7 +95,7 @@ jobs:
         uses: actions/checkout@v4
 
       # Rust kanalı depoda sabit değil (rust-toolchain dosyası yok). 1.98.1
-      # seçildi: DURUM.md'deki kapanış doğrulamalarının bu makinede geçtiği
+      # seçildi: docs/planning/STATUS.md'deki kapanış doğrulamalarının bu makinede geçtiği
       # araç zincirinin kendisi, ve core/Cargo.toml + native-host/Cargo.toml
       # içindeki `rust-version = "1.77"` MSRV tabanının üstünde. Depodaki üç
       # Cargo.lock sayesinde bağımlılık sürümleri zaten sabit; araç zincirini
@@ -107,7 +107,7 @@ jobs:
       # `environment: sdk: ^3.13.4` ile birebir tutulur; flutter_rust_bridge
       # 2.13.0 (flutter_app/pubspec.yaml) ve flutter_lints ^6.0.0 da bu
       # sürümde karşılanır. Aynı sürüm, son kapanış doğrulamasının
-      # (DURUM.md §2.2/§2.3) geçtiği sürüm.
+      # (docs/planning/STATUS.md §2.2/§2.3) geçtiği sürüm.
       # cache: true — eylem hem Flutter SDK'sını hem ~/.pub-cache'i önbelleğe
       # alır; ayrı bir pub-cache adımı aynı dizini ikinci kez saklamaktan
       # başka bir şey eklemezdi.
@@ -154,7 +154,7 @@ jobs:
           key: cargo-${{ runner.os }}-rust1.98.1-${{ hashFiles('core/Cargo.lock', 'native-host/Cargo.lock') }}
 
       # Uygulama koşumlarından önce: çalışan bir Serene.exe kalmasın. Temiz
-      # bir runner'da bu adım bir şey bulmaz; DURUM.md §6'nın "kosumlar
+      # bir runner'da bu adım bir şey bulmaz; docs/planning/STATUS.md §6'nın "kosumlar
       # sırayla koşar; once taskkill //F //IM Serene.exe" kuralının
       # karşılığıdır. list_windows.ps1 ile aynı Get-Process sayımını kullanır.
       - name: Calisan Serene.exe kalmasin
