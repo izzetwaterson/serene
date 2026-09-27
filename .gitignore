@@ -1,8 +1,10 @@
 # Visual Studio yerel ayarlari
 .vs/
 
-# Test kosumlarinin ekran goruntuleri
-artifacts/
+# Test kosumlarinin gecici ciktilari. README'de gosterilen ekran goruntusu
+# `serene-ekran.png` istisna tutulur; o depoda durur.
+artifacts/*
+!artifacts/serene-ekran.png
 
 # Yayin ciktilari: `release.mjs` uretir, depoda tutulmaz
 dist/
