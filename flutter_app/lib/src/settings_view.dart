@@ -56,10 +56,10 @@ class SettingsLayer extends StatelessWidget {
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: 512,
-                // Alt bosluk 24 idi; icerik (ayarlar + kaydirma listesi +
-                // sabit surum satiri) 880px pencerede tam sigmazdi ve son
-                // satir yari gorunuyordu. Ust boslukla ayni olacak sekilde
-                // biraz daha alacagiz: iki tarafta 16.
+                // Panel icerige gore kisalir (kisa bir sekmede bosluk birakmaz),
+                // ama ust sinir pencerenin kendisidir. Once sabit bir yukseklik
+                // vardi; sekmeye gecince her ayar icin farkli uzunlukta bir
+                // liste olunca ya tasma ya da bosluk birakiyordu.
                 maxHeight: height - 32,
               ),
               child: SettingsPanel(
@@ -120,6 +120,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
   Color _statusColor = Serene.primary;
   bool _busy = false;
   Timer? _closeTimer;
+
+  /// Aktif sekme. Ayarlar tek sayfada yigiliydi ve panele sigmazdi; kullanicinin
+  /// istegiyle uc amaca gore bolundu: gorunum, indirme, davranis.
+  int _tab = 0;
 
   @override
   void dispose() {
@@ -222,6 +226,137 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
   }
 
+  // --- Sekmeler -------------------------------------------------------------
+  // Ayarlar tek sayfada yigiliydi ve panele sigmazdi; kullanicinin istegiyle
+  // uc amaca gore bolundu. Ortak alt bant ("Temizle" + Kaydet) degismez.
+
+  /// Genel: dil ve tema. Iki secici de secim aninda uygulanir (Kaydet'e
+  /// beklemez) — kullanici dili ya da temayi secmeden goremez.
+  Widget _generalTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Field(
+          label: T.languageLabel,
+          child: _SegmentedPicker<AppLanguage>(
+            value: _language,
+            values: AppLanguage.values,
+            title: languageTitle,
+            onChanged: _pickLanguage,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Field(
+          label: T.appearanceLabel,
+          child: _SegmentedPicker<ThemeMode>(
+            value: _theme,
+            values: ThemeMode.values,
+            title: themeModeTitle,
+            onChanged: _pickTheme,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Indirmeler: nereye indirilecek ve kac paralel is.
+  Widget _downloadsTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Field(
+          label: T.folderLabel,
+          child: Row(
+            children: [
+              Expanded(child: ReadOnlyField(text: _dir.text)),
+              const SizedBox(width: 8),
+              HoverSurface(
+                onTap: _browse,
+                radius: Serene.radiusField,
+                background: Serene.surfaceContainer,
+                hoverBackground: Serene.surfaceContainerHigh,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Text(
+                  T.browse,
+                  style: body(13, weight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        Field(
+          label: T.concurrentLabel,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _NumberField(controller: _concurrent),
+              const SizedBox(height: 6),
+              Text(
+                T.concurrentHint,
+                style: body(11, color: Serene.secondary, height: 1.35),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        Field(
+          label: T.connectionsLabel,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _NumberField(controller: _connections),
+              const SizedBox(height: 6),
+              Text(
+                T.connectionsHint,
+                style: body(11, color: Serene.secondary, height: 1.35),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Davranis: uygulamanin kendisiyle ilgili anahtarlar.
+  Widget _behaviourTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Toggle(
+          title: T.watchClipboardTitle,
+          hint: T.watchClipboardHint,
+          value: _clipboard,
+          onChanged: (value) => setState(() => _clipboard = value),
+        ),
+        const SizedBox(height: 16),
+        _Toggle(
+          title: T.closeToTrayTitle,
+          hint: T.closeToTrayHint,
+          value: _tray,
+          onChanged: (value) => setState(() => _tray = value),
+        ),
+        const SizedBox(height: 16),
+        _Toggle(
+          title: T.confirmBrowserTitle,
+          hint: T.confirmBrowserHint,
+          value: _confirm,
+          onChanged: (value) => setState(() => _confirm = value),
+        ),
+        const SizedBox(height: 16),
+        _Toggle(
+          title: T.autostartTitle,
+          hint: T.autostartHint,
+          value: _autostart,
+          onChanged: (value) => setState(() => _autostart = value),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Shortcuts(
@@ -276,201 +411,121 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       ],
                     ),
                   ),
-                  // Icerik pencereye sigmazsa liste kendi icinde kayar; sigarsa
-                  // panel yine icerik kadar kalir (`Flexible` + `shrinkWrap`).
-                  // `Flexible` (Siz yerine) sayesinde sifir kalan alan varsa
-                  // liste kuculur; `Column`'un kendisi tasmaz.
-                  Flexible(
-                    child: ListView(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.fromLTRB(28, 0, 28, 16),
-                      children: [
-                        Field(
-                          label: T.folderLabel,
-                          child: Row(
-                            children: [
-                              Expanded(child: ReadOnlyField(text: _dir.text)),
-                              const SizedBox(width: 8),
-                              HoverSurface(
-                                onTap: _browse,
-                                radius: Serene.radiusField,
-                                background: Serene.surfaceContainer,
-                                hoverBackground: Serene.surfaceContainerHigh,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                child: Text(
-                                  T.browse,
-                                  style: body(13, weight: FontWeight.w500),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
+                  // Icerik: surum satiri, sonra solda sekme listesi ve sagda o
+                  // sekmenin ayarlari.
+                  //
+                  // Burada `Flexible` YOK: dis `Column` `mainAxisSize.min`
+                  // oldugu icin zaten icerige gore kuculuyor. Bir `Flexible`
+                  // eklenince kalan dikey boslugu dolduruyor ve panel her
+                  // zaman tam pencere yuksekliginde kaliyordu. Icerik cok
+                  // uzun bir sekmede ( orn. Davranis) tasarsa asagidaki
+                  // `ListView` kendi icinde kayar.
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Surum satiri: baslikla icerik arasinda, tam genislikte.
+                      // Alt bantta degil — orada `Kaydet` ve durum metni
+                      // zaten yer aliyor ve satir tasiyordu.
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(28, 4, 28, 8),
+                        child: _VersionRow(engineVersion: widget.engineVersion),
+                      ),
+                        // Dikey `Flexible` degil dogrudan `Row`: `Flexible`
+                        // kalan boslugu doldurdugu icin panel her zaman tam
+                        // pencere yuksekliginde kaliyordu. Icerik kendi
+                        // yuksekliginde olmali; cok uzun sekmelerde asagidaki
+                        // `Flexible` sarmalayicisi listeyi kaydirilir yapar.
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
+                              child: _TabRail(
+                                index: _tab,
+                                onChanged: (value) => setState(() => _tab = value),
+                              ),
+                            ),
                             Expanded(
-                              child: Field(
-                                label: T.concurrentLabel,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    _NumberField(controller: _concurrent),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      T.concurrentHint,
-                                      style: body(
-                                        11,
-                                        color: Serene.secondary,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 20),
-                            Expanded(
-                              child: Field(
-                                label: T.connectionsLabel,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    _NumberField(controller: _connections),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      T.connectionsHint,
-                                      style: body(
-                                        11,
-                                        color: Serene.secondary,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        Field(
-                          label: T.appearanceLabel,
-                          child: _SegmentedPicker<ThemeMode>(
-                            value: _theme,
-                            values: ThemeMode.values,
-                            title: themeModeTitle,
-                            onChanged: _pickTheme,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Field(
-                          label: T.languageLabel,
-                          child: _SegmentedPicker<AppLanguage>(
-                            value: _language,
-                            values: AppLanguage.values,
-                            title: languageTitle,
-                            onChanged: _pickLanguage,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        _Toggle(
-                          title: T.watchClipboardTitle,
-                          hint: T.watchClipboardHint,
-                          value: _clipboard,
-                          onChanged: (value) => setState(() => _clipboard = value),
-                        ),
-                        const SizedBox(height: 16),
-                        _Toggle(
-                          title: T.closeToTrayTitle,
-                          hint: T.closeToTrayHint,
-                          value: _tray,
-                          onChanged: (value) => setState(() => _tray = value),
-                        ),
-                        const SizedBox(height: 16),
-                        _Toggle(
-                          title: T.confirmBrowserTitle,
-                          hint: T.confirmBrowserHint,
-                          value: _confirm,
-                          onChanged: (value) => setState(() => _confirm = value),
-                        ),
-                        const SizedBox(height: 16),
-                        _Toggle(
-                          title: T.autostartTitle,
-                          hint: T.autostartHint,
-                          value: _autostart,
-                          onChanged: (value) => setState(() => _autostart = value),
-                        ),
-                        const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            HoverSurface(
-                              onTap: _clearCompleted,
-                              background: Colors.transparent,
-                              hoverBackground: Serene.surfaceContainer,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
-                              ),
-                              child: Text(
-                                T.clearCompletedLabel,
-                                style: body(
-                                  13,
-                                  weight: FontWeight.w500,
-                                  color: Serene.secondary,
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            if (_status != null) ...[
-                              Flexible(
-                                child: Text(
-                                  _status!,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.right,
-                                  style: body(12, color: _statusColor),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                            ],
-                            Opacity(
-                              opacity: _busy ? 0.6 : 1,
-                              child: HoverSurface(
-                                onTap: _busy ? null : _save,
-                                radius: 999,
-                                background: Serene.primary,
-                                hoverBackground: Serene.primaryHover,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 10,
-                                ),
-                                child: Text(
-                                  T.save,
-                                  style: body(
-                                    13,
-                                    weight: FontWeight.w500,
-                                    color: Serene.onPrimary,
+                              child: ListView(
+                                shrinkWrap: true,
+                                padding: const EdgeInsets.fromLTRB(0, 0, 8, 4),
+                                children: [
+                                  IndexedStack(
+                                    index: _tab,
+                                    children: [
+                                      _generalTab(),
+                                      _downloadsTab(),
+                                      _behaviourTab(),
+                                    ],
                                   ),
-                                ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ],
                     ),
-                  ),
-                  // Surum satiri, kaydirilan ayar listesinin **disinda** durur.
-                  // Icinde olsaydi kisa pencerede alta tasip gorunmez olurdu;
-                  // kullanicinin surumu her zaman gormesi gerekir. Ust
-                  // bardaki "v0.1" rozeti kaldirildigindan beri burada.
+                  // Alt bant: "Temizle", durum, Kaydet. Surum satiri ayri bir
+                  // satirda, panelin geri kalanindan bagimsiz duruyor; ikisini
+                  // ayni satira koymak yalnizca tasma yaratti (alt bant zaten
+                  // `Kaydet` + durum metni tasiyor).
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(28, 0, 28, 14),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: _VersionRow(engineVersion: widget.engineVersion),
+                    padding: const EdgeInsets.fromLTRB(28, 12, 28, 14),
+                    child: Row(
+                      children: [
+                        HoverSurface(
+                          onTap: _clearCompleted,
+                          background: Colors.transparent,
+                          hoverBackground: Serene.surfaceContainer,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          child: Text(
+                            T.clearCompletedLabel,
+                            style: body(
+                              13,
+                              weight: FontWeight.w500,
+                              color: Serene.secondary,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        if (_status != null) ...[
+                          Flexible(
+                            child: Text(
+                              _status!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.right,
+                              style: body(12, color: _statusColor),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+                        Opacity(
+                          opacity: _busy ? 0.6 : 1,
+                          child: HoverSurface(
+                            onTap: _busy ? null : _save,
+                            radius: 999,
+                            background: Serene.primary,
+                            hoverBackground: Serene.primaryHover,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                            child: Text(
+                              T.save,
+                              style: body(
+                                13,
+                                weight: FontWeight.w500,
+                                color: Serene.onPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -478,6 +533,61 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Ayarlar panelinin solundaki sekme listesi.
+///
+/// Duz metin listesi; secili olan yesil bir arka planla isaretleniyor.
+/// Ikon kullanilmadi: ucu de metin oldugu icin ikon ne yapilacagini
+/// soylemeye katki saglamiyor, yalnizca yer kaplardi.
+class _TabRail extends StatelessWidget {
+  const _TabRail({required this.index, required this.onChanged});
+
+  final int index;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = [T.tabGeneral, T.tabDownloads, T.tabBehaviour];
+    // Sabit genislik: bu, yatay bir Row icindeki Column. `stretch` ve genislik
+    // verilmezse Flutter'a sinirsiz (Infinity) genislik gecer ve layout coker.
+    return SizedBox(
+      width: 128,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < labels.length; i++) ...[
+            if (i > 0) const SizedBox(height: 2),
+            HoverSurface(
+              onTap: () => onChanged(i),
+              radius: Serene.radiusField,
+              background: i == index
+                  ? Serene.primary.withValues(alpha: 0.10)
+                  : Colors.transparent,
+              hoverBackground: i == index
+                  ? Serene.primary.withValues(alpha: 0.14)
+                  : Serene.surfaceContainer,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              child: Text(
+                labels[i],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: body(
+                  13,
+                  weight: i == index ? FontWeight.w600 : FontWeight.w500,
+                  color: i == index ? Serene.primary : Serene.secondary,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -557,9 +667,15 @@ class _VersionRowState extends State<_VersionRow> {
           children: [
             Text(T.versionLabel, style: body(12, color: Serene.secondary)),
             const SizedBox(width: 8),
-            Text(
-              _copied ? T.versionCopied : _version,
-              style: mono(12, color: Serene.onSurfaceVariant),
+            // `Flexible` + `ellipsis`: alt bant daraldiginda surum metni
+            // tasmaz, kirpilir. Duz `Text` dar panellerde tasma yapiyordu.
+            Flexible(
+              child: Text(
+                _copied ? T.versionCopied : _version,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: mono(12, color: Serene.onSurfaceVariant),
+              ),
             ),
             const SizedBox(width: 8),
             Text(

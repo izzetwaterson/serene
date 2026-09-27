@@ -162,6 +162,9 @@ abstract class Strings {
   String get clipboardDownload;
   String get storageErrorTitle;
   String get storageErrorDismiss;
+  String get tabGeneral;
+  String get tabDownloads;
+  String get tabBehaviour;
   String get versionLabel;
   String get versionCopied;
   String get versionEngine;
@@ -451,6 +454,12 @@ class TrStrings extends Strings {
   String get storageErrorTitle => 'Görev listesi kaydedilemiyor';
   @override
   String get storageErrorDismiss => 'Kapat';
+  @override
+  String get tabGeneral => 'Genel';
+  @override
+  String get tabDownloads => 'Indirmeler';
+  @override
+  String get tabBehaviour => 'Davranis';
   @override
   String get versionLabel => 'Surum';
   @override
@@ -757,6 +766,12 @@ class EnStrings extends Strings {
   String get storageErrorTitle => 'The task list cannot be saved';
   @override
   String get storageErrorDismiss => 'Dismiss';
+  @override
+  String get tabGeneral => 'General';
+  @override
+  String get tabDownloads => 'Downloads';
+  @override
+  String get tabBehaviour => 'Behaviour';
   @override
   String get versionLabel => 'Version';
   @override

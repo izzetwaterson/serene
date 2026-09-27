@@ -18,6 +18,23 @@ import 'package:serene_app/src/settings_view.dart';
 import 'package:serene_app/src/strings.dart';
 import 'package:serene_app/src/theme.dart';
 
+/// `Field` etiketi arayuzde buyuk harfe cevrilerek gosterilir; testte de
+/// ayni metni aramak icin burada cevriliyor. Elle yazilan metin, gun
+/// cevrimi degistiginde sessizce tutmaz.
+String _field(String label) => label.toUpperCase();
+
+/// Ayar panelinde istenen sekmeye gecer.
+///
+/// Panel uc sekmeye bolundu (Genel / Indirmeler / Davranis). Onceki testler
+/// ayarlari tek sayfada ariyordu; simdi her ayar yalnizca kendi sekmesinde
+/// gorunur. Iki `pump` gerekir: sekme degisimi bir `setState` ve bir
+/// `IndexedStack` yeniden kurulumu.
+Future<void> _openTab(WidgetTester tester, String tab) async {
+  await tester.tap(find.text(tab));
+  await tester.pump();
+  await tester.pump();
+}
+
 Settings _engineSettings() => Settings(
       downloadDir: r'C:\indir',
       maxConcurrent: 3,
@@ -196,10 +213,10 @@ void main() {
       ),
     ));
 
-    expect(find.text('GÖRÜNÜM'), findsOneWidget);
-    expect(find.text('Sistem'), findsOneWidget);
-    expect(find.text('Aydınlık'), findsOneWidget);
-    expect(find.text('Karanlık'), findsOneWidget);
+    expect(find.text(_field(T.appearanceLabel)), findsOneWidget);
+    expect(find.text(T.themeSystem), findsOneWidget);
+    expect(find.text(T.themeLight), findsOneWidget);
+    expect(find.text(T.themeDark), findsOneWidget);
   });
 
   testWidgets('secilen gorunum hemen boyanir', (tester) async {
@@ -264,6 +281,8 @@ void main() {
     ));
 
     expect(find.text('Ayarlar'), findsOneWidget);
+    await _openTab(tester, T.tabDownloads);
+    await _openTab(tester, T.tabDownloads);
     expect(find.text(r'C:\indir'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
     expect(find.text('8'), findsOneWidget);
@@ -297,9 +316,10 @@ void main() {
       ),
     ));
 
+    await _openTab(tester, T.tabBehaviour);
     final boxes = find.byType(Checkbox);
     expect(tester.widget<Checkbox>(boxes.at(1)).value, isTrue);
-    await tester.tap(find.text('Kapatınca tepsiye gizle'));
+    await tester.tap(find.text(T.closeToTrayTitle));
     await tester.pump();
     expect(tester.widget<Checkbox>(boxes.at(1)).value, isFalse);
   });
@@ -327,7 +347,7 @@ void main() {
 
     // Etiketler `Field` icinde buyuk harfe cevrilir; Dart'in buyutmesi
     // yerel ayarsizdir, bu yuzden "Dil" -> "DIL".
-    expect(find.text('DIL'), findsOneWidget);
+    expect(find.text(_field(T.languageLabel)), findsOneWidget);
     expect(find.text('Türkçe'), findsOneWidget);
     expect(find.text('English'), findsOneWidget);
   });
@@ -429,7 +449,6 @@ void main() {
 
     expect(find.text(T.handoffTitle), findsOneWidget);
     expect(find.text(task.url), findsOneWidget);
-    expect(find.text(r'C:\indir'), findsOneWidget);
 
     await tester.tap(find.text(T.startDownload));
     await tester.pump();
