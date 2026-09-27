@@ -1,332 +1,293 @@
-# Serene
+<div align="center">
+  <img src="ui/serene-icon.png" width="96" alt="Serene">
+  <h3>Serene</h3>
+  <p><b>Sakin ve düzenli bir Windows indirme yöneticisi.</b></p>
+  <p>Türkçe · <a href="#english">English</a></p>
+</div>
 
-Windows için sakin ve düzenli bir indirme yöneticisi. Arayüz native Flutter
-masaüstü uygulamasıdır (`flutter_app/`); indirme motoru Rust'ta yazılıdır
-(`core/`) ve `flutter_rust_bridge` ile arayüzün içine gömülür, yani tek bir
-çalıştırılabilir dosya vardır. Görsel tasarım `ui/` klasöründeki mockup'tan
-uyarlandı.
+---
 
-## Ne yapar
+Windows için tasarlanmış bir indirme yöneticisi. Hızlı olmaya çalışmaz;
+**sakin** olmaya çalışır: tek ekranda, sırasız, kesintisiz.
 
-- **Parçalı indirme** — `Range` istekleriyle tek dosyayı aynı anda 8 bağlantıdan çeker.
-  Sunucu aralıkları desteklemiyorsa tek bağlantıya düşer.
-- **Duraklat / devam ettir** — her parça kendi `.serene/<id>/partN` dosyasına yazılır,
-  kaldığı yerden devam eder. Uygulama kapansa bile.
-- **Kuyruk yönetimi** — eşzamanlı indirme sınırı ayarlanabilir; fazlası kuyrukta bekler.
-- **Panodan yakalama** — kopyaladığınız bağlantıyı görüp önerir, kendi başına indirmez.
-- **Kalıcılık** — görev listesi `%APPDATA%\Serene\tasks.json` dosyasında tutulur.
-- **Kategoriler** — uzantıya göre Video / Ses / Belge / Yazılım / Arşiv / Görsel.
-- **Tarayıcı eklentisi** — Firefox/Zen'de indirmeleri devralır, sayfada oynatılan HLS/DASH
-  medyasını yakalar ve **Tarayıcıdan** panelinde öneri olarak listeler.
-- **Akış indirme (HLS / DASH)** — `m3u8` ve `mpd` manifestleri parçalanıp indirilir,
-  AES-128 şifreli HLS parçaları çözülür ve tek dosyada birleştirilir.
-- **İstek başlığı aktarımı** — tarayıcıdaki `Referer`, `Cookie` ve `User-Agent` göreve
-  taşınır; giriş/Referer doğrulayan CDN'lerden indirme çalışır.
-- **İndirme onayı** — tarayıcıdan devralınan indirme, "İndirme Bilgileri" penceresi
-  onaylanana kadar başlamaz. Boyut, kategori ve adres gösterilir; kayıt klasörü ile
-  dosya adı burada değiştirilebilir. Medya yakalamaları ve elle girilen adresler
-  bu pencereyi görmez.
+- **Parçalı indirme** — `Range` istekleriyle tek dosyayı aynı anda 8 bağlantıdan çeker. Sunucu aralıkları desteklemiyorsa tek bağlantıya düşer.
+- **Kaldığı yerden devam** — her parça kendi dosyasına yazılır; uygulama kapansa bile kaldığınız yerden sürer.
+- **Akış indirme** — `m3u8` (HLS) ve `mpd` (DASH) manifestleri parçalanıp indirilir, AES-128 şifreli parçalar çözülür, tek dosyada birleştirilir.
+- **Tarayıcıdan devralma** — Firefox/Zen'de bir indirme başlatsanız Serene üstüne alır. Sitenin `Referer`/`Cookie`/`User-Agent` başlıkları da taşınır, yani giriş isteyen CDN'lerde de çalışır.
+- **Medya yakalama** — sayfada oynatılan HLS/DASH medyası yakalanır, **Tarayıcıdan** panelinde öneri olur.
+- **Onaylı devralma** — tarayıcıdan gelen indirme "İndirme Bilgileri" penceresinde onaylanana kadar başlamaz. Klasör ve dosya adı orada değiştirilebilir.
+- **Pano yakalama** — kopyaladığınız bağlantıyı görüp önerir; kendi başına indirmez.
+- **Kuyruk ve kategoriler** — eşzamanlılık sınırı ayarlanabilir, fazlası bekler. Kategoriler uzantıya göre otomatik.
+- **Karanlık / aydınlık**, **Türkçe / İngilizce**.
+
+> **Kod imzalama yok.** Windows SmartScreen kurulumda "bilinmeyen yayıcı" uyarısı
+> verebilir. Bu bilinçli bir seçimdir; kaldırmak için kurulumu normal kullanıcı
+> olarak çalıştırmanız yeterli.
+
+---
+
+## Kurulum
+
+**Serene-Setup-1.0.0.exe** dosyasını çalıştırın. Yönetici şifresi **sorulmaz**.
+
+Kurulum sırasında seçebilecekleriniz:
+
+| Seçenek | Varsayılan |
+|---|---|
+| Kurulum klasörü | `%LOCALAPPDATA%\Programs\Serene` |
+| Başlat menüsü kısayolu | açık |
+| Windows açılışında başlat | **kapalı** |
+| Tarayıcı köprüsü kaydı | açık (Firefox/Zen gerekir) |
+
+Kaldırma: `Başlat → Ayarlar → Uygulamalar → Serene`. Kaldırma sırasında
+`%APPDATA%\Serene` klasöründeki **görev listeniz korunur**.
+
+### Tarayıcı eklentisi (isteğe bağlı)
+
+Kurulum tarayıcı köprüsünü kaydeder. Eklentinin kendisi imzasız olduğu için
+Firefox'un mağazasından gelmez; elle yüklenir:
+
+1. Firefox veya Zen'de `about:debugging#/runtime/this-firefox` adresini açın
+2. **Geçici Eklenti Yükle** → `extension/manifest.json` dosyasını seçin
+3. Eklenti simgesine tıklayın; durum **bağlı** görünmelidir
+
+> Geçici eklentiler tarayıcı kapanınca düşer, bir sonraki açılışta 2. adımı
+> tekrarlamanız gerekir. Kalıcı kurulum imzalı bir `.xpi` gerektirir.
+
+---
 
 ## Gereksinimler
 
-- Rust (stable) + MinGW-w64 gcc ya da Visual Studio Build Tools (C++)
-- Flutter (masaüstü Windows desteğiyle) ve `flutter_rust_bridge_codegen` 2.13.0
-- Python: ikon üretimi (`scripts/make_icons.py`) ve eklenti paketleme (`scripts/pack_extension.py`)
-- Tarayıcı entegrasyonu için Firefox tabanlı bir tarayıcı (Zen Browser dahil)
+- **Windows 10 veya 11** (x64)
+- Firefox veya Zen — yalnızca tarayıcı entegrasyonu için
+- Diskte ~40 MB kurulum + indirmeler
+
+İnternet gereksinimi yoktur; Serene tamamen yerel çalışır.
+
+---
+
+## Ekran görüntüleri
+
+<details open>
+<summary><b>Ana pencere (karanlık tema)</b></summary>
+
+![Ana pencere](artifacts/serene-ekran.png)
+
+*Kuyruk sayaçları, kategori filtresi, ilerleme çubukları ve disk kullanımı
+sol sütunda; sağda o anki indirmeler.*
+</details>
+
+<details>
+<summary><b>Aydınlık tema ve ayarlar</b></summary>
+
+Ayar katmanı ana pencerenin üzerinde açılır: tema (Sistem / Aydınlık /
+Karanlık), dil (Türkçe / İngilizce), pano izleme, tepsiye gizleme, tarayıcı
+indirmelerini sorma, Windows açılışında başlatma, bağlantı sayısı ve eşzamanlı
+indirme limiti.
+
+Görüntüler `artifacts/` altındadır; `scripts/capture_window.ps1` ile yeniden
+alınır.
+</details>
+
+---
+
+## Nasıl çalışır
+
+Serene üç parçadan oluşur ve hepsi aynı bilgisayarda çalışır:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Serene.exe  (tek süreç)                            │
+│  ├─ Arayüz .............. Flutter (native masaüstü)  │
+│  └─ Motor ............... Rust, arayüzün içine gömülü│
+│         parçalı indirme · HLS/DASH · kuyruk · köprü   │
+└─────────────────────────────────────────────────────┘
+        ▲                                    ▲
+        │ yerel TCP köprüsü (127.0.0.1)     │ iki turluk onay
+┌───────┴──────────┐              ┌──────────┴──────────┐
+│  serene-nmh.exe  │              │  "İndirme Bilgileri" │
+│  (küçük, hızlı) │              │  (ikinci süreç)     │
+└───────┬──────────┘              └─────────────────────┘
+        │ native messaging
+┌───────┴──────────┐
+│  Firefox / Zen   │
+│  + eklenti       │
+└──────────────────┘
+```
+
+**Motor arayüzün içindedir.** Arayüz ile motor arasında soket yoktur; birbirini
+doğrudan çağırır. Bu yüzden indirme motoru ayrı bir kurulum gerektirmez.
+
+**Yalnızca tarayıcı köprüsü ayrıdır**, çünkü eklenti onu başlatıp
+kendisiyle konuşmak zorunda. Bu ikili küçük ve hızlı açılır; uygulama
+çalışmıyorsa sessizce onu başlatır.
+
+**Onay penceresi bilinçli olarak ikinci bir süreçtir.** Ana pencere kapansa
+bile onay sorusu yanıtsız kalmaz, ve iki motor aynı görev listesine yazmaz.
+
+### Veriler nerede
+
+| Ne | Nerede |
+|---|---|
+| Görev listesi | `%APPDATA%\Serene\tasks.json` (yedekli: `tasks.json.bak`) |
+| Ayarlar | `%APPDATA%\Serene\settings.json` |
+| Yakalanan medya | `%APPDATA%\Serene\captures.json` |
+| Yarım indirmeler | indirme klasöründe `.serene/<id>/` |
+| Köprü kaydı | `%APPDATA%\Serene\ipc.json` (rastgele port + token) |
+
+Yerel köprü rastgele bir portu dinler ve isteğin rastgele bir **token** ile
+doğrulanır; aynı bilgisayardaki başka bir program Serene'e komut gönderemez.
+
+---
+
+## Sınırlar
+
+Dürüst olmak gerekirse:
+
+- **DRM korumalı akışlar indirilemez.** `SAMPLE-AES` gibi şifreli akışlar
+  hata mesajıyla durdurulur; çözme yolu yoktur ve eklenmeyecektir.
+- **Magnet / torrent bağlantıları reddedilir.**
+- **DASH'ta ayrı ses kanalı birleştirilmez.** Video ve ses ayrı AdaptationSet'lerde
+  ise yalnızca video indirilir (muxing yapılmaz).
+- **Akışlarda toplam boyut ancak bitince bilinir.** İlerleme çubuğu parça
+  sayısı üzerinden yürür.
+- **Akışlarda parça içi devam yoktur.** Tamamlanmış parçalar korunur, yarım
+  kalan parça baştan iner.
+- **Kategori yalnızca arayüz filtresidir.** Klasör oluşturmaz.
+- **Aynı sunucuya çok sayıda bağlantı** bazı sunucularda 429'a takılabilir;
+  ayarlardan bağlantı sayısını düşürebilirsiniz.
+- **Eklenti Firefox'un mağazasında yok** (imzasız olduğu için).
+
+---
 
 ## Geliştirme
 
-### Flutter kabuğu (asıl arayüz)
+<details>
+<summary><b>Gereksinimler</b></summary>
 
-Kurulum, çalıştırma ve derleme adımları `flutter_app/README.md` içinde. Özet:
+- Rust (stable, 1.77 veya üstü) + Visual Studio Build Tools (C++ iş yükü)
+- Flutter 3.47+ (masaüstü Windows desteğiyle) ve Dart 3.13+
+- `flutter_rust_bridge_codegen` 2.13.0
+- Python 3 + Pillow (yalnızca ikon üretimi ve eklenti paketleme için)
+- Node.js (yalnızca doğrulama betikleri ve yayın akışı için)
+- NSIS 3 (`winget install NSIS.NSIS`) — yalnızca kurulum paketi için
+</details>
+
+<details>
+<summary><b>Derleme</b></summary>
 
 ```cmd
 cd flutter_app
 flutter pub get
-flutter_rust_bridge_codegen generate
-flutter run -d windows
+flutter build windows --release
 ```
 
-`flutter build windows --debug` Rust motorunu cargokit ile birlikte derler ve
-`build\windows\x64\runner\Debug\Serene.exe` ikilisini üretir.
-
-### Tarayıcı köprüsü ikilisi
-
-`serene-nmh.exe` `native-host/` paketinden derlenir; tarayıcı entegrasyonu için
-`Serene.exe`'nin yanında durmak zorundadır:
+Rust motoru cargokit ile birlikte otomatik derlenir. Tarayıcı köprüsü ayrı:
 
 ```cmd
 cd native-host
 cargo build --release --bin serene-nmh
 ```
 
-Motor ve kabuklardan bağımsız Rust testleri:
+Tam yayın paketi (kurulum paketi + taşınabilir zip + eklenti paketi):
 
 ```cmd
-cd core
-cargo test
+node scripts\release.mjs
 ```
 
-### Doğrulama koşumları
+Çıktılar `dist/` altına düşer.
+</details>
 
-`scripts/` altındaki koşumlar uygulamayı gerçekten başlatıp uçtan uca sınar. Hepsi
-bir uygulama örneği açtığı ve aynı yerel köprüden komut verdiği için **sırayla**
-koşulmalıdır; Flutter koşumları ayrıca ortada çalışan bir `Serene.exe` görürse
-kullanıcının uygulamasını öldürmemek için hiç başlamaz.
+<details>
+<summary><b>Testler</b></summary>
 
-#### Uygulama koşumları
-
-Hepsi Flutter ikilisi üstünde koşar ve motoru `SERENE_DATA_DIR` ile geçici bir
-klasöre yönlendirir; indirmeler de o klasörün altına iner.
-
-| Koşum | Doğruladığı |
-|---|---|
-| `node scripts/check_ffi.mjs` | Motor ikilisi exe'nin yanında; `--selfcheck` pencere açmadan kuruyor, komut gidip geliyor |
-| `node scripts/check_flutter.mjs` | Gerçek uygulama: köprü, masaüstü penceresi, tek örnek, indirme, yakalama, **ayrı süreçteki onay penceresi**, kapanış, tepsiye gizleme |
-| `node scripts/check_bridge.mjs` | Yerel köprü: token, el sıkışma, komutlar, olay akışı, duraklat/devam |
-| `node scripts/check_hls.mjs` | HLS: varyant seçimi, birleştirme, AES-128, başlıklar, DRM reddi |
-| `node scripts/check_dash.mjs` | DASH: SegmentTemplate/SegmentTimeline, sesin dışlanması, desteklenmeyen yapının reddi |
-| `node scripts/check_captures.mjs` | Yakalananlar: tekilleştirme, indirme (dosya + HLS), silme, kalıcılık |
-| `cd flutter_app && flutter test` | Arayüz birim ve widget testleri: onay kuyruğu sırası, ayar paneli, kenar çubuğu rozeti, yakalananlar panosu, onay penceresi önizlemesi |
-
-İkiliyi değil de uygulamanın yanında duran iki bileşeni sınayanlar:
-
-| Koşum | Doğruladığı |
-|---|---|
-| `node scripts/check_extension.mjs` | Eklenti mantığı, devralma, medya taraması, geri düşme |
-| `node scripts/check_nmh.mjs` | Native messaging kaydı, çerçeveleme, sessiz başlatma |
-
-Flutter'ın webview'i yok, üstelik Windows koşucusu `PostMessage` ile gönderilen
-tıklamaları almıyor; bu yüzden arayüzü tarayıcı taklidiyle süren CDP koşumları
-emekliye ayrıldı. Koşumlar uygulamayı başlatır, tarayıcı eklentisinin kullandığı
-yerel köprüden komut verir ve pencereyi Win32'den okur (`scripts/list_windows.ps1`).
-
-İki koşum kullanıcı durumuna dokunur; ikisi de önce kaydeder, sonunda geri koyar:
-
-- `check_nmh.mjs` kayıt defteri anahtarını siler, koşum sonunda yeniden kurar.
-- `check_extension.mjs` `settings.json`'da `confirmBrowserDownload` ayarını geçici
-  olarak kapatır (devralma adımı onay penceresinde takılmasın diye).
-
-Uygulama koşumları `flutter_app\build\windows\x64\runner\Debug\Serene.exe`
-ikilisini kullanır; başka bir derlemeyi denemek için `SERENE_APP_EXE` verilir.
-Sessiz başlatmayı ve eklentiyi sınayan iki koşum ikili klasörünü
-`SERENE_TARGET_DIR` ile değiştirir.
-
-```cmd
-set SERENE_APP_EXE=%CD%\flutter_app\build\windows\x64\runner\Release\Serene.exe
-node scripts\check_flutter.mjs
+```bash
+cd core && cargo test              # 80 test
+cd ../native-host && cargo test     # 36 test
+cd ../flutter_app && flutter test   # 51 test
 ```
 
-> Uygulama her açılışta native messaging kaydını yanındaki `serene-nmh.exe`'ye
-> çevirir. Kaydı başka bir klasöre almak için o klasördeki `serene-nmh.exe`
-> bir kez `--register-host` ile çalıştırılır.
+Uçtan uca doğrulama betikleri gerçek uygulamayı başlatır ve tarayıcı
+köprüsüyle konuşur:
 
-## Tarayıcı eklentisi
-
-Eklenti `extension/` klasöründedir (Firefox Manifest V2, kalıcı arka plan betiği).
-Zen Browser bir Firefox çatalı olduğu için aynı adımlar geçerlidir.
-
-### Kurulum
-
-1. Native messaging kaydını kurun. Normal başlatmada zaten otomatik tazelenir; elle
-   kurmak veya yolu tazelemek için yayın klasöründeki host ikilisini çalıştırın:
-   ```cmd
-   flutter_app\build\windows\x64\runner\Debug\serene-nmh.exe --register-host
-   ```
-   Bu komut iki şey yapar:
-   - `%APPDATA%\Serene\nmh\com.serene.nmh.json` host manifestini yazar
-   - `HKCU\Software\Mozilla\NativeMessagingHosts\com.serene.nmh` kayıt defteri
-     anahtarını manifestin yoluna işaret ettirir
-
-   Kaldırmak için `--unregister-host`. Sorun giderme günlüğü:
-   `%APPDATA%\Serene\nmh\register.log`.
-
-2. Tarayıcıda `about:debugging#/runtime/this-firefox` adresini açın, **Geçici Eklenti
-   Yükle** ile `extension/manifest.json` dosyasını seçin.
-
-3. Eklenti simgesine tıklayın; açılan pencerede durum **bağlı** görünmelidir. Serene
-   çalışmıyorsa **Serene kapalı** yazar.
-
-> Geçici eklentiler tarayıcı kapanınca düşer; tarayıcıyı yeniden açtığınızda 2. adımı
-> tekrarlamanız gerekir. Kalıcı kurulum imzalı bir `.xpi` paketi gerektirir ve bu
-> deponun kapsamı dışındadır.
-
-### Nasıl çalışır
-
-Eklenti her şeyi `browser.runtime.connectNative` üzerinden yapar; uygulamaya giden yol
-iki atlamalıdır:
-
-- **Native messaging** — tarayıcı `serene-nmh.exe` sürecini başlatır ve stdin/stdout
-  üzerinden 4 baytlık uzunluk önekli JSON konuşur. Bu ikili motora bağlanmadığı için
-  küçüktür ve hızlı açılır.
-- **Yerel köprü (loopback)** — uygulama `127.0.0.1` üzerinde rastgele bir portta TCP
-  dinler; port ve rastgele token `%APPDATA%\Serene\ipc.json` dosyasına yazılır.
-  `serene-nmh.exe` native messaging'den gelen mesajları bu köprüye aktarır. Köprü
-  token'ı doğrular; böylece makinedeki başka bir süreç uygulamaya komut veremez.
-
-Bağlantı tembeldir: eklenti `serene-nmh.exe` sürecini yalnızca gerçekten gerektiğinde
-(devralma, panel, medya indirme) başlatır. **Medya taraması pasiftir** — uygulama
-kapalıysa ayağa kaldırılmaz; yakalananlar yalnızca açık bir köprü varsa arayüze düşer.
-
-Medya taraması yanıt başlıklarını gözlemleyerek çalışır: sekme başına HLS/DASH adayları
-toplanır, simgeye rozet basılır ve liste tarayıcı oturumunda tutulur (sekme kapanınca
-temizlenir). Küçük ilerlemeli medya yanıtları ve `Range` istekleri elenir; böylece aynı
-dosya onlarca kez öneri olarak birikmez.
-
-## Elle doğrulama
-
-Otomatik testlerin kapsamadığı, tarayıcı ve masaüstü davranışına bağlı adımlar:
-
-| Deneme | Beklenen |
-|---|---|
-| Uygulama açıkken ikilisi bir daha çalıştır | Yeni pencere açılmaz, var olan pencere öne gelir |
-| "Kapatınca tepsiye gizle" açıkken Kapat düğmesi | Uygulama kapanmaz, tepsiye gizlenir; indirme sürer |
-| Tarayıcıdan 256 KB'tan büyük bir dosya indir | Tarayıcının kendi indirmesi iptal olur; "İndirme Bilgileri" penceresi açılır ve indirme onaylanana kadar başlamaz |
-| Pencerede klasörü ve dosya adını değiştirip "İndirmeyi Başlat" | İndirme yeni konuma, yeni adla iner; görev kartı da yeni adı gösterir |
-| Pencerede "Daha Sonra" | Görev "Onay bekliyor" durumunda listede kalır; karttaki bilgi düğmesi pencereyi geri getirir |
-| Bir bağlantıya sağ tıklayıp "Serene ile indir" | Görev oluşur; giriş gerektiren sitede de indirme çalışır (Referer/Cookie aktarılır) |
-| HLS/DASH oynatan bir sayfada videoyu başlat | Eklenti rozeti artar, kayıt "Tarayıcıdan" panelinde görünür |
-| Serene kapalıyken aynı sayfayı oynat | Rozet artar ama Serene kendiliğinden başlamaz |
-| Panelden bir HLS yakalamasını indir | Tek `.ts` dosyası oluşur ve bir oynatıcıda açılır |
-| Duraklat → uygulamayı kapat → yeniden aç → devam et | Tamamlanmış parçalar yeniden inmez, indirme kaldığı yerden sürer |
-
-## Yayın derlemesi
-
-### Flutter
-
-```cmd
-node scripts\deploy_flutter.mjs
+```bash
+node scripts/check_ffi.mjs         # motor tek exe içinde çalışıyor
+node scripts/check_flutter.mjs     # pencere, tek örnek, indirme, onay akışı
+node scripts/check_bridge.mjs      # protokol, olay akışı, duraklat/devam
+node scripts/check_hls.mjs         # varyant, birleştirme, AES-128, DRM reddi
+node scripts/check_dash.mjs        # SegmentTemplate, SegmentTimeline
+node scripts/check_captures.mjs    # yakalama tekillestirme, kalıcılık
+node scripts/check_nmh.mjs         # native messaging kaydı, sessiz başlatma
+node scripts/check_extension.mjs   # eklenti mantığı (tarayıcı taklidiyle)
 ```
 
-Betik üç işi sırayla yapar: `flutter build windows --release` (Rust motorunu
-cargokit ile birlikte derler), `serene-nmh.exe` hedefini ayrı olarak derler ve
-yayın klasörüne kopyalar, sonra klasörün içeriğini raporlar. Tarayıcı
-entegrasyonu için host ikilisinin uygulama ikilisinin yanında durması şarttır;
-bu kopyalama yapılmazsa Flutter sürümünde pencere açılır ve indirme çalışır ama
-tarayıcıdan hiçbir devralma gelmez.
+> **Betikler sırayla koşar** ve birbirinin uygulama örneğini açmasını engeller.
+> Ayrıntılar `DURUM.md` §6'da.
+</details>
 
-Ayrıca:
+<details>
+<summary><b>Depo düzeni</b></summary>
 
-- `--debug` Debug klasörünü hedefler, `--no-build` hazır derlemeleri kopyalar.
-- `--register` tarayıcının native messaging kaydını bu klasöre çevirir. Yazmadan
-  önce manifesti ve kayıt defteri anahtarını geçici bir klasöre yedekler; o
-  klasörle `node scripts\deploy_flutter.mjs --restore <yedek>` geri alınır.
-  Kayıt kullanıcı durumuna dokunduğu için betiğin varsayılanı kayda dokunmaz.
-
-Klasörü taşırken `Serene.exe`, `rust_lib_serene.dll`, `flutter_windows.dll`,
-ek plugin dll'leri, `data\` ve `serene-nmh.exe` birlikte gitmelidir.
-
-Native messaging kaydı **son çalıştırılan derlemeyi** işaret eder: uygulama her açılışta
-kendi klasöründeki `serene-nmh.exe` yolunu yazar. Yayın klasörünü başka bir yere
-taşıdıysanız oradaki ikiliyi bir kez çalıştırmak kaydı tazeler. `SERENE_DATA_DIR`
-verilmişse (koşumların yalıtılmış çalıştırması) Flutter kabuğu kayda hiç
-dokunmaz: o kipte köprü geçici klasörde doğar, tarayıcı ise gerçek klasöre bakar.
-
-## Mimari
-
-### Motor — `core/` (`serene-core`, kabuklardan bağımsız)
-
-| Dosya | Sorumluluk |
+| Klasör | İçerik |
 |---|---|
-| `core/src/models.rs` | Paylaşılan veri tipleri (görev, ayar, disk, yakalama) |
-| `core/src/runtime.rs` | Motorun kendi tokio zamanlayıcısı; `tokio::spawn` değil `runtime::spawn` kullanılır |
-| `core/src/bus.rs` | `EventBus` ve `CoreEvent` yayını |
-| `core/src/engine.rs` | İndirme motoru: probe, parça planı, akış, birleştirme |
-| `core/src/manager.rs` | Kuyruk, eşzamanlılık, hız ölçümü, kalıcılık, olay yayını |
-| `core/src/stream.rs` | Parça indirici/çözücü; HLS ve DASH bunu paylaşır |
-| `core/src/hls.rs` | `m3u8` çözümleme, varyant seçimi, AES-128 anahtarları |
-| `core/src/dash.rs` | `mpd` çözümleme (SegmentTemplate/List/Base, SegmentTimeline) |
-| `core/src/enqueue.rs` | Adresten görev üretme, istek başlıkları, onay bekleme kararı |
-| `core/src/bridge.rs` | Yerel TCP köprüsü: el sıkışma, komutlar, olay yayını |
-| `core/src/clipboard.rs` | Pano izleyici |
-| `core/src/category.rs` | Uzantıdan kategori çıkarımı |
-| `core/src/store.rs` | JSON durum dosyaları ve `SERENE_DATA_DIR` yalıtımı |
+| `core/` | İndirme motoru (Rust, ~4.800 satır) — arayüzden bağımsız |
+| `flutter_app/lib/` | Arayüz (Dart/Flutter, ~6.100 satır) |
+| `flutter_app/rust/` | Motoru arayüze bağlayan FFI katmanı |
+| `native-host/` | Tarayıcı köprüsü ikilisi (Rust) |
+| `extension/` | Firefox eklentisi (JS) |
+| `installer/` | NSIS kurulum paketi |
+| `scripts/` | Doğrulama betikleri, ikon üretimi, yayın akışı |
+| `ui/` | Tasarım kaynağı ve mockup |
+| `docs/superpowers/` | Ürün planı ve faz kayıtları |
+| `DURUM.md` | **Ne yapıldı, ne kaldı** — projenin güncel durumu |
+</details>
 
-### Tarayıcı köprüsü
+---
 
-| Dosya | Sorumluluk |
-|---|---|
-| `native-host/src/lib.rs` | Native messaging kaydı ve host manifesti (motoru linklemez) |
-| `native-host/src/bin/serene-nmh.rs` | Tarayıcı ile köprü arasında stdio aktarıcısı, sessiz başlatma |
-| `extension/` | Firefox eklentisi: devralma, tarama, panel |
+## Katkı
 
-### Flutter kabuğu — asıl arayüz
+Sorun bildirmek veya katkıda bulunmak için depo sayfasındaki
+**Issues** ve **Pull requests** bölümlerini kullanın. Ürün bilgisi ve mimari
+için `DURUM.md` dosyasına bakın — geliştirme sırasında bilinen tuzaklar
+orada toplanmıştır.
 
-| Dosya | Sorumluluk |
-|---|---|
-| `flutter_app/rust/src/api/` | Dart'a açılan komut, olay ve tip katmanı (flutter_rust_bridge) |
-| `flutter_app/rust/src/state.rs` | Tek motor örneği; ayağa kaldırmayı yalnızca ana pencere yapar |
-| `flutter_app/lib/src/main_window.dart` | Ana pencere, olay abonelikleri, tepsi, tek örnek, onay kuyruğu |
-| `flutter_app/lib/src/cards.dart` | Görev listesi, kartlar, "Tarayıcıdan" paneli |
-| `flutter_app/lib/src/settings_view.dart` | Ayarlar katmanı |
-| `flutter_app/lib/src/handoff_window.dart` | Ayrı süreçteki "İndirme Bilgileri" penceresi |
-| `flutter_app/lib/src/handoff.dart` | Onay sırası — saf Dart, birim testli |
-| `flutter_app/lib/src/folder_picker.dart` | Yerel klasör seçme diyaloğunun tek kapısı |
-| `flutter_app/lib/src/theme.dart` | Renk ve tipografi belirteçleri |
+---
 
-## Olay ve komut sözleşmesi
+## Lisans
 
-Motor kararlarını `EventBus` üzerinden `CoreEvent` olarak yayınlar; her kabuk
-aynı kutuya abone olur:
+MIT — bkz. [`LICENSE`](LICENSE). Üçüncü taraf bileşenler
+[`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) dosyasında.
 
-| Çekirdek olayı | Anlamı |
-|---|---|
-| `Tasks(liste)` | Görev listesi değişti, tam liste gönderilir |
-| `Progress(tikler)` | 400 ms'de bir yalnızca sayısal ilerleme |
-| `Captures(liste)` | Yakalanan medya listesi değişti |
-| `HandoffPending(görev)` | Tarayıcı devralması onay bekliyor |
-| `ClipboardLink(bağlantı)` | Panoda yeni bağlantı görüldü |
-| `PresentWindow` | Pencere öne getirilsin |
+Yazı tipları: Fraunces, Nunito Sans, JetBrains Mono (SIL OFL 1.1) ve
+Material Symbols (Apache 2.0).
 
-İlerleme için ayrı olay kullanılmasının sebebi: saniyede birkaç kez tam liste
-göndermek yerine sadece değişen sayıları yamamak, arayüzde gereksiz yeniden
-çizimi önler.
+---
 
-Flutter bu olayları `watchTasks/Progress/Captures/Handoff/Clipboard/Present`
-akışları olarak alır ve komutları doğrudan FFI'dan çağırır — arada soket yoktur.
+<a name="english"></a>
 
-Tarayıcı ve başka süreçler için ayrı bir kanal vardır: köprü protokolü satır
-sonuyla ayrılmış JSON'dur. Bağlanan istemci önce `{"type":"hello","token":...}`
-gönderir, `ready` yanıtını alır ve `subscribe` ile olaylara abone olur. Yanıtlar
-isteğin `reqId` alanını geri yansıtır. Onay penceresi de aynı kanalı kullanır:
-ikinci süreç kendi motorunu kurmaz, kararı çalışan örneğe yazar.
+## English
 
-## Flutter geçişinin durumu
+**Serene** is a download manager for Windows. It aims to be *calm*, not fast:
+one window, no clutter, no interruptions.
 
-Arayüz native Flutter'a taşındı ve motorunun içine gömüldü. Tamamlanan adımlar:
+- **Multi-connection downloads** via HTTP `Range`, **resume** across restarts
+- **HLS / DASH** stream downloading with AES-128 decryption
+- **Browser takeover** for Firefox/Zen, forwarding `Referer`/`Cookie`/`User-Agent`
+  so gated CDNs work; the download waits for your confirmation
+- **Media capture** — HLS/DASH streams on a page show up in a *From Browser* panel
+- **Clipboard suggestions**, queue with configurable concurrency, categories,
+  dark/light theme, Turkish/English UI
 
-- Gomulu motor: `flutter_app/rust` ayrık derleme olmadan cargokit ile kurulur,
-  komutlar ve olaylar FFI üzerinden gider; arayüz ile çekirdek arasında soket yok.
-- Arayüz: görev listesi, kartlar, "Tarayıcıdan" paneli, arama ve filtreler,
-  ilerleme çubukları `ui/` mockup'ındaki görünümle aynı.
-- Kabuk davranışı: tepsi simgesi, kapatınca tepsiye gizleme, tek örnek koruması.
-- "İndirme Bilgileri" onayı: ayrı bir işletim sistemi penceresi olarak, ikinci bir
-  süreçte açılır ve kararını köprü üzerinden çalışan örneğe yazar.
-- Ayarlar penceresi, yerel klasör seçme diyaloğu ve ayar değişince yenilenen disk
-  kullanımı.
-- Doğrulama: `check_ffi.mjs`, `check_flutter.mjs` ve `flutter test`.
+> **Not:** the binary is not code-signed, so SmartScreen may warn about an
+> unknown publisher. Installation needs no administrator rights.
 
-Eski Tauri + webview kabuğu (`src/`, `src-tauri/`) ve yalnızca ona hizmet eden
-araçlar depodan çıkarıldı; geriye tek kabuk kaldı. Emekliliğin önündeki son engel
-kurulum paketi: NSIS yalnızca Tauri tarafında tanımlıydı, Flutter için yükleyici
-henüz yok ve yayın klasörü elle taşınıyor.
+**Install:** run `Serene-Setup-1.0.0.exe`. The browser extension is optional and
+must be loaded manually via `about:debugging` (it is unsigned, so it is not on
+the add-on store).
 
-## Bilinmeyenler / sınırlar
+**Limitations:** DRM-protected streams are rejected; magnet links are not
+supported; DASH audio is not muxed with video; total stream size is unknown
+until the download finishes.
 
-- Magnet/torrent bağlantıları reddedilir (kapsam dışı bırakıldı).
-- Aynı anda aynı sunucudan çok sayıda bağlantı bazı sunucularda 429 ile
-  karşılanabilir; `connections` ayarını düşürmek gerekir.
-- Kategori klasörlere ayırma yapılmaz; kategori yalnızca arayüz filtresidir.
-  "İndirme Bilgileri" penceresindeki kategori de salt okunur bir etikettir: dosya
-  adından türetilir ve seçilen klasörü değiştirmez.
-- **DRM reddedilir.** `SAMPLE-AES` gibi şifreli akışlar için görev, ne olduğunu
-  söyleyen bir hatayla başarısız olur; çözmenin bir yolu yoktur.
-- **MSE / blob akışları yakalanamaz.** Medyayı JavaScript ile `blob:` adresine yazan
-  oynatıcılarda indirilebilir bir akış adresi bulunmaz.
-- **Akışta toplam boyut ancak bitince bilinir.** HLS/DASH manifestleri toplam bayt
-  söylemez; ilerleme çubuğu parça sayısı üzerinden yürür ve boyut "bilinmiyor"
-  görünür.
-- **Ayrı ses kanalı birleştirilmez.** DASH manifestinde video ve ses ayrıysa yalnızca
-  video indirilir; iki parçayı tek dosyada birleştirmek (muxing) yapılmaz.
-- **Parça içinde aralıklı devam yoktur.** Duraklatıp devam ederken tamamlanmış
-  parçalar yeniden inmez, ama yarım kalan parça baştan indirilir.
+MIT licensed. See [`LICENSE`](LICENSE) and
+[`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
