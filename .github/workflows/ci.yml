@@ -48,6 +48,7 @@ on:
   push:
     branches: ["**"]
   pull_request:
+    branches: ["**"]
   workflow_dispatch:
 
 # Sadece depoyu okumak gerekiyor: icerik yazma, paket gonderme veya
