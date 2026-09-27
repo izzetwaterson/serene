@@ -49,3 +49,16 @@ pub fn stop_bridge() {
 pub fn engine_version() -> String {
     env!("CARGO_PKG_VERSION").to_owned()
 }
+
+/// Uygulamanin surumu. Ayarlar penceresinde gosterilir.
+///
+/// `core/build.rs` bunu `pubspec.yaml`'dan okuyup gomuyor; boylece surumun tek
+/// dogruluk kaynagi Flutter paketi kalir (Faz 3 karari). `CARGO_PKG_VERSION`
+/// burada **kullanilmaz**: o deger motor crate'inin surumudur (0.1.0) ve
+/// ayarlarda gosterilen degerle karistirilirsa kullanici yanlis bilgi gorur.
+#[flutter_rust_bridge::frb(sync)]
+pub fn app_version() -> String {
+    option_env!("SERENE_VERSION")
+        .unwrap_or(env!("CARGO_PKG_VERSION"))
+        .to_owned()
+}

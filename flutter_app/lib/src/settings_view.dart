@@ -10,6 +10,7 @@ import 'folder_picker.dart';
 import 'handoff.dart' show engineReason;
 import 'rust/api/commands.dart' as ffi;
 import 'rust/api/dto.dart' as engine;
+import 'rust/api/lifecycle.dart' as ffi;
 import 'strings.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -23,11 +24,15 @@ class SettingsLayer extends StatelessWidget {
     required this.settings,
     required this.onClose,
     required this.onSaved,
+    required this.engineVersion,
   });
 
   final Settings settings;
   final VoidCallback onClose;
   final ValueChanged<Settings> onSaved;
+
+  /// Motor crate surumu; panelin altindaki surum satirinda gosterilir.
+  final String engineVersion;
 
   @override
   Widget build(BuildContext context) {
@@ -47,16 +52,21 @@ class SettingsLayer extends StatelessWidget {
         ),
         Center(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: 512,
-                maxHeight: height - 48,
+                // Alt bosluk 24 idi; icerik (ayarlar + kaydirma listesi +
+                // sabit surum satiri) 880px pencerede tam sigmazdi ve son
+                // satir yari gorunuyordu. Ust boslukla ayni olacak sekilde
+                // biraz daha alacagiz: iki tarafta 16.
+                maxHeight: height - 32,
               ),
               child: SettingsPanel(
                 settings: settings,
                 onClose: onClose,
                 onSaved: onSaved,
+                engineVersion: engineVersion,
               ),
             ),
           ),
@@ -73,11 +83,16 @@ class SettingsPanel extends StatefulWidget {
     required this.settings,
     required this.onClose,
     required this.onSaved,
+    required this.engineVersion,
   });
 
   final Settings settings;
   final VoidCallback onClose;
   final ValueChanged<Settings> onSaved;
+
+  /// Motor crate'inin surumu. Uygulama surumunden ayri gosterilir; ikisi
+  /// cogu kez karistirilir.
+  final String engineVersion;
 
   @override
   State<SettingsPanel> createState() => _SettingsPanelState();
@@ -263,10 +278,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   ),
                   // Icerik pencereye sigmazsa liste kendi icinde kayar; sigarsa
                   // panel yine icerik kadar kalir (`Flexible` + `shrinkWrap`).
+                  // `Flexible` (Siz yerine) sayesinde sifir kalan alan varsa
+                  // liste kuculur; `Column`'un kendisi tasmaz.
                   Flexible(
                     child: ListView(
                       shrinkWrap: true,
-                      padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
+                      padding: const EdgeInsets.fromLTRB(28, 0, 28, 16),
                       children: [
                         Field(
                           label: T.folderLabel,
@@ -445,10 +462,111 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       ],
                     ),
                   ),
+                  // Surum satiri, kaydirilan ayar listesinin **disinda** durur.
+                  // Icinde olsaydi kisa pencerede alta tasip gorunmez olurdu;
+                  // kullanicinin surumu her zaman gormesi gerekir. Ust
+                  // bardaki "v0.1" rozeti kaldirildigindan beri burada.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(28, 0, 28, 14),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _VersionRow(engineVersion: widget.engineVersion),
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Ayarlar panelinin altindaki surum satiri.
+///
+/// Surum ust bardan kaldirildiktan sonra buraya tasindi. Iki degeri birlikte
+/// gosterir: uygulamanin surumu (`pubspec.yaml`'dan, build.rs araciligiyla)
+/// ve motorun surumu (`engine_version`). Ikisi ayri seyler ve cogu kez
+/// karistirilir; ayri gostermek hangisinin ne oldugunu netlestirir.
+class _VersionRow extends StatefulWidget {
+  const _VersionRow({required this.engineVersion});
+
+  final String engineVersion;
+
+  @override
+  State<_VersionRow> createState() => _VersionRowState();
+}
+
+class _VersionRowState extends State<_VersionRow> {
+  bool _copied = false;
+
+  /// Uygulama surumu. Motor FFI ile okunur; **bir kez** burada, `initState`
+  /// icinde alinir. Surum sabittir, her `build`de yeniden okumaya gerek yok
+  /// (ve `build` icinde FFI cagrisi hem pahali hem de FFI baslatilmamis
+  /// testlerde cokmeye yol acar).
+  late final String _version = _readVersion();
+
+  static String _readVersion() {
+    try {
+      return ffi.appVersion();
+    } catch (_) {
+      // Motor kurulmamis (birim testi). Bos birakmak yerine bilinen bir
+      // deger gostermek, ayarlari acan gercek kullanicinin motora erisimi
+      // oldugunu varsaymak daha iyi olsa da, burada sadece **gorunur
+      // kalan** bir hatadir. Bos birakmak testleri ve motor-oncesi
+      // cerceveleri saglam tutar.
+      return '';
+    }
+  }
+
+  Future<void> _copy() async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final version = _version;
+    if (version.isEmpty) return;
+    try {
+      await Clipboard.setData(ClipboardData(text: version));
+      if (!mounted) return;
+      setState(() => _copied = true);
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text('${T.versionLabel} $version - ${T.versionCopied}'),
+          duration: const Duration(milliseconds: 1800),
+        ),
+      );
+      // Geri donus: "kopyalandi" hali sonsuza kadar kalmasin.
+      await Future<void>.delayed(const Duration(milliseconds: 1800));
+      if (mounted) setState(() => _copied = false);
+    } catch (_) {
+      // Panoya yazilamadi (orn. baska bir uygulama kilitli): ayari engelleme.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: 0.75,
+      child: HoverSurface(
+        onTap: _copy,
+        background: Colors.transparent,
+        hoverBackground: Serene.surfaceContainer,
+        radius: Serene.radiusTile,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(T.versionLabel, style: body(12, color: Serene.secondary)),
+            const SizedBox(width: 8),
+            Text(
+              _copied ? T.versionCopied : _version,
+              style: mono(12, color: Serene.onSurfaceVariant),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${T.versionEngine} ${widget.engineVersion}',
+              style: body(11, color: Serene.outline),
+            ),
+          ],
         ),
       ),
     );

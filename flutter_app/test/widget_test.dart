@@ -1,3 +1,7 @@
+// `setSurfaceSize` testler icin gecici bir API; yalnizca mantiksal pencere
+// olcusunu sabitlemek icin kullanilir (asagida `_setWindow`).
+// ignore_for_file: invalid_use_of_visible_for_testing_member
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +29,18 @@ Settings _engineSettings() => Settings(
       language: 'tr',
       autostart: false,
     );
+
+/// Test mantiksal penceresinin olcusunu gercek uygulama penceresine sabitler.
+///
+/// Testler varsayilan 800x600 mantiksal ekranda calisir. Uygulamanin gercek
+/// penceresi 1280x880; ayar paneli de 880'e gore tasarlanmis. 600'de panel
+/// listeye kayar ve alt satirlar (orn. "Kapatinca tepsiye gizle") ekran disi
+/// kalir. Bu yuzden `setSurfaceSize` **yalnizca test govdesi icinde**
+/// cagrilabilir (`inTest` sarti); bu yuzden `setUp` ile degil, asagidaki
+/// yardimcilarin kendisiyle her testin basinda cagriliyor.
+Future<void> setRealWindow() async {
+  await TestWidgetsFlutterBinding.instance.setSurfaceSize(const Size(1280, 880));
+}
 
 void main() {
   // Palet ve metinler globaldir; bir testin biraktigi secim digerine sizmasin.
@@ -159,6 +175,7 @@ void main() {
   });
 
   testWidgets('mod degisince pencere agaci yeni paleti okur', (tester) async {
+    await setRealWindow();
     applyThemeMode(ThemeMode.light);
     await tester.pumpWidget(_settingsHost(const Center(child: _PaletteProbe())));
     expect(_probeColor(tester), const Color(0xFFFFFFFF));
@@ -169,10 +186,12 @@ void main() {
   });
 
   testWidgets('ayarlar paneli gorunum seceneklerini gosterir', (tester) async {
+    await setRealWindow();
     await tester.pumpWidget(_settingsHost(
       SettingsPanel(
         settings: _engineSettings(),
         onClose: () {},
+        engineVersion: '0.1.0',
         onSaved: (_) {},
       ),
     ));
@@ -184,11 +203,13 @@ void main() {
   });
 
   testWidgets('secilen gorunum hemen boyanir', (tester) async {
+    await setRealWindow();
     applyThemeMode(ThemeMode.light);
     await tester.pumpWidget(_settingsHost(
       SettingsPanel(
         settings: _engineSettings(),
         onClose: () {},
+        engineVersion: '0.1.0',
         onSaved: (_) {},
       ),
     ));
@@ -216,6 +237,7 @@ void main() {
           autostart: false,
         ),
         onClose: () {},
+        engineVersion: '0.1.0',
         onSaved: (_) {},
       ),
     ));
@@ -231,10 +253,12 @@ void main() {
   });
 
   testWidgets('ayarlar paneli motor ayarlarindan dolar', (tester) async {
+    await setRealWindow();
     await tester.pumpWidget(_settingsHost(
       SettingsPanel(
         settings: _engineSettings(),
         onClose: () {},
+        engineVersion: '0.1.0',
         onSaved: (_) {},
       ),
     ));
@@ -246,11 +270,13 @@ void main() {
   });
 
   testWidgets('ayarlar paneli Esc ile kapanir', (tester) async {
+    await setRealWindow();
     var closed = 0;
     await tester.pumpWidget(_settingsHost(
       SettingsPanel(
         settings: _engineSettings(),
         onClose: () => closed++,
+        engineVersion: '0.1.0',
         onSaved: (_) {},
       ),
     ));
@@ -261,10 +287,12 @@ void main() {
   });
 
   testWidgets('tepsi ayari satira tiklaninca cevrilir', (tester) async {
+    await setRealWindow();
     await tester.pumpWidget(_settingsHost(
       SettingsPanel(
         settings: _engineSettings(),
         onClose: () {},
+        engineVersion: '0.1.0',
         onSaved: (_) {},
       ),
     ));
@@ -277,6 +305,7 @@ void main() {
   });
 
   testWidgets('mod degisince pencere agaci yeni dili okur', (tester) async {
+    await setRealWindow();
     await tester.pumpWidget(_settingsHost(const Center(child: _TextProbe())));
     expect(_probeText(tester), 'Bugün ne indirmek istersiniz?');
 
@@ -286,10 +315,12 @@ void main() {
   });
 
   testWidgets('ayarlar paneli dil seceneklerini gosterir', (tester) async {
+    await setRealWindow();
     await tester.pumpWidget(_settingsHost(
       SettingsPanel(
         settings: _engineSettings(),
         onClose: () {},
+        engineVersion: '0.1.0',
         onSaved: (_) {},
       ),
     ));
@@ -302,10 +333,12 @@ void main() {
   });
 
   testWidgets('secilen dil panelin metinlerini hemen cevirir', (tester) async {
+    await setRealWindow();
     await tester.pumpWidget(_settingsHost(
       SettingsPanel(
         settings: _engineSettings(),
         onClose: () {},
+        engineVersion: '0.1.0',
         onSaved: (_) {},
       ),
     ));
@@ -329,6 +362,7 @@ void main() {
       SettingsPanel(
         settings: _engineSettings(),
         onClose: () {},
+        engineVersion: '0.1.0',
         onSaved: (_) {},
       ),
     ));
@@ -356,7 +390,6 @@ void main() {
         category: null,
         view: 'tasks',
         demoOn: false,
-        onNewDownload: () {},
         onFilter: (_) {},
         onCategory: (_) {},
         onCaptures: () {},
@@ -370,6 +403,7 @@ void main() {
   });
 
   testWidgets('yakalananlar panosu satirlari duz metin cizer', (tester) async {
+    await setRealWindow();
     final items = _captureFixtures();
     await tester.pumpWidget(_settingsHost(
       CapturesPane(
@@ -389,6 +423,7 @@ void main() {
   });
 
   testWidgets('onay penceresi onizlemede motoru cagirmaz', (tester) async {
+    await setRealWindow();
     final task = _handoffFixture();
     await tester.pumpWidget(_settingsHost(HandoffWindow(task: task, preview: true)));
 
@@ -402,6 +437,7 @@ void main() {
   });
 
   testWidgets('pano onerisi baglantiyi gosterir ve iki secenek sunar', (tester) async {
+    await setRealWindow();
     const url = 'https://ornek.dev/film.mp4';
     var dismissed = 0;
     var downloaded = 0;
@@ -433,6 +469,7 @@ void main() {
   });
 
   testWidgets('pano onerisi bastan sona kadar tek satirdir', (tester) async {
+    await setRealWindow();
     // Uzun bir adres kartin genisligini asmamali; tasma satirlari bozmaz.
     const url =
         'https://ornek.dev/ cok/ uzun/ bir/ dosya/ adi/ ile/ bir/ video.mp4?token=abc';
@@ -470,6 +507,7 @@ void main() {
   });
 
   testWidgets('depolama hatasi bandi sebebi ve kapat dugmesi gosterir', (tester) async {
+    await setRealWindow();
     const detail = r'C:\Users\ornek\AppData\Roaming\Serene\tasks.json yazilamadi';
     var dismissed = 0;
 
@@ -489,6 +527,7 @@ void main() {
   });
 
   testWidgets('depolama bandinda sebep tasmaz, bir satirda kalir', (tester) async {
+    await setRealWindow();
     // Dosya yolu uzun olabilir; bant yatay degil, dikey buyumesin.
     const detail = r'C:\Users\ornek\AppData\Roaming\Serene\tasks.json yazilamadi: '
         'yeterli disk alani yok';

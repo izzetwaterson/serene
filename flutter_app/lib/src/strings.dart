@@ -162,6 +162,9 @@ abstract class Strings {
   String get clipboardDownload;
   String get storageErrorTitle;
   String get storageErrorDismiss;
+  String get versionLabel;
+  String get versionCopied;
+  String get versionEngine;
   String get clearCompletedLabel;
 
   // --- Onay penceresi ---
@@ -448,6 +451,12 @@ class TrStrings extends Strings {
   String get storageErrorTitle => 'Görev listesi kaydedilemiyor';
   @override
   String get storageErrorDismiss => 'Kapat';
+  @override
+  String get versionLabel => 'Surum';
+  @override
+  String get versionCopied => 'Kopyalandi';
+  @override
+  String get versionEngine => 'Motor';
   @override
   String get clearCompletedLabel => 'Tamamlananları temizle';
 
@@ -748,6 +757,12 @@ class EnStrings extends Strings {
   String get storageErrorTitle => 'The task list cannot be saved';
   @override
   String get storageErrorDismiss => 'Dismiss';
+  @override
+  String get versionLabel => 'Version';
+  @override
+  String get versionCopied => 'Copied';
+  @override
+  String get versionEngine => 'Engine';
   @override
   String get clearCompletedLabel => 'Clear completed';
 

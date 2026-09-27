@@ -29,3 +29,11 @@ void stopBridge() => RustLib.instance.api.crateApiLifecycleStopBridge();
 
 /// Derlenen motor kutuphanesinin surumu; kopru yoklamasi bunu dogrular.
 String engineVersion() => RustLib.instance.api.crateApiLifecycleEngineVersion();
+
+/// Uygulamanin surumu. Ayarlar penceresinde gosterilir.
+///
+/// `core/build.rs` bunu `pubspec.yaml`'dan okuyup gomuyor; boylece surumun tek
+/// dogruluk kaynagi Flutter paketi kalir (Faz 3 karari). `CARGO_PKG_VERSION`
+/// burada **kullanilmaz**: o deger motor crate'inin surumudur (0.1.0) ve
+/// ayarlarda gosterilen degerle karistirilirsa kullanici yanlis bilgi gorur.
+String appVersion() => RustLib.instance.api.crateApiLifecycleAppVersion();

@@ -58,6 +58,10 @@ class _MainWindowState extends State<MainWindow>
   bool _maximized = false;
   bool _showSettings = false;
 
+  /// Motor crate surumu; ayarlar panelinde uygulama surumunun yaninda gosterilir.
+  /// Motor kurulduktan sonra okunur (FFI oncesi cagrilamaz).
+  String _engineVersion = '';
+
   /// Yalnizca siradaki indirmeler icin secilen klasor; ayarlara dokunmaz.
   String? _destOverride;
   DiskUsage? _disk;
@@ -117,6 +121,9 @@ class _MainWindowState extends State<MainWindow>
     _settings = Settings.fromEngine(ffi.getSettings());
     _applyTasks(ffi.listTasks());
     _applyCaptures(ffi.listCaptures());
+    // Motor surumu motor kurulduktan sonra okunabilir; ayarlar panelinde
+    // uygulama surumunun yaninda gosterilir.
+    _engineVersion = ffi.engineVersion();
 
     _streams.add(
       ffi.watchTasks().listen((raw) {
@@ -716,9 +723,6 @@ class _MainWindowState extends State<MainWindow>
                             category: _category,
                             view: _view,
                             demoOn: _demoOn,
-                            onNewDownload: () => _url.text.isEmpty
-                                ? _notify(T.pasteLinkIntoField)
-                                : _submitUrl(),
                             onFilter: (value) => setState(() {
                               _filter = value;
                               _category = null;
@@ -779,6 +783,7 @@ class _MainWindowState extends State<MainWindow>
                 settings: _settings,
                 onClose: _closeSettings,
                 onSaved: _applySettings,
+                engineVersion: _engineVersion,
               ),
             ),
           // Pano onerisi icin ayarlar katmaninin altinda kalir: ayarlar
@@ -1098,7 +1103,6 @@ class Sidebar extends StatelessWidget {
     required this.category,
     required this.view,
     required this.demoOn,
-    required this.onNewDownload,
     required this.onFilter,
     required this.onCategory,
     required this.onCaptures,
@@ -1113,7 +1117,6 @@ class Sidebar extends StatelessWidget {
   final String? category;
   final String view;
   final bool demoOn;
-  final VoidCallback onNewDownload;
   final ValueChanged<String> onFilter;
   final ValueChanged<String> onCategory;
   final VoidCallback onCaptures;
@@ -1152,29 +1155,11 @@ class Sidebar extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 8),
         child: Column(
           children: [
-            HoverSurface(
-              onTap: onNewDownload,
-              radius: Serene.radiusTile,
-              background: Serene.primary,
-              hoverBackground: Serene.primaryHoverStrong,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SIcon('add_circle', size: 19, color: Serene.onPrimary),
-                  const SizedBox(width: 10),
-                  Text(
-                    T.newDownload,
-                    style: body(
-                      14,
-                      weight: FontWeight.w500,
-                      color: Serene.onPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
+            // "Yeni Indirme" butonu kaldirildi. Ayni is iki yerde duruyordu:
+            // burada ve bos durumdaki hero kutusunda. Iki konum da ayni isi
+            // yaptigi icin biri gereksizdi; kalan tek konum, kullanicinin
+            // baglantiyi yapistirdigi yerdir. Buton ayrica kenar cubugunun
+            // en ustundeki yeri, yani filtre listesinin basinda, yer kapliyordu.
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
