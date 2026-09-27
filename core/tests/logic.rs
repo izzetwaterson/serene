@@ -177,24 +177,27 @@ fn settings_without_confirm_field_ask_by_default() {
 fn theme_field_defaults_and_normalizes() {
     let settings: Settings = serde_json::from_str(r#"{"downloadDir": "C:\\tmp"}"#)
         .expect("tema alani olmadan da yuklenmeli");
-    assert_eq!(settings.theme, "system");
+    // Alan hic yazilmamis ayar dosyalari aydinliga duser.
+    assert_eq!(settings.theme, "light");
 
     assert_eq!(normalize_theme(" Dark "), "dark");
     assert_eq!(normalize_theme("LIGHT"), "light");
-    assert_eq!(normalize_theme(""), "system");
-    assert_eq!(normalize_theme("sepya"), "system");
+    assert_eq!(normalize_theme("System"), "system");
+    assert_eq!(normalize_theme(""), "light");
+    assert_eq!(normalize_theme("sepya"), "light");
 }
 
 #[test]
 fn language_field_defaults_and_normalizes() {
     let settings: Settings = serde_json::from_str(r#"{"downloadDir": "C:\\tmp"}"#)
         .expect("dil alani olmadan da yuklenmeli");
-    assert_eq!(settings.language, "tr");
+    // Alan hic yazilmamis ayar dosyalari Ingilizceye duser.
+    assert_eq!(settings.language, "en");
 
     assert_eq!(normalize_language(" EN "), "en");
     assert_eq!(normalize_language("Tr"), "tr");
-    assert_eq!(normalize_language(""), "tr");
-    assert_eq!(normalize_language("de"), "tr");
+    assert_eq!(normalize_language(""), "en");
+    assert_eq!(normalize_language("de"), "en");
 }
 
 #[test]

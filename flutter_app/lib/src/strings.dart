@@ -5,8 +5,10 @@ enum AppLanguage { tr, en }
 
 final ValueNotifier<AppLanguage> appLanguage = ValueNotifier(AppLanguage.tr);
 
+/// Ayar dizesinden dili cozer. Varsayilan Ingilizcedir; taninmayan deger de
+/// Ingilizceye duser. Motordaki `normalize_language` ile ayni kumei tanir.
 AppLanguage languageFrom(String raw) =>
-    raw.trim().toLowerCase() == 'en' ? AppLanguage.en : AppLanguage.tr;
+    raw.trim().toLowerCase() == 'tr' ? AppLanguage.tr : AppLanguage.en;
 
 String languageSetting(AppLanguage language) =>
     language == AppLanguage.en ? 'en' : 'tr';

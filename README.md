@@ -1,180 +1,192 @@
 <div align="center">
   <img src="ui/serene-icon.png" width="96" alt="Serene">
   <h3>Serene</h3>
-  <p><b>Sakin ve düzenli bir Windows indirme yöneticisi.</b></p>
-  <p>Türkçe · <a href="#english">English</a></p>
+  <p><b>A calm, tidy download manager for Windows.</b></p>
+  <p>MIT licensed · <a href="#turkce">Türkçe</a></p>
 </div>
 
 ---
 
-Windows için tasarlanmış bir indirme yöneticisi. Hızlı olmaya çalışmaz;
-**sakin** olmaya çalışır: tek ekranda, sırasız, kesintisiz.
+A download manager built for Windows. It doesn't try to be fast — it tries to
+be **calm**: one window, no clutter, no interruptions.
 
-- **Parçalı indirme** — `Range` istekleriyle tek dosyayı aynı anda 8 bağlantıdan çeker. Sunucu aralıkları desteklemiyorsa tek bağlantıya düşer.
-- **Kaldığı yerden devam** — her parça kendi dosyasına yazılır; uygulama kapansa bile kaldığınız yerden sürer.
-- **Akış indirme** — `m3u8` (HLS) ve `mpd` (DASH) manifestleri parçalanıp indirilir, AES-128 şifreli parçalar çözülür, tek dosyada birleştirilir.
-- **Tarayıcıdan devralma** — Firefox/Zen'de bir indirme başlatsanız Serene üstüne alır. Sitenin `Referer`/`Cookie`/`User-Agent` başlıkları da taşınır, yani giriş isteyen CDN'lerde de çalışır.
-- **Medya yakalama** — sayfada oynatılan HLS/DASH medyası yakalanır, **Tarayıcıdan** panelinde öneri olur.
-- **Onaylı devralma** — tarayıcıdan gelen indirme "İndirme Bilgileri" penceresinde onaylanana kadar başlamaz. Klasör ve dosya adı orada değiştirilebilir.
-- **Pano yakalama** — kopyaladığınız bağlantıyı görüp önerir; kendi başına indirmez.
-- **Kuyruk ve kategoriler** — eşzamanlılık sınırı ayarlanabilir, fazlası bekler. Kategoriler uzantıya göre otomatik.
-- **Karanlık / aydınlık**, **Türkçe / İngilizce**.
+- **Multi-connection downloads** — fetches a single file over 8 connections at
+  once using HTTP `Range`. Falls back to one connection if the server doesn't
+  support ranges.
+- **Resumable** — every chunk is written to its own file; if the app closes, it
+  picks up where it left off.
+- **Stream downloading** — `m3u8` (HLS) and `mpd` (DASH) manifests are parsed,
+  fetched, decrypted (AES-128) and merged into a single file.
+- **Browser takeover** — start a download in Firefox/Zen and Serene takes it
+  over. The page's `Referer` / `Cookie` / `User-Agent` headers travel with it,
+  so gated CDNs work too.
+- **Media capture** — HLS/DASH streams playing on a page show up in a
+  *From Browser* panel.
+- **Confirmed takeover** — a taken-over download waits for a *Download Details*
+  window before it starts. You can change the folder and file name there.
+- **Clipboard suggestions** — a copied link is offered, never started on its
+  own.
+- **Queue and categories** — a configurable concurrency limit; the rest wait.
+  Categories are inferred from the file extension.
+- **Light / dark theme**, **English / Turkish**.
 
-> **Kod imzalama yok.** Windows SmartScreen kurulumda "bilinmeyen yayıcı" uyarısı
-> verebilir. Bu bilinçli bir seçimdir; kaldırmak için kurulumu normal kullanıcı
-> olarak çalıştırmanız yeterli.
+> **The binary is not code-signed.** Windows SmartScreen may warn about an
+> unknown publisher. This is a deliberate choice; running the installer as a
+> normal user is enough.
 
 ---
 
-## Kurulum
+## Install
 
-**Serene-Setup-1.0.0.exe** dosyasını çalıştırın. Yönetici şifresi **sorulmaz**.
+Run **`Serene-Setup-1.0.0.exe`**. You are **not** asked for administrator
+rights.
 
-Kurulum sırasında seçebilecekleriniz:
-
-| Seçenek | Varsayılan |
+| Option | Default |
 |---|---|
-| Kurulum klasörü | `%LOCALAPPDATA%\Programs\Serene` |
-| Başlat menüsü kısayolu | açık |
-| Windows açılışında başlat | **kapalı** |
-| Tarayıcı köprüsü kaydı | açık (Firefox/Zen gerekir) |
+| Install folder | `%LOCALAPPDATA%\Programs\Serene` |
+| Start menu shortcut | on |
+| Start when Windows starts | **off** |
+| Browser bridge registration | on (Firefox/Zen required) |
 
-Kaldırma: `Başlat → Ayarlar → Uygulamalar → Serene`. Kaldırma sırasında
-`%APPDATA%\Serene` klasöründeki **görev listeniz korunur**.
+To uninstall: `Settings → Apps → Serene`. Your **download list in
+`%APPDATA%\Serene` is preserved.**
 
-### Tarayıcı eklentisi (isteğe bağlı)
+### Browser extension (optional)
 
-Kurulum tarayıcı köprüsünü kaydeder. Eklentinin kendisi imzasız olduğu için
-Firefox'un mağazasından gelmez; elle yüklenir:
+The installer registers the browser bridge. The extension itself is unsigned,
+so it is not on the add-on store — load it manually:
 
-1. Firefox veya Zen'de `about:debugging#/runtime/this-firefox` adresini açın
-2. **Geçici Eklenti Yükle** → `extension/manifest.json` dosyasını seçin
-3. Eklenti simgesine tıklayın; durum **bağlı** görünmelidir
+1. Open `about:debugging#/runtime/this-firefox` in Firefox or Zen
+2. **Load Temporary Add-on** → choose `extension/manifest.json`
+3. Click the toolbar icon; the status should read **connected**
 
-> Geçici eklentiler tarayıcı kapanınca düşer, bir sonraki açılışta 2. adımı
-> tekrarlamanız gerekir. Kalıcı kurulum imzalı bir `.xpi` gerektirir.
-
----
-
-## Gereksinimler
-
-- **Windows 10 veya 11** (x64)
-- Firefox veya Zen — yalnızca tarayıcı entegrasyonu için
-- Diskte ~40 MB kurulum + indirmeler
-
-İnternet gereksinimi yoktur; Serene tamamen yerel çalışır.
+> Temporary add-ons are dropped when the browser closes; repeat step 2 next
+> time. A permanent install requires a signed `.xpi`.
 
 ---
 
-## Ekran görüntüleri
+## Requirements
+
+- **Windows 10 or 11** (x64)
+- Firefox or Zen — only for the browser integration
+- ~40 MB on disk plus your downloads
+
+No internet connection is required; Serene runs entirely locally.
+
+---
+
+## Screenshots
 
 <details open>
-<summary><b>Ana pencere (karanlık tema)</b></summary>
+<summary><b>Main window (light theme)</b></summary>
 
-![Ana pencere](artifacts/serene-ekran.png)
+![Main window](artifacts/serene-ekran.png)
 
-*Kuyruk sayaçları, kategori filtresi, ilerleme çubukları ve disk kullanımı
-sol sütunda; sağda o anki indirmeler.*
+*Queue counts, category filters, progress bars and disk usage on the left;
+current downloads on the right.*
 </details>
 
 <details>
-<summary><b>Aydınlık tema ve ayarlar</b></summary>
+<summary><b>Dark theme and settings</b></summary>
 
-Ayar katmanı ana pencerenin üzerinde açılır: tema (Sistem / Aydınlık /
-Karanlık), dil (Türkçe / İngilizce), pano izleme, tepsiye gizleme, tarayıcı
-indirmelerini sorma, Windows açılışında başlatma, bağlantı sayısı ve eşzamanlı
-indirme limiti.
+The settings sheet opens over the main window: theme (System / Light / Dark),
+language (English / Türkçe), clipboard watching, hide-to-tray, asking before
+taking over browser downloads, start on Windows boot, connection count and
+concurrent download limit.
 
-Görüntüler `artifacts/` altındadır; `scripts/capture_window.ps1` ile yeniden
-alınır.
+Screenshots live in `artifacts/`; regenerate them with
+`scripts/capture_window.ps1`.
 </details>
 
 ---
 
-## Nasıl çalışır
+## How it works
 
-Serene üç parçadan oluşur ve hepsi aynı bilgisayarda çalışır:
+Serene is three pieces, all running on your machine:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Serene.exe  (tek süreç)                            │
-│  ├─ Arayüz .............. Flutter (native masaüstü)  │
-│  └─ Motor ............... Rust, arayüzün içine gömülü│
-│         parçalı indirme · HLS/DASH · kuyruk · köprü   │
-└─────────────────────────────────────────────────────┘
-        ▲                                    ▲
-        │ yerel TCP köprüsü (127.0.0.1)     │ iki turluk onay
-┌───────┴──────────┐              ┌──────────┴──────────┐
-│  serene-nmh.exe  │              │  "İndirme Bilgileri" │
-│  (küçük, hızlı) │              │  (ikinci süreç)     │
-└───────┬──────────┘              └─────────────────────┘
-        │ native messaging
-┌───────┴──────────┐
-│  Firefox / Zen   │
-│  + eklenti       │
-└──────────────────┘
++--------------------------------------------------+
+|  Serene.exe  (single process)                     |
+|  |- Interface ........... Flutter (native desktop)|
+|  \- Engine .............. Rust, embedded in the UI|
+|         segmented | HLS/DASH | queue | bridge      |
++--------------------------------------------------+
+     ^                                    ^
+     | local TCP bridge (127.0.0.1)      | two-step consent
++-----------+---+            +-----------+--------+
+| serene-nmh.exe |           |  "Download Details" |
+| (small, fast) |           |  (second process)   |
++---------+-----+           +---------------------+
+          | native messaging
++---------+----------+
+| Firefox / Zen     |
+| + extension       |
++--------------------+
 ```
 
-**Motor arayüzün içindedir.** Arayüz ile motor arasında soket yoktur; birbirini
-doğrudan çağırır. Bu yüzden indirme motoru ayrı bir kurulum gerektirmez.
+**The engine lives inside the interface.** There is no socket between the UI
+and the engine; they call each other directly. That's why the download engine
+needs no separate installation.
 
-**Yalnızca tarayıcı köprüsü ayrıdır**, çünkü eklenti onu başlatıp
-kendisiyle konuşmak zorunda. Bu ikili küçük ve hızlı açılır; uygulama
-çalışmıyorsa sessizce onu başlatır.
+**Only the browser bridge is separate**, because the extension has to launch
+it and talk to it. That binary is small and starts fast; if the app isn't
+running, it starts it silently.
 
-**Onay penceresi bilinçli olarak ikinci bir süreçtir.** Ana pencere kapansa
-bile onay sorusu yanıtsız kalmaz, ve iki motor aynı görev listesine yazmaz.
+**The consent window is deliberately a second process.** If the main window
+closes, the question is never left unanswered, and two engines never write to
+the same task list.
 
-### Veriler nerede
+### Where your data lives
 
-| Ne | Nerede |
+| What | Where |
 |---|---|
-| Görev listesi | `%APPDATA%\Serene\tasks.json` (yedekli: `tasks.json.bak`) |
-| Ayarlar | `%APPDATA%\Serene\settings.json` |
-| Yakalanan medya | `%APPDATA%\Serene\captures.json` |
-| Yarım indirmeler | indirme klasöründe `.serene/<id>/` |
-| Köprü kaydı | `%APPDATA%\Serene\ipc.json` (rastgele port + token) |
+| Task list | `%APPDATA%\Serene\tasks.json` (with a `.bak` sibling) |
+| Settings | `%APPDATA%\Serene\settings.json` |
+| Captured media | `%APPDATA%\Serene\captures.json` |
+| Partial downloads | `.serene/<id>/` inside the download folder |
+| Bridge record | `%APPDATA%\Serene\ipc.json` (random port + token) |
 
-Yerel köprü rastgele bir portu dinler ve isteğin rastgele bir **token** ile
-doğrulanır; aynı bilgisayardaki başka bir program Serene'e komut gönderemez.
-
----
-
-## Sınırlar
-
-Dürüst olmak gerekirse:
-
-- **DRM korumalı akışlar indirilemez.** `SAMPLE-AES` gibi şifreli akışlar
-  hata mesajıyla durdurulur; çözme yolu yoktur ve eklenmeyecektir.
-- **Magnet / torrent bağlantıları reddedilir.**
-- **DASH'ta ayrı ses kanalı birleştirilmez.** Video ve ses ayrı AdaptationSet'lerde
-  ise yalnızca video indirilir (muxing yapılmaz).
-- **Akışlarda toplam boyut ancak bitince bilinir.** İlerleme çubuğu parça
-  sayısı üzerinden yürür.
-- **Akışlarda parça içi devam yoktur.** Tamamlanmış parçalar korunur, yarım
-  kalan parça baştan iner.
-- **Kategori yalnızca arayüz filtresidir.** Klasör oluşturmaz.
-- **Aynı sunucuya çok sayıda bağlantı** bazı sunucularda 429'a takılabilir;
-  ayarlardan bağlantı sayısını düşürebilirsiniz.
-- **Eklenti Firefox'un mağazasında yok** (imzasız olduğu için).
+The local bridge listens on a random port and requires a random **token** in
+every request, so no other program on your machine can drive Serene.
 
 ---
 
-## Geliştirme
+## Limitations
+
+Being straightforward about these:
+
+- **DRM-protected streams cannot be downloaded.** Encrypted variants such as
+  `SAMPLE-AES` fail with a clear message. There is no way to decrypt them and
+  none will be added.
+- **Magnet / torrent links are rejected.**
+- **DASH audio is not muxed with video.** When video and audio live in separate
+  AdaptationSets, only the video is downloaded.
+- **Total stream size is unknown until the download finishes.** The progress
+  bar advances by segment count.
+- **No intra-segment resume for streams.** Completed segments are kept, a
+  half-finished one restarts.
+- **Categories are a UI filter only.** No folders are created.
+- **Many parallel connections** to one server can hit rate limits; lower the
+  connection count in settings if that happens.
+- **The extension is not on the Firefox add-on store** (it is unsigned).
+
+---
+
+## Development
 
 <details>
-<summary><b>Gereksinimler</b></summary>
+<summary><b>Requirements</b></summary>
 
-- Rust (stable, 1.77 veya üstü) + Visual Studio Build Tools (C++ iş yükü)
-- Flutter 3.47+ (masaüstü Windows desteğiyle) ve Dart 3.13+
+- Rust (stable, 1.77+) and Visual Studio Build Tools (C++ workload)
+- Flutter 3.47+ with desktop Windows support, Dart 3.13+
 - `flutter_rust_bridge_codegen` 2.13.0
-- Python 3 + Pillow (yalnızca ikon üretimi ve eklenti paketleme için)
-- Node.js (yalnızca doğrulama betikleri ve yayın akışı için)
-- NSIS 3 (`winget install NSIS.NSIS`) — yalnızca kurulum paketi için
+- Python 3 with Pillow (icon generation and extension packaging only)
+- Node.js (verification scripts and the release pipeline only)
+- NSIS 3 (`winget install NSIS.NSIS`) — installer packaging only
 </details>
 
 <details>
-<summary><b>Derleme</b></summary>
+<summary><b>Building</b></summary>
 
 ```cmd
 cd flutter_app
@@ -182,112 +194,97 @@ flutter pub get
 flutter build windows --release
 ```
 
-Rust motoru cargokit ile birlikte otomatik derlenir. Tarayıcı köprüsü ayrı:
+The Rust engine is compiled automatically through cargokit. The browser
+bridge is built separately:
 
 ```cmd
 cd native-host
 cargo build --release --bin serene-nmh
 ```
 
-Tam yayın paketi (kurulum paketi + taşınabilir zip + eklenti paketi):
+Full release (installer + portable zip + extension package):
 
 ```cmd
 node scripts\release.mjs
 ```
 
-Çıktılar `dist/` altına düşer.
+Output lands in `dist/`.
 </details>
 
 <details>
-<summary><b>Testler</b></summary>
+<summary><b>Tests</b></summary>
 
 ```bash
-cd core && cargo test              # 80 test
-cd ../native-host && cargo test     # 36 test
-cd ../flutter_app && flutter test   # 51 test
+cd core && cargo test               # 80 tests
+cd ../native-host && cargo test     # 36 tests
+cd ../flutter_app && flutter test   # 51 tests
 ```
 
-Uçtan uca doğrulama betikleri gerçek uygulamayı başlatır ve tarayıcı
-köprüsüyle konuşur:
+The end-to-end scripts launch the real app and talk to it through the same
+bridge the browser extension uses:
 
 ```bash
-node scripts/check_ffi.mjs         # motor tek exe içinde çalışıyor
-node scripts/check_flutter.mjs     # pencere, tek örnek, indirme, onay akışı
-node scripts/check_bridge.mjs      # protokol, olay akışı, duraklat/devam
-node scripts/check_hls.mjs         # varyant, birleştirme, AES-128, DRM reddi
+node scripts/check_ffi.mjs         # engine runs inside the single exe
+node scripts/check_flutter.mjs     # window, single instance, download, consent
+node scripts/check_bridge.mjs      # protocol, event stream, pause/resume
+node scripts/check_hls.mjs         # variants, merge, AES-128, DRM rejection
 node scripts/check_dash.mjs        # SegmentTemplate, SegmentTimeline
-node scripts/check_captures.mjs    # yakalama tekillestirme, kalıcılık
-node scripts/check_nmh.mjs         # native messaging kaydı, sessiz başlatma
-node scripts/check_extension.mjs   # eklenti mantığı (tarayıcı taklidiyle)
+node scripts/check_captures.mjs    # capture dedup, persistence
+node scripts/check_nmh.mjs         # native messaging registration, silent start
+node scripts/check_extension.mjs   # extension logic (under a browser mock)
 ```
 
-> **Betikler sırayla koşar** ve birbirinin uygulama örneğini açmasını engeller.
-> Ayrıntılar `DURUM.md` §6'da.
+> **The scripts must run sequentially** and refuse to start while another
+> instance is open. See `DURUM.md` for the details.
 </details>
 
 <details>
-<summary><b>Depo düzeni</b></summary>
+<summary><b>Repository layout</b></summary>
 
-| Klasör | İçerik |
+| Path | Contents |
 |---|---|
-| `core/` | İndirme motoru (Rust, ~4.800 satır) — arayüzden bağımsız |
-| `flutter_app/lib/` | Arayüz (Dart/Flutter, ~6.100 satır) |
-| `flutter_app/rust/` | Motoru arayüze bağlayan FFI katmanı |
-| `native-host/` | Tarayıcı köprüsü ikilisi (Rust) |
-| `extension/` | Firefox eklentisi (JS) |
-| `installer/` | NSIS kurulum paketi |
-| `scripts/` | Doğrulama betikleri, ikon üretimi, yayın akışı |
-| `ui/` | Tasarım kaynağı ve mockup |
-| `docs/superpowers/` | Ürün planı ve faz kayıtları |
-| `DURUM.md` | **Ne yapıldı, ne kaldı** — projenin güncel durumu |
+| `core/` | Download engine (Rust, ~4,800 lines) — UI-independent |
+| `flutter_app/lib/` | Interface (Dart/Flutter, ~6,100 lines) |
+| `flutter_app/rust/` | FFI layer binding the engine to the UI |
+| `native-host/` | Browser bridge binary (Rust) |
+| `extension/` | Firefox extension (JavaScript) |
+| `installer/` | NSIS installer script |
+| `scripts/` | Verification scripts, icon generation, release pipeline |
+| `ui/` | Design source and mockups |
+| `docs/superpowers/` | Product plan and phase records |
+| `DURUM.md` | **What is done and what is left** — current project state |
 </details>
 
 ---
 
-## Katkı
+## Contributing
 
-Sorun bildirmek veya katkıda bulunmak için depo sayfasındaki
-**Issues** ve **Pull requests** bölümlerini kullanın. Ürün bilgisi ve mimari
-için `DURUM.md` dosyasına bakın — geliştirme sırasında bilinen tuzaklar
-orada toplanmıştır.
-
----
-
-## Lisans
-
-MIT — bkz. [`LICENSE`](LICENSE). Üçüncü taraf bileşenler
-[`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) dosyasında.
-
-Yazı tipları: Fraunces, Nunito Sans, JetBrains Mono (SIL OFL 1.1) ve
-Material Symbols (Apache 2.0).
+Use the **Issues** and **Pull requests** sections on the repository page.
+For product status and architecture, see `DURUM.md` — the pitfalls discovered
+during development are collected there.
 
 ---
 
-<a name="english"></a>
+## License
 
-## English
-
-**Serene** is a download manager for Windows. It aims to be *calm*, not fast:
-one window, no clutter, no interruptions.
-
-- **Multi-connection downloads** via HTTP `Range`, **resume** across restarts
-- **HLS / DASH** stream downloading with AES-128 decryption
-- **Browser takeover** for Firefox/Zen, forwarding `Referer`/`Cookie`/`User-Agent`
-  so gated CDNs work; the download waits for your confirmation
-- **Media capture** — HLS/DASH streams on a page show up in a *From Browser* panel
-- **Clipboard suggestions**, queue with configurable concurrency, categories,
-  dark/light theme, Turkish/English UI
-
-> **Not:** the binary is not code-signed, so SmartScreen may warn about an
-> unknown publisher. Installation needs no administrator rights.
-
-**Install:** run `Serene-Setup-1.0.0.exe`. The browser extension is optional and
-must be loaded manually via `about:debugging` (it is unsigned, so it is not on
-the add-on store).
-
-**Limitations:** DRM-protected streams are rejected; magnet links are not
-supported; DASH audio is not muxed with video; total stream size is unknown
-until the download finishes.
-
-MIT licensed. See [`LICENSE`](LICENSE) and
+MIT — see [`LICENSE`](LICENSE). Third-party components are listed in
 [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
+
+Fonts: Fraunces, Nunito Sans, JetBrains Mono (SIL OFL 1.1) and Material
+Symbols (Apache 2.0).
+
+---
+
+<a name="turkce"></a>
+
+## Türkçe
+
+**Serene**, Windows için tasarlanmış sakin bir indirme yöneticisidir. Hızlı
+olmaya çalışmaz; sakin olmaya çalışır: tek ekran, sırasız, kesintisiz.
+
+**Kurulum:** `Serene-Setup-1.0.0.exe` dosyasını çalıştırın; yönetici şifresi
+sorulmaz. Tarayıcı eklentisi isteğe bağlıdır ve `about:debugging` üzerinden
+elle yüklenir (imzasız olduğu için mağazada yoktur).
+
+**Varsayılanlar:** dil İngilizce, tema aydınlık. Ayarlar penceresinden
+Türkçe'ye ve karanlık temaya geçebilirsiniz.

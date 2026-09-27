@@ -151,9 +151,11 @@ void main() {
     expect(themeModeSetting(themeModeFrom(' dark ')), 'dark');
     expect(themeModeSetting(themeModeFrom('LIGHT')), 'light');
     // Eski ayar dosyalarinda alan yok; elle duzenlenen deger de varsayilana
-    // duser, cunku motordaki `normalize_theme` ayni kumeyi tanir.
-    expect(themeModeSetting(themeModeFrom('')), 'system');
-    expect(themeModeSetting(themeModeFrom('sepya')), 'system');
+    // duser, cunku motordaki `normalize_theme` ayni kumeyi tanir. Varsayilan
+    // aydinliktir: uygulama acildigi anda karanlik pencere kullaniciyi yamirtir.
+    expect(themeModeSetting(themeModeFrom('')), 'light');
+    expect(themeModeSetting(themeModeFrom('sepya')), 'light');
+    expect(themeModeSetting(themeModeFrom('System')), 'system');
   });
 
   testWidgets('mod degisince pencere agaci yeni paleti okur', (tester) async {

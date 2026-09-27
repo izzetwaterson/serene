@@ -4,16 +4,21 @@ import 'strings.dart';
 import 'theme.dart';
 
 /// Aktif tema modu. Ayarlar katmani yazar, pencere kokleri dinler.
-final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier(ThemeMode.system);
+///
+/// Varsayilan aydinliktir: uygulama acildigi anda karanlik bir pencere
+/// kullaniciyi yamirtir, aydinlik her zaman guvenli bir baslangictir.
+final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier(ThemeMode.light);
 
 /// Sistemin bildirdigi parlaklik; pencere acilmadan once de okunabilir.
 Brightness systemBrightness() => WidgetsBinding.instance.platformDispatcher.platformBrightness;
 
 /// Motorun ayar dizesini moda cevirir (`system`, `light`, `dark`).
+///
+/// Taninmayan deger `light`'a duser; eski ayar dosyalari alani hic yazmaz.
 ThemeMode themeModeFrom(String raw) => switch (raw.trim().toLowerCase()) {
-      'light' => ThemeMode.light,
+      'system' => ThemeMode.system,
       'dark' => ThemeMode.dark,
-      _ => ThemeMode.system,
+      _ => ThemeMode.light,
     };
 
 /// Modun ayar dizesi karsiligi; motora bu yazilir.

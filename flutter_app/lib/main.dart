@@ -43,11 +43,11 @@ Future<void> main(List<String> args) async {
   if (payload != null) {
     // Dil yuk cozulmeden once kurulur: bozuk yukteki "bilinmeyen indirme"
     // metni ve pencere basligi bu degeri okur.
-    applyLanguageSetting(_arg(args, 'handoff-lang') ?? 'tr');
+    applyLanguageSetting(_arg(args, 'handoff-lang') ?? 'en');
     await _openHandoff(
       _decodeTask(payload),
       preview: args.contains('--handoff-demo'),
-      theme: _arg(args, 'handoff-theme') ?? 'system',
+      theme: _arg(args, 'handoff-theme') ?? 'light',
     );
     return;
   }

@@ -134,20 +134,23 @@ pub struct Settings {
 
 /// Tema degerini taninan kumesine indirger. Ayar dosyasi elle duzenlenebilir
 /// ve eski surumler alani hic yazmaz; ikisi de varsayilana duser.
+///
+/// Varsayilan `light`: uygulama acildigi anda karanlik pencere kullaniciyi
+/// yamirtir, aydinlik her zaman guvenli bir baslangictir.
 pub fn normalize_theme(value: &str) -> String {
     match value.trim().to_ascii_lowercase().as_str() {
-        "light" => "light".to_string(),
         "dark" => "dark".to_string(),
-        _ => "system".to_string(),
+        "system" => "system".to_string(),
+        _ => "light".to_string(),
     }
 }
 
 /// Dil degerini taninan kumesine indirger. Tema ile ayni sekilde eski
-/// ayar dosyalari alani hic yazmaz; varsayilan Turkce kalir.
+/// ayar dosyalari alani hic yazmaz; varsayilan Ingilizce kalir.
 pub fn normalize_language(value: &str) -> String {
     match value.trim().to_ascii_lowercase().as_str() {
-        "en" => "en".to_string(),
-        _ => "tr".to_string(),
+        "tr" => "tr".to_string(),
+        _ => "en".to_string(),
     }
 }
 
@@ -160,8 +163,8 @@ impl Default for Settings {
             watch_clipboard: true,
             close_to_tray: true,
             confirm_browser_download: true,
-            theme: "system".to_string(),
-            language: "tr".to_string(),
+            theme: "light".to_string(),
+            language: "en".to_string(),
             autostart: false,
         }
     }

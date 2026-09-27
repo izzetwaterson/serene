@@ -36,9 +36,10 @@ void main() {
     expect(languageSetting(languageFrom(' EN ')), 'en');
     expect(languageSetting(languageFrom('Tr')), 'tr');
     // Eski ayar dosyalarinda alan yok; elle duzenlenen deger de varsayilana
-    // duser, cunku motordaki `normalize_language` ayni kumeyi tanir.
-    expect(languageSetting(languageFrom('')), 'tr');
-    expect(languageSetting(languageFrom('de')), 'tr');
+    // duser, cunku motordaki `normalize_language` ayni kumeyi tanir. Varsayilan
+    // Ingilizcedir.
+    expect(languageSetting(languageFrom('')), 'en');
+    expect(languageSetting(languageFrom('de')), 'en');
   });
 
   test('dil degisince dinleyiciler haberdar olur', () {
