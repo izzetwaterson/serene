@@ -675,9 +675,6 @@ class _MainWindowState extends State<MainWindow>
   @override
   Widget build(BuildContext context) {
     final tasks = _tasks;
-    final speed = tasks
-        .where((task) => task.status == 'downloading')
-        .fold<double>(0, (sum, task) => sum + task.speed);
 
     return Scaffold(
       backgroundColor: Serene.background,
@@ -687,7 +684,6 @@ class _MainWindowState extends State<MainWindow>
             children: [
               Header(
                 bridgeUp: _bridgeUp,
-                speed: speed,
                 maximized: _maximized,
                 search: _search,
                 onQuery: (value) => setState(() => _query = value),
@@ -835,7 +831,6 @@ class Header extends StatelessWidget {
   const Header({
     super.key,
     required this.bridgeUp,
-    required this.speed,
     required this.maximized,
     required this.search,
     required this.onQuery,
@@ -846,7 +841,6 @@ class Header extends StatelessWidget {
   });
 
   final bool bridgeUp;
-  final double speed;
   final bool maximized;
   final TextEditingController search;
   final ValueChanged<String> onQuery;
@@ -884,22 +878,10 @@ class Header extends StatelessWidget {
               T.appTitle,
               style: head(15, weight: FontWeight.w500, letterSpacing: -0.3),
             ),
-            const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Serene.surfaceContainer,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                'v0.1',
-                style: body(
-                  11,
-                  weight: FontWeight.w500,
-                  color: Serene.secondary,
-                ),
-              ),
-            ),
+            // Surum rozeti kaldirildi. Iki nedenle: her acilista goz tasiyan
+            // bir gurultu ve, daha onemlisi, **yanlis bilgi** - uygulama 1.0.0
+            // iken burada "v0.1" yaziyordu. Surum artik dosya ozelliklerinde
+            // ve kurulum paketinde dogru.
             Expanded(
               child: Center(
                 child: ConstrainedBox(
@@ -912,15 +894,11 @@ class Header extends StatelessWidget {
               dot: bridgeUp ? Serene.primary : Serene.outline,
               label: bridgeUp ? T.browserConnected : T.browserMissing,
             ),
-            if (speed > 0) ...[
-              const SizedBox(width: 12),
-              _Pill(
-                dot: Serene.primary,
-                label: fmtSpeed(speed),
-                monoFont: true,
-                pulse: true,
-              ),
-            ],
+            // Hiz rozeti kaldirildi: (a) her kartin satirinda zaten yaziyor,
+            // yani ust bar tekrarliyordu; (b) surekli degisen sayi gozun
+            // odagini periyodik olarak kendine cekiyordu - ust bar sabit
+            // kalmali ki asil liste gozun odaği olsun. Toplam hiz, kartlarda
+            // gormek isteyene sidebar'da degil, liste icinde verilir.
             const SizedBox(width: 12),
             CircleButton(
               icon: 'tune',
@@ -1069,18 +1047,15 @@ class _SearchField extends StatelessWidget {
 }
 
 /// Ust bardaki bilgi rozetleri.
+///
+/// Yalnizca tarayici baglantisi icin kullanilir. Hiz rozeti de bu bicimi
+/// kullaniyordu; kaldirildigindan `monoFont` ve `pulse` parametreleri de
+/// kullanimsiz kaldi ve kaldirildi.
 class _Pill extends StatelessWidget {
-  const _Pill({
-    required this.dot,
-    required this.label,
-    this.monoFont = false,
-    this.pulse = false,
-  });
+  const _Pill({required this.dot, required this.label});
 
   final Color dot;
   final String label;
-  final bool monoFont;
-  final bool pulse;
 
   @override
   Widget build(BuildContext context) {
@@ -1094,61 +1069,22 @@ class _Pill extends StatelessWidget {
       ),
       child: Row(
         children: [
-          pulse
-              ? const _PulseDot()
-              : Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-                ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: monoFont
-                ? mono(12, color: Serene.secondary)
-                : body(12, color: Serene.secondary),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
           ),
+          const SizedBox(width: 8),
+          Text(label, style: body(12, color: Serene.secondary)),
         ],
       ),
     );
   }
 }
 
-class _PulseDot extends StatefulWidget {
-  const _PulseDot();
-
-  @override
-  State<_PulseDot> createState() => _PulseDotState();
-}
-
-class _PulseDotState extends State<_PulseDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween<double>(begin: 1, end: 0.3).animate(_controller),
-      child: Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: Serene.primary,
-          shape: BoxShape.circle,
-        ),
-      ),
-    );
-  }
-}
+// _PulseDot kaldirildi: yalnizca hiz rozeti kullaniyordu, o da gitti. Ust
+// bar artik hareketsiz; yanip sonen bir nokta gozun odağini periyodik olarak
+// kendine cekiyordu.
 
 /// Sol menu.
 class Sidebar extends StatelessWidget {

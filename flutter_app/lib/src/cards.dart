@@ -249,19 +249,12 @@ class Hero extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    margin: const EdgeInsets.only(left: 4),
-                    decoration: BoxDecoration(
-                      color: Serene.primaryFixed.withValues(alpha: 0.4),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: SIcon('link', size: 20, color: Serene.primary),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
+                  // Buradaki baglanti ikonu kaldirildi: kutunun hemen solunda
+                  // zaten bir ikon var, ikisi ayni seyi soyluyordu. Bos
+                  // 12px bosluk girdi yerine; ipucu metni ("Drop an https://
+                  // link here...") zaten alani doluyor.
+                  const SizedBox(width: 16),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: TextField(
                       controller: url,
