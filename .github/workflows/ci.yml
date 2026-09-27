@@ -1,0 +1,275 @@
+# Serene - Windows surekli dogrulama
+#
+# Bu dosya docs/planning/STATUS.md bolum 3.3 "Tur B - CI" kararinin uygulamasidir: README'deki
+# "Dogrulama kosumlari" takimi artik her degisiklikte elle hatirlanmak
+# zorunda degil. Adimlar docs/planning/STATUS.md'deki sirayi birebir izler:
+#
+#   engine -> shell -> bridge
+#
+# Her adimin adi basindaki [engine] / [shell] / [bridge] etiketi, kirilan
+# katmani logda tek bakista soyler:
+#
+#   [engine]  core/        indirme motoru, saf Rust birim testleri
+#   [shell]   flutter_app/ Dart arayuzu: analyze, widget testleri, Windows ikilisi
+#   [bridge]  native-host/ + uygulama kosumlari: tarayici koprusunun iki ucu
+#
+# ---------------------------------------------------------------------------
+# BILEREK DISARIDA BIRAKILANLAR - yeniden acmayin, gerekceleri asagida.
+# ---------------------------------------------------------------------------
+#
+#   check_flutter.mjs    ETKILESIMLI MASAUSTU ister: pencereyi Win32'den okur
+#                        (scripts/list_windows.ps1) ve tepsiyi (tray) surer.
+#                        Runner'da etkilesimli bir masaustu oturumu yok.
+#
+#   check_extension.mjs  SERENE_DATA_DIR **tanimliyken calismaz** (o degisken
+#   check_nmh.mjs        varken kopru gecici klasorde dogar ve iki kosum da
+#                        gercek profili bekledigi icin duser - docs/planning/STATUS.md bolum 2.3/bolum 3.1)
+#                        ve kullanici durumuna dokunur: check_nmh kayit defteri
+#                        anahtarini silip yeniden kurar, check_extension
+#                        settings.json'daki confirmBrowserDownload ayarini gecici
+#                        olarak kapatir. Bu is akisinda SERENE_DATA_DIR her zaman
+#                        tanimlidir (asagidaki env) ve hicbir kosum kayit
+#                        defterine yazmaz.
+#
+#   Bunlari "eksik kaldi" diye acmak kolaydir; yukaridaki iki maddeyi okumadan
+#   eklemek hem runner'in kullanici profiline hem de kayit defterine dokunur.
+# ---------------------------------------------------------------------------
+#
+# UYARI: uygulama kosumlari **sirayla** calisir, asla paralel degildir. Her
+# kosum gercek Serene.exe baslatir ve ayni yerel kopruye baglanir; iki kosum
+# ayni anda calisirsa ikinci biri calisan Serene.exe gorur ve "calisan bir
+# Serene.exe var; kosumdan once onu kapat" deyip hic baslamaz. Bu adimlari
+# bir matrix'e tasimayin, ustlerine `strategy:` eklemeyin, `|| true` ile
+# yutmayin.
+
+name: CI
+
+# NOT: bu dosya bir sure 0 saniyede "No jobs were run" ile duserdi. Sebep
+# job seviyesindeki `env` blogunda `${{ runner.temp }}` kullanmasiydi; bu baglam
+# yalnizca adim seviyesinde gecerlidir. Duzeltildi ve dogrulandi.
+#
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+# Sadece depoyu okumak gerekiyor: icerik yazma, paket gonderme veya
+# gizli anahtar erisimi yok.
+permissions:
+  contents: read
+
+# Ayni dalda yeni commit geldiginde eskisi iptal edilir; dal basina tek
+# calisan is akisi kalir.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: "Windows - engine + shell + bridge"
+    runs-on: windows-latest
+    # Soguk Flutter derlemesi ~6 dakika; is akisinin tamami (derleme + bes
+    # uygulama kosumu) rahat sigsin. Tek adim darbogazi asarsa yalnizca o
+    # adimin `timeout-minutes` degeri gecerlidir.
+    timeout-minutes: 60
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Depoyu al
+        uses: actions/checkout@v4
+
+      # Rust kanali depoda sabit degil (rust-toolchain dosyasi yok). 1.98.1
+      # secildi: docs/planning/STATUS.md'deki kapanis dogrulamalarinin bu makinede gectigi
+      # arac zincirinin kendisi, ve core/Cargo.toml + native-host/Cargo.toml
+      # icindeki `rust-version = "1.77"` MSRV tabaninin ustunde. Depodaki uc
+      # Cargo.lock sayesinde bagimlilik surumleri zaten sabit; arac zincirini
+      # degistirmek bilincli, gozden gecirilebilir bir degisiklik olsun.
+      - name: Rust kur (1.98.1)
+        uses: dtolnay/rust-toolchain@1.98.1
+
+      # Flutter 3.47.5: dart 3.13.4 ile gelir ve flutter_app/pubspec.yaml'daki
+      # `environment: sdk: ^3.13.4` ile birebir tutulur; flutter_rust_bridge
+      # 2.13.0 (flutter_app/pubspec.yaml) ve flutter_lints ^6.0.0 da bu
+      # surumde karsilanir. Ayni surum, son kapanis dogrulamasinin
+      # (docs/planning/STATUS.md bolum 2.2/bolum 2.3) gectigi surum.
+      # cache: true - eylem hem Flutter SDK'sini hem ~/.pub-cache'i onbellege
+      # alir; ayri bir pub-cache adimi ayni dizini ikinci kez saklamaktan
+      # baska bir sey eklemezdi.
+      - name: Flutter kur (3.47.5)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.5
+          channel: stable
+          cache: true
+
+      # C++ derleme araclari (Visual Studio 2022 + "Desktop development with
+      # C++") windows-latest imajinda hazirdir; flutter bu ikilinin varligini
+      # windows masaustu icin ayrica acar.
+      - name: Windows masaustunu ac
+        run: flutter config --enable-windows-desktop
+
+      - name: Surumleri yaz
+        run: |
+          rustc --version
+          cargo --version
+          flutter --version
+          node --version
+
+      # pub-cache'i flutter-action sakliyor (yukariya bakin); burada yalnizca
+      # Cargo'nin onbellegi ekleniyor.
+      #
+      # `restore-keys` YOK: hedef dizinler (target/) Cargo.lock'in baska bir
+      # surumunden gelmisse geri yuklenmemeli - eski bir target'i derleme gibi
+      # gostermek, tam da CI'nin var olma sebebi olan hatadir. Anahtar tutmazsa
+      # surec daha yavas olur, yanlis yesil olmaz.
+      #
+      # flutter_app/build/** BILEREK onbellege alinmiyor: icindeki bayat
+      # Serene.exe, uygulama kosumlarinin gercekten yeni derlemeyi sinadigini
+      # gizlerdi. (Cargokit'in Rust hedefi de bu dizinin altinda tutuldugu
+      # icin ayni gerekce gecerli.)
+      - name: Cargo onbellegi
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+            native-host/target
+          key: cargo-${{ runner.os }}-rust1.98.1-${{ hashFiles('core/Cargo.lock', 'native-host/Cargo.lock') }}
+
+      # Uygulama kosumlarindan once: calisan bir Serene.exe kalmasin. Temiz
+      # bir runner'da bu adim bir sey bulmaz; docs/planning/STATUS.md bolum 6'nin "kosumlar
+      # sirayla kosar; once taskkill //F //IM Serene.exe" kuralinin
+      # karsiligidir. list_windows.ps1 ile ayni Get-Process sayimini kullanir.
+      - name: Calisan Serene.exe kalmasin
+        run: |
+          $running = Get-Process -Name Serene -ErrorAction SilentlyContinue
+          if ($running) {
+            $running | Stop-Process -Force
+            "onceki Serene.exe sonlandirildi"
+          } else {
+            "calisan Serene.exe yok (temiz baslangic)"
+          }
+
+      # Not: SERENE_DATA_DIR **burada** tanimlanir, job seviyesinde degil.
+      # `runner` baglami job seviyesindeki env'de kullanilamaz; orada
+      # yazilinca butun is akisi "No jobs were run" ile 0 saniyede duser.
+      - name: Izole veri klasorunu hazirla
+        env:
+          SERENE_DATA_DIR: ${{ runner.temp }}\serene-ci-data
+        run: |
+          if (Test-Path -LiteralPath $env:SERENE_DATA_DIR) {
+            Remove-Item -LiteralPath $env:SERENE_DATA_DIR -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $env:SERENE_DATA_DIR -Force | Out-Null
+          "SERENE_DATA_DIR = $env:SERENE_DATA_DIR (gecici, kosum sonunda silinir)"
+
+      # ---> [engine] indirme motoru
+      - name: "[engine] cargo test (core/)"
+        id: engine_test
+        working-directory: core
+        run: cargo test --locked
+
+      # ---> [engine] tarayici koprusunun ikilisi
+      - name: "[engine] cargo build --bin serene-nmh (native-host/)"
+        id: engine_nmh
+        working-directory: native-host
+        run: cargo build --locked --bin serene-nmh
+
+      # ---> [shell] Flutter kabugu
+      # flutter_rust_bridge_codegen generate **calistirilmaz**: uretilmis
+      # baglantilar (lib/src/rust/frb_generated.dart vb.) depoda izlenir ve
+      # rust_builder/windows/CMakeLists.txt yalnizca cargokit uzerinden
+      # `cargo build` cagirir; derleme sirasinda codegen adimi yoktur.
+      # Yalnizca rust/src/api/ altindaki public API degisirse uretilir ve
+      # depoya islenir.
+      - name: "[shell] flutter pub get"
+        id: shell_get
+        working-directory: flutter_app
+        run: flutter pub get
+
+      - name: "[shell] flutter analyze"
+        id: shell_analyze
+        working-directory: flutter_app
+        run: flutter analyze
+
+      - name: "[shell] flutter test"
+        id: shell_test
+        working-directory: flutter_app
+        run: flutter test
+
+      # Rust motorunu cargokit ile derleyen tek adim; sonucu
+      # build\windows\x64\runner\Debug\Serene.exe. Asagidaki bes kosum bu
+      # ikiliyi kullanir, bu yuzden bu adim onlarin onkosuludur.
+      - name: "[shell] flutter build windows --debug"
+        id: shell_build
+        working-directory: flutter_app
+        timeout-minutes: 30
+        run: flutter build windows --debug
+
+      # ---> [bridge] uctan uca uygulama kosumlari (SIRAYLA)
+      #
+      # Asagidaki bes kosumdan sonra Serene.exe yalnizca bu is akisinda
+      # derlenen Debug ikilisidir: SERENE_APP_EXE vermeye gerek yok, betiklerin
+      # varsayilani tam olarak bu yol.
+      #
+      # Her kosum kendi sonunda `taskkill /F /IM Serene.exe /T` ile uygulamayi
+      # oldurur ve gecici klasorunu siler; yine de aralarinda oldurme adimi
+      # konulmadi, cunku asagidaki adim zaten "calisan Serene.exe var" diye
+      # hata verir. Birlestirilip tek adim yapilirsa gecisler kaybolur.
+
+      - name: "[bridge] check_ffi.mjs - motor ikilisi + --selfcheck"
+        id: run_ffi
+        run: node scripts/check_ffi.mjs
+
+      - name: "[bridge] check_bridge.mjs - yerel kopru protokolu"
+        id: run_bridge
+        run: node scripts/check_bridge.mjs
+
+      - name: "[bridge] check_hls.mjs - HLS + AES-128 + DRM reddi"
+        id: run_hls
+        run: node scripts/check_hls.mjs
+
+      - name: "[bridge] check_dash.mjs - DASH SegmentTemplate/Timeline"
+        id: run_dash
+        run: node scripts/check_dash.mjs
+
+      - name: "[bridge] check_captures.mjs - yakalananlar kaliciligi"
+        id: run_captures
+        run: node scripts/check_captures.mjs
+
+      # Hata halinde tek bakista hangi katmanin kirdigini yazar. Adim
+      # adlarinda zaten [engine]/[shell]/[bridge] yaziyor; bu, yesil olan
+      # katmanlari da listeleyip gecilenleri gosterir.
+      - name: "Ozet - hangi katman kirmizi?"
+        if: failure()
+        run: |
+          $layers = @(
+            @{ katman = "engine";  adim = "cargo test (core/)";                        sonuc = "${{ steps.engine_test.outcome }}" },
+            @{ katman = "engine";  adim = "cargo build --bin serene-nmh (native-host/)"; sonuc = "${{ steps.engine_nmh.outcome }}" },
+            @{ katman = "shell";   adim = "flutter pub get";                            sonuc = "${{ steps.shell_get.outcome }}" },
+            @{ katman = "shell";   adim = "flutter analyze";                            sonuc = "${{ steps.shell_analyze.outcome }}" },
+            @{ katman = "shell";   adim = "flutter test";                               sonuc = "${{ steps.shell_test.outcome }}" },
+            @{ katman = "shell";   adim = "flutter build windows --debug";              sonuc = "${{ steps.shell_build.outcome }}" },
+            @{ katman = "bridge";  adim = "check_ffi.mjs";                             sonuc = "${{ steps.run_ffi.outcome }}" },
+            @{ katman = "bridge";  adim = "check_bridge.mjs";                          sonuc = "${{ steps.run_bridge.outcome }}" },
+            @{ katman = "bridge";  adim = "check_hls.mjs";                              sonuc = "${{ steps.run_hls.outcome }}" },
+            @{ katman = "bridge";  adim = "check_dash.mjs";                             sonuc = "${{ steps.run_dash.outcome }}" },
+            @{ katman = "bridge";  adim = "check_captures.mjs";                         sonuc = "${{ steps.run_captures.outcome }}" }
+          )
+          foreach ($layer in $layers) {
+            switch ($layer.sonuc) {
+              "success" { $isaret = " ok " }
+              "skipped" { $isaret = " -- " }
+              default   { $isaret = "HATA" }
+            }
+            "{0}  {1,-6}  {2}  ({3})" -f $isaret, $layer.katman, $layer.adim, $layer.sonuc
+          }
+          ""
+          "Tarayici uzantisi ve kayit defteri kosumlari (check_extension, check_nmh) ve masaustu/trepsi kosumu (check_flutter) kasitli olarak CI disidir; gerekceleri dosyanin basindaki yorumda."
