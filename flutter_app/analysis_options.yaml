@@ -13,6 +13,12 @@ analyzer:
   exclude:
     - build/**
     - windows/**
+    # cargokit, flutter_rust_bridge'in Rust tarafini derlemek icin kopyalanmis
+    # UCUNCU TARAF vendor kaynagi. Bize ait degil; bagimliliklari kendi
+    # pubspec'ini tasiyor ve bu paket (`flutter_app`) altinda cozulmedigi icin
+    # `flutter analyze` burada 115 hata uretiyordu (CI'da ilk kirmizi adim bu
+    # oldu). Uzerinde degisiklik yapmiyoruz, yalnizca analiz disi birakiliyor.
+    - rust_builder/cargokit/**
 
 linter:
   # The lint rules applied to this project can be customized in the
