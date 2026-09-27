@@ -144,8 +144,17 @@ function openWindows() {
 const mainWindowOf = (pid) =>
   openWindows().find((w) => w.pid === pid && w.visible && w.title.includes("Serene")) || null;
 
+// Onay penceresinin basligi **varsayilan dile gore degisir**: Turkce
+// "Indirme Bilgileri", Ingilizce "Download Info" (`strings.dart` icindeki
+// `handoffTitle`). Sabit bir basliga bakmak kosumu dile bagliyor ve dil
+// degistiginde sessizce duser. Bu yuzden iki basliga da kabul edilir; yeni bir
+// dil eklendiginde buraya eklenmelidir. (Onay penceresi komut satirindan
+// `--handoff-lang` ile ana pencerenin dilini alir, yani ikisi hep ayni olur.)
+const HANDOFF_TITLES = ["Bilgileri", "Download Info"];
 const popupWindows = (pid) =>
-  openWindows().filter((w) => w.pid !== pid && w.visible && w.title.includes("Bilgileri"));
+  openWindows().filter(
+    (w) => w.pid !== pid && w.visible && HANDOFF_TITLES.some((t) => w.title.includes(t)),
+  );
 
 async function until(label, timeoutMs, probe, intervalMs = 300) {
   const deadline = Date.now() + timeoutMs;

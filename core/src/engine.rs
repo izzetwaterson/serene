@@ -28,7 +28,21 @@ const RETRY_BASE: Duration = Duration::from_millis(500);
 /// Bekleme bu tavanda kesilir; kullanici sonsuza kadar beklemez.
 const RETRY_CAP: Duration = Duration::from_secs(30);
 /// Bir istek icin en fazla deneme sayisi (ilk deneme dahil).
-const MAX_ATTEMPTS: u32 = 5;
+///
+/// Dort deneme + `CONNECT_TIMEOUT` ve ustel geri cekilme, en kotu durumda
+/// ~18 saniyede "bu adrese ulasilamiyor" sonucunu verir. Besinci deneme iki
+/// saniye daha ekler ama kullaniciya gorunur bir faydasi yok: ayni sunucu
+/// ikinci kez de kabul etmiyorsa ucuncu de etmez.
+const MAX_ATTEMPTS: u32 = 4;
+
+/// Bir **baglanti** denemesinin tavani. `reqwest`in `connect_timeout`u 20
+/// saniye ve `is_connect()` hatasi gecici sayildigi icin, oldugu gibi birakilsa
+/// kapali bir adrese 5 x 20 = 100 saniyeye varan bir bekleme cikiyordu.
+/// Indirmenin "bu adres yok" dedigini bir saniyenin biraz altinda bildirmek
+/// dogru davranis: kullanici iki dakika boyunca donmus bir arayuzle kalmamali.
+/// Icerik okuma (429, 503, erken kapanan govde) bu tavanda degildir; yalnizca
+/// **baglanti kurma** hizlidir.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// Bir aktarimin neden basarisiz oldugunu ayirt eder.
 ///
@@ -193,7 +207,7 @@ fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
 pub fn build_client() -> Result<Client> {
     Client::builder()
         .user_agent(USER_AGENT)
-        .connect_timeout(Duration::from_secs(20))
+        .connect_timeout(CONNECT_TIMEOUT)
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
         .context("HTTP istemcisi olusturulamadi")
