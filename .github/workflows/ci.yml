@@ -1,46 +1,46 @@
-# Serene — Windows sürekli doğrulama
+# Serene - Windows surekli dogrulama
 #
-# Bu dosya docs/planning/STATUS.md §3.3 "Tur B — CI" kararının uygulamasıdır: README'deki
-# "Doğrulama koşumları" takımı artık her değişiklikte elle hatırlanmak
-# zorunda değil. Adımlar docs/planning/STATUS.md'deki sırayı birebir izler:
+# Bu dosya docs/planning/STATUS.md bolum 3.3 "Tur B - CI" kararinin uygulamasidir: README'deki
+# "Dogrulama kosumlari" takimi artik her degisiklikte elle hatirlanmak
+# zorunda degil. Adimlar docs/planning/STATUS.md'deki sirayi birebir izler:
 #
 #   engine -> shell -> bridge
 #
-# Her adımın adı başındaki [engine] / [shell] / [bridge] etiketi, kırılan
-# katmanı logda tek bakışta söyler:
+# Her adimin adi basindaki [engine] / [shell] / [bridge] etiketi, kirilan
+# katmani logda tek bakista soyler:
 #
 #   [engine]  core/        indirme motoru, saf Rust birim testleri
-#   [shell]   flutter_app/ Dart arayüzü: analyze, widget testleri, Windows ikilisi
-#   [bridge]  native-host/ + uygulama koşumları: tarayıcı köprüsünün iki ucu
+#   [shell]   flutter_app/ Dart arayuzu: analyze, widget testleri, Windows ikilisi
+#   [bridge]  native-host/ + uygulama kosumlari: tarayici koprusunun iki ucu
 #
 # ---------------------------------------------------------------------------
-# BİLEREK DIŞARIDA BIRAKILANLAR — yeniden açmayın, gerekçeleri aşağıda.
+# BILEREK DISARIDA BIRAKILANLAR - yeniden acmayin, gerekceleri asagida.
 # ---------------------------------------------------------------------------
 #
-#   check_flutter.mjs    ETKİLEŞİMLİ MASAÜSTÜ ister: pencereyi Win32'den okur
-#                        (scripts/list_windows.ps1) ve tepsiyi (tray) sürer.
-#                        Runner'da etkileşimli bir masaüstü oturumu yok.
+#   check_flutter.mjs    ETKILESIMLI MASAUSTU ister: pencereyi Win32'den okur
+#                        (scripts/list_windows.ps1) ve tepsiyi (tray) surer.
+#                        Runner'da etkilesimli bir masaustu oturumu yok.
 #
-#   check_extension.mjs  SERENE_DATA_DIR **tanımlıyken çalışmaz** (o değişken
-#   check_nmh.mjs        varken köprü geçici klasörde doğar ve iki koşum da
-#                        gerçek profili beklediği için düşer — docs/planning/STATUS.md §2.3/§3.1)
-#                        ve kullanıcı durumuna dokunur: check_nmh kayıt defteri
-#                        anahtarını silip yeniden kurar, check_extension
-#                        settings.json'daki confirmBrowserDownload ayarını geçici
-#                        olarak kapatır. Bu iş akışında SERENE_DATA_DIR her zaman
-#                        tanımlıdır (aşağıdaki env) ve hiçbir koşum kayıt
+#   check_extension.mjs  SERENE_DATA_DIR **tanimliyken calismaz** (o degisken
+#   check_nmh.mjs        varken kopru gecici klasorde dogar ve iki kosum da
+#                        gercek profili bekledigi icin duser - docs/planning/STATUS.md bolum 2.3/bolum 3.1)
+#                        ve kullanici durumuna dokunur: check_nmh kayit defteri
+#                        anahtarini silip yeniden kurar, check_extension
+#                        settings.json'daki confirmBrowserDownload ayarini gecici
+#                        olarak kapatir. Bu is akisinda SERENE_DATA_DIR her zaman
+#                        tanimlidir (asagidaki env) ve hicbir kosum kayit
 #                        defterine yazmaz.
 #
-#   Bunları "eksik kaldı" diye açmak kolaydır; yukarıdaki iki maddeyi okumadan
-#   eklemek hem runner'ın kullanıcı profiline hem de kayıt defterine dokunur.
+#   Bunlari "eksik kaldi" diye acmak kolaydir; yukaridaki iki maddeyi okumadan
+#   eklemek hem runner'in kullanici profiline hem de kayit defterine dokunur.
 # ---------------------------------------------------------------------------
 #
-# UYARI: uygulama koşumları **sırayla** çalışır, asla paralel değildir. Her
-# koşum gerçek Serene.exe başlatır ve aynı yerel köprüye bağlanır; iki koşum
-# aynı anda çalışırsa ikinci biri çalışan Serene.exe görür ve "calisan bir
-# Serene.exe var; kosumdan once onu kapat" deyip hiç başlamaz. Bu adımları
-# bir matrix'e taşımayın, üstlerine `strategy:` eklemeyin, `|| true` ile
-# yutmayın.
+# UYARI: uygulama kosumlari **sirayla** calisir, asla paralel degildir. Her
+# kosum gercek Serene.exe baslatir ve ayni yerel kopruye baglanir; iki kosum
+# ayni anda calisirsa ikinci biri calisan Serene.exe gorur ve "calisan bir
+# Serene.exe var; kosumdan once onu kapat" deyip hic baslamaz. Bu adimlari
+# bir matrix'e tasimayin, ustlerine `strategy:` eklemeyin, `|| true` ile
+# yutmayin.
 
 name: CI
 
@@ -50,13 +50,13 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Sadece depoyu okumak gerekiyor: içerik yazma, paket gönderme veya
-# gizli anahtar erişimi yok.
+# Sadece depoyu okumak gerekiyor: icerik yazma, paket gonderme veya
+# gizli anahtar erisimi yok.
 permissions:
   contents: read
 
-# Aynı dalda yeni commit geldiğinde eskisi iptal edilir; dal başına tek
-# çalışan iş akışı kalır.
+# Ayni dalda yeni commit geldiginde eskisi iptal edilir; dal basina tek
+# calisan is akisi kalir.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -65,9 +65,9 @@ jobs:
   verify:
     name: "Windows - engine + shell + bridge"
     runs-on: windows-latest
-    # Soğuk Flutter derlemesi ~6 dakika; iş akışının tamamı (derleme + beş
-    # uygulama koşumu) rahat sığsın. Tek adım darboğazı aşarsa yalnızca o
-    # adımın `timeout-minutes` değeri geçerlidir.
+    # Soguk Flutter derlemesi ~6 dakika; is akisinin tamami (derleme + bes
+    # uygulama kosumu) rahat sigsin. Tek adim darbogazi asarsa yalnizca o
+    # adimin `timeout-minutes` degeri gecerlidir.
     timeout-minutes: 60
 
     defaults:
@@ -75,42 +75,42 @@ jobs:
         shell: pwsh
 
     env:
-      # Uygulama koşumlarının izolasyon çiti.
+      # Uygulama kosumlarinin izolasyon citi.
       #
-      # core/src/store.rs bu değişkeni görünce tüm durum dosyalarını
+      # core/src/store.rs bu degiskeni gorunce tum durum dosyalarini
       # (tasks.json, settings.json, captures.json, ipc.json) buraya yazar;
-      # flutter_app/lib/main.dart ise native messaging kaydına dokunmayı
-      # bu kipte atlar. --selfcheck bu değişken olmadan 2 ile çıkar.
+      # flutter_app/lib/main.dart ise native messaging kaydina dokunmayi
+      # bu kipte atlar. --selfcheck bu degisken olmadan 2 ile cikar.
       #
-      # Koşum betikleri zaten kendi mktemp klasörlerini üretip SERENE_DATA_DIR'ı
-      # uygulamaya öyle geçiriyor; buradaki değer, bir koşumun kendi izolasyonu
-      # bozulursa gerçek %APPDATA%\Serene'e yazılmasını ikinci bir katmanla
-      # engelleyen yedektir. check_extension ve check_nmh'in bu değişkenin
-      # YANLIŞLIKLA tanımlı olmasını beklediği (yukarıya bakın) unutmayın:
-      # bu iş akışında hiçbir koşum kayıt defterine yazmaz.
+      # Kosum betikleri zaten kendi mktemp klasorlerini uretip SERENE_DATA_DIR'i
+      # uygulamaya oyle geciriyor; buradaki deger, bir kosumun kendi izolasyonu
+      # bozulursa gercek %APPDATA%\Serene'e yazilmasini ikinci bir katmanla
+      # engelleyen yedektir. check_extension ve check_nmh'in bu degiskenin
+      # YANLISLIKLA tanimli olmasini bekledigi (yukariya bakin) unutmayin:
+      # bu is akisinda hicbir kosum kayit defterine yazmaz.
       SERENE_DATA_DIR: ${{ runner.temp }}\serene-ci-data
 
     steps:
       - name: Depoyu al
         uses: actions/checkout@v4
 
-      # Rust kanalı depoda sabit değil (rust-toolchain dosyası yok). 1.98.1
-      # seçildi: docs/planning/STATUS.md'deki kapanış doğrulamalarının bu makinede geçtiği
-      # araç zincirinin kendisi, ve core/Cargo.toml + native-host/Cargo.toml
-      # içindeki `rust-version = "1.77"` MSRV tabanının üstünde. Depodaki üç
-      # Cargo.lock sayesinde bağımlılık sürümleri zaten sabit; araç zincirini
-      # değiştirmek bilinçli, gözden geçirilebilir bir değişiklik olsun.
+      # Rust kanali depoda sabit degil (rust-toolchain dosyasi yok). 1.98.1
+      # secildi: docs/planning/STATUS.md'deki kapanis dogrulamalarinin bu makinede gectigi
+      # arac zincirinin kendisi, ve core/Cargo.toml + native-host/Cargo.toml
+      # icindeki `rust-version = "1.77"` MSRV tabaninin ustunde. Depodaki uc
+      # Cargo.lock sayesinde bagimlilik surumleri zaten sabit; arac zincirini
+      # degistirmek bilincli, gozden gecirilebilir bir degisiklik olsun.
       - name: Rust kur (1.98.1)
         uses: dtolnay/rust-toolchain@1.98.1
 
       # Flutter 3.47.5: dart 3.13.4 ile gelir ve flutter_app/pubspec.yaml'daki
       # `environment: sdk: ^3.13.4` ile birebir tutulur; flutter_rust_bridge
       # 2.13.0 (flutter_app/pubspec.yaml) ve flutter_lints ^6.0.0 da bu
-      # sürümde karşılanır. Aynı sürüm, son kapanış doğrulamasının
-      # (docs/planning/STATUS.md §2.2/§2.3) geçtiği sürüm.
-      # cache: true — eylem hem Flutter SDK'sını hem ~/.pub-cache'i önbelleğe
-      # alır; ayrı bir pub-cache adımı aynı dizini ikinci kez saklamaktan
-      # başka bir şey eklemezdi.
+      # surumde karsilanir. Ayni surum, son kapanis dogrulamasinin
+      # (docs/planning/STATUS.md bolum 2.2/bolum 2.3) gectigi surum.
+      # cache: true - eylem hem Flutter SDK'sini hem ~/.pub-cache'i onbellege
+      # alir; ayri bir pub-cache adimi ayni dizini ikinci kez saklamaktan
+      # baska bir sey eklemezdi.
       - name: Flutter kur (3.47.5)
         uses: subosito/flutter-action@v2
         with:
@@ -118,9 +118,9 @@ jobs:
           channel: stable
           cache: true
 
-      # C++ derleme araçları (Visual Studio 2022 + "Desktop development with
-      # C++") windows-latest imajında hazırdır; flutter bu ikilinin varlığını
-      # windows masaüstü için ayrıca açar.
+      # C++ derleme araclari (Visual Studio 2022 + "Desktop development with
+      # C++") windows-latest imajinda hazirdir; flutter bu ikilinin varligini
+      # windows masaustu icin ayrica acar.
       - name: Windows masaustunu ac
         run: flutter config --enable-windows-desktop
 
@@ -131,18 +131,18 @@ jobs:
           flutter --version
           node --version
 
-      # pub-cache'i flutter-action saklıyor (yukarıya bakın); burada yalnızca
-      # Cargo'nin önbelleği ekleniyor.
+      # pub-cache'i flutter-action sakliyor (yukariya bakin); burada yalnizca
+      # Cargo'nin onbellegi ekleniyor.
       #
-      # `restore-keys` YOK: hedef dizinler (target/) Cargo.lock'ın başka bir
-      # sürümünden gelmişse geri yüklenmemeli — eski bir target'ı derleme gibi
-      # göstermek, tam da CI'nin var olma sebebi olan hatadır. Anahtar tutmazsa
-      # süreç daha yavaş olur, yanlış yeşil olmaz.
+      # `restore-keys` YOK: hedef dizinler (target/) Cargo.lock'in baska bir
+      # surumunden gelmisse geri yuklenmemeli - eski bir target'i derleme gibi
+      # gostermek, tam da CI'nin var olma sebebi olan hatadir. Anahtar tutmazsa
+      # surec daha yavas olur, yanlis yesil olmaz.
       #
-      # flutter_app/build/** BİLEREK önbelleğe alınmıyor: içindeki bayat
-      # Serene.exe, uygulama koşumlarının gerçekten yeni derlemeyi sınadığını
-      # gizlerdi. (Cargokit'in Rust hedefi de bu dizinin altında tutulduğu
-      # için aynı gerekçe geçerli.)
+      # flutter_app/build/** BILEREK onbellege alinmiyor: icindeki bayat
+      # Serene.exe, uygulama kosumlarinin gercekten yeni derlemeyi sinadigini
+      # gizlerdi. (Cargokit'in Rust hedefi de bu dizinin altinda tutuldugu
+      # icin ayni gerekce gecerli.)
       - name: Cargo onbellegi
         uses: actions/cache@v4
         with:
@@ -153,10 +153,10 @@ jobs:
             native-host/target
           key: cargo-${{ runner.os }}-rust1.98.1-${{ hashFiles('core/Cargo.lock', 'native-host/Cargo.lock') }}
 
-      # Uygulama koşumlarından önce: çalışan bir Serene.exe kalmasın. Temiz
-      # bir runner'da bu adım bir şey bulmaz; docs/planning/STATUS.md §6'nın "kosumlar
-      # sırayla koşar; once taskkill //F //IM Serene.exe" kuralının
-      # karşılığıdır. list_windows.ps1 ile aynı Get-Process sayımını kullanır.
+      # Uygulama kosumlarindan once: calisan bir Serene.exe kalmasin. Temiz
+      # bir runner'da bu adim bir sey bulmaz; docs/planning/STATUS.md bolum 6'nin "kosumlar
+      # sirayla kosar; once taskkill //F //IM Serene.exe" kuralinin
+      # karsiligidir. list_windows.ps1 ile ayni Get-Process sayimini kullanir.
       - name: Calisan Serene.exe kalmasin
         run: |
           $running = Get-Process -Name Serene -ErrorAction SilentlyContinue
