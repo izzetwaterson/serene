@@ -1,0 +1,56 @@
+# Satır sonlarını dosya türüne göre sabitler.
+#
+# Neden gerekli: `core.autocrlf=true` (Windows varsayılanı) depo içindeki
+# dosyaların satır sonlarını böbürleştirir. .nsi ve .ps1 gibi NSIS/PowerShell
+# betiklerinde bu, satırların arasına gömülü `\r` olarak yazılır ve GitHub
+# Actions dosyayı YAML olarak çözemez ("This run likely failed because of a
+# workflow file issue"). Aynı bozulma Türkçe karakterleri de bozuyordu.
+#
+# Kural: kaynakta ne varsa depoda o kalır. Windows'ta da LF kullanırız;
+# Flutter, Cargo, Node ve Git Bash LF'i sorunsuz okur.
+
+* text=auto eol=lf
+
+# Zaten ikili olanlar - asla dokunma
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary
+*.exe  binary
+*.dll  binary
+*.pdb  binary
+*.xpi  binary
+*.ttf  binary
+*.otf  binary
+*.woff binary
+*.woff2 binary
+
+# NSIS betikleri: makensis LF bekler ve dosyaları bayt bayt korur
+*.nsi text eol=lf
+*.nsh text eol=lf
+
+# Diger kod ve veri dosyalari
+*.rs      text eol=lf
+*.dart    text eol=lf
+*.js      text eol=lf
+*.mjs     text eol=lf
+*.cjs     text eol=lf
+*.ts      text eol=lf
+*.json    text eol=lf
+*.yaml    text eol=lf
+*.yml     text eol=lf
+*.toml    text eol=lf
+*.lock    text eol=lf
+*.md      text eol=lf
+*.txt     text eol=lf
+*.py      text eol=lf
+*.ps1     text eol=lf
+*.html    text eol=lf
+*.css     text eol=lf
+*.c       text eol=lf
+*.h       text eol=lf
+*.cpp     text eol=lf
+*.hpp     text eol=lf
+*.cmake   text eol=lf
+*.rc      text eol=lf
+*.plist   text eol=lf
