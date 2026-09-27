@@ -206,7 +206,7 @@ class Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(Serene.radiusCard),
         gradient: LinearGradient(
@@ -220,45 +220,24 @@ class Hero extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: Serene.primaryFixed.withValues(alpha: 0.45),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SIcon('eco', size: 14, color: Serene.onPrimaryFixed),
-                const SizedBox(width: 6),
-                Text(
-                  T.heroKicker,
-                  style: body(
-                    12,
-                    weight: FontWeight.w600,
-                    color: Serene.onPrimaryFixed,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
+          // Bos durum once bos oldugu icin baslik yeterli bir sinyal; ayrica
+          // bir rozet eklemek ayni mesaji ikinci kez soyleyip gorseli
+          // gurultuluyordu. Kaldirildi.
           Text(
             T.heroTitle,
             textAlign: TextAlign.center,
-            style: head(36, letterSpacing: -0.6, color: Serene.onBackground),
+            style: head(30, letterSpacing: -0.4, color: Serene.onBackground),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 448),
+            constraints: const BoxConstraints(maxWidth: 420),
             child: Text(
               T.heroBody,
               textAlign: TextAlign.center,
-              style: body(16, color: Serene.secondary, height: 1.6),
+              style: body(14, color: Serene.secondary, height: 1.5),
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 672),
             child: Container(
