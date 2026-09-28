@@ -190,10 +190,19 @@ const _dark = _Palette(
   onSurfaceVariant: Color(0xFFB7BBB0),
   outline: Color(0xFF8E9389),
   outlineVariant: Color(0xFF3F433B),
-  primary: Color(0xFF9BD3AC),
+  // Koyu modda yesil, aydinlik moddakinden **koyu ve daha az parlak**:
+  // primary #5A8F68. Onceki deger #9BD3AC idi ve kontrasti 10.47 cikiyordu;
+  // bu kadar parlak bir dolgu gece modunda goz yoruyor.
+  primary: Color(0xFF5A8F68),
+  // Dolgu orta parlaklikta kaldigi icin uzerindeki yazi **koyu** olmali; beyaz
+  // yazi bu dolguda yalnizca 3.77 kontrast veriyor (WCAG AA esigi 4.5),
+  // koyu yazi ise 4.52 veriyor. Aydinlik modun tersi: orada dolgu koyu,
+  // yazi beyaz.
   onPrimary: Color(0xFF0B2013),
-  primaryContainer: Color(0xFF2F5139),
-  primaryFixed: Color(0xFF2A4030),
+  // primaryContainer bir *yuzey* rengi (secili sekmenin arka plani gibi), metin
+  // rengi degil. Eski #2F5139 kontrasti yalnizca 2.00 idi; hafif acildi.
+  primaryContainer: Color(0xFF33543C),
+  primaryFixed: Color(0xFF2F4A35),
   primaryFixedDim: Color(0xFF6FA37E),
   onPrimaryFixed: Color(0xFFC9E6D2),
   secondary: Color(0xFFA8A294),
@@ -209,12 +218,14 @@ const _dark = _Palette(
   error: Color(0xFFE8928E),
   errorContainer: Color(0xFF5A2422),
   onErrorContainer: Color(0xFFF5C9C6),
-  primaryHover: Color(0xFFB2E0BF),
-  primaryHoverStrong: Color(0xFFA8DBB8),
+  // Hover'da dolgu bir kademe acilir; koyu yazi kontrasti 4.52 -> 5.80 olur,
+  // yani AA'da kalir (beyaz yazi kullanilsaydi 2.95'e dusuyordu).
+  primaryHover: Color(0xFF6BA377),
+  primaryHoverStrong: Color(0xFF7CB785),
   borderSoft: Color(0x803F433B),
   borderInput: Color(0x993F433B),
   borderFaint: Color(0x663F433B),
-  borderPrimary: Color(0x4D9BD3AC),
+  borderPrimary: Color(0x4D5A8F68),
   tintPrimary: Color(0xFF2C4233),
   tintPrimaryStrong: Color(0xFF35503D),
   tintTertiary: Color(0xFF3E2D17),
