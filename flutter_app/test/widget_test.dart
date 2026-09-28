@@ -219,6 +219,59 @@ void main() {
     expect(find.text(T.themeDark), findsOneWidget);
   });
 
+  testWidgets('hakkinda sekmesi surum, baglanti ve lisans gosterir', (tester) async {
+    await setRealWindow();
+    await tester.pumpWidget(_settingsHost(
+      SettingsPanel(
+        settings: _engineSettings(),
+        onClose: () {},
+        engineVersion: '0.1.0',
+        onSaved: (_) {},
+      ),
+    ));
+
+    // Sol listede dortuncu sekme.
+    expect(find.text(T.tabAbout), findsOneWidget);
+
+    await _openTab(tester, T.tabAbout);
+
+    // Uygulama adi ve iki surum ayri gosterilir.
+    expect(find.text('Serene'), findsOneWidget);
+    // "Version" etiketi iki kez cikiyor: About sekmesinde ve panelin ust
+    // basliginda yer alan motor surumu satirinda. Bu yuzden sayilmiyor, yalnizca
+    // varligi dogrulanir.
+    expect(find.text(T.aboutVersion), findsWidgets);
+    expect(find.text(T.aboutEngine), findsOneWidget);
+    expect(find.text('0.1.0'), findsOneWidget); // motor surumu
+    // Uygulama surumu motor surumunden farkli; motor kurulmadigi test
+    // cercevesinde '-' gorunur.
+    expect(find.text('-'), findsWidgets);
+
+    // Kaynak kodu baglantisi ve lisans basligi.
+    expect(find.text(T.aboutRepository), findsOneWidget);
+    expect(find.text('github.com/izzetwaterson/serene'), findsOneWidget);
+    expect(find.text(T.aboutLicense), findsOneWidget);
+  });
+
+  testWidgets('hakkinda sekmesi lisans metnini gosterir', (tester) async {
+    await setRealWindow();
+    await tester.pumpWidget(_settingsHost(
+      SettingsPanel(
+        settings: _engineSettings(),
+        onClose: () {},
+        engineVersion: '0.1.0',
+        onSaved: (_) {},
+      ),
+    ));
+    await _openTab(tester, T.tabAbout);
+
+    // Lisans metni derleme zamaninda gomulur (`lib/src/license_text.dart`),
+    // bu yuzden `rootBundle` erisimi gerekmez ve testte asset sistemi
+    // kurulmasa da okunabilir.
+    expect(find.textContaining('MIT License'), findsOneWidget);
+    expect(find.textContaining('Copyright (c) 2026 Serene'), findsOneWidget);
+  });
+
   testWidgets('secilen gorunum hemen boyanir', (tester) async {
     await setRealWindow();
     applyThemeMode(ThemeMode.light);

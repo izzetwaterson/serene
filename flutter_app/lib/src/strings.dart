@@ -165,6 +165,14 @@ abstract class Strings {
   String get tabGeneral;
   String get tabDownloads;
   String get tabBehaviour;
+  String get tabAbout;
+  String get aboutVersion;
+  String get aboutEngine;
+  String get aboutLicense;
+  String get aboutRepository;
+  String get aboutWebsite;
+  String get aboutClose;
+  String get aboutDescription;
   String get versionLabel;
   String get versionCopied;
   String get versionEngine;
@@ -460,6 +468,23 @@ class TrStrings extends Strings {
   String get tabDownloads => 'Indirmeler';
   @override
   String get tabBehaviour => 'Davranis';
+  @override
+  String get tabAbout => 'Hakkinda';
+  @override
+  String get aboutVersion => 'Surum';
+  @override
+  String get aboutEngine => 'Motor';
+  @override
+  String get aboutLicense => 'Lisans';
+  @override
+  String get aboutRepository => 'Kaynak kodu';
+  @override
+  String get aboutWebsite => 'Web sitesi';
+  @override
+  String get aboutClose => 'Kapat';
+  @override
+  String get aboutDescription =>
+      'Sakin ve duzenli bir indirme yoneticisi.';
   @override
   String get versionLabel => 'Surum';
   @override
@@ -772,6 +797,23 @@ class EnStrings extends Strings {
   String get tabDownloads => 'Downloads';
   @override
   String get tabBehaviour => 'Behaviour';
+  @override
+  String get tabAbout => 'About';
+  @override
+  String get aboutVersion => 'Version';
+  @override
+  String get aboutEngine => 'Engine';
+  @override
+  String get aboutLicense => 'Licence';
+  @override
+  String get aboutRepository => 'Source code';
+  @override
+  String get aboutWebsite => 'Website';
+  @override
+  String get aboutClose => 'Close';
+  @override
+  String get aboutDescription =>
+      'A calm, tidy download manager for Windows.';
   @override
   String get versionLabel => 'Version';
   @override

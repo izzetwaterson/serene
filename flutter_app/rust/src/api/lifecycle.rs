@@ -62,3 +62,35 @@ pub fn app_version() -> String {
         .unwrap_or(env!("CARGO_PKG_VERSION"))
         .to_owned()
 }
+
+/// Bir adresi varsayilan tarayicida acar (Ayarlar > Hakkinda > Kaynak kodu).
+///
+/// Neden `url_launcher` degil: o paket ek bagimlilik ve bir platform eklentisi
+/// getirir. Buradaki tek ihtiyac "bu adresi kullanilabilir bir sekilde ac" —
+/// Windows'ta bunu `cmd /c start` zaten yapar, tarayici zaten varsayilan
+/// olarak kayitlidir. Dogrudan Rust tarafinda birkac satirlik is; yeni paket yok.
+///
+/// Yalnizca `https://` ve `http://` kabul edilir; boylece komut satiri
+/// enjeksiyonuyla rastgele bir komut calistirilamaz.
+#[flutter_rust_bridge::frb(sync)]
+pub fn open_external(url: String) -> Result<(), String> {
+    let trimmed = url.trim();
+    if !(trimmed.starts_with("https://") || trimmed.starts_with("http://")) {
+        return Err("yalnizca http(s) adresleri acilabilir".into());
+    }
+    if trimmed.contains(['"', '\n', '\r']) {
+        return Err("gecersiz adres".into());
+    }
+
+    // `start` sonraki tirnaki arguman olarak yutar; `cmd /c` teshis
+    // penceresi acmamasi icin bos gosterilir.
+    let status = std::process::Command::new("cmd")
+        .args(["/c", "start", "", trimmed])
+        .status();
+
+    match status {
+        Ok(s) if s.success() => Ok(()),
+        Ok(s) => Err(format!("tarayici acilmadi: {}", s)),
+        Err(e) => Err(format!("tarayici acilamadi: {e}")),
+    }
+}

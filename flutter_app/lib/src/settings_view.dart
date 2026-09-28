@@ -8,6 +8,7 @@ import 'app_theme.dart';
 import 'data.dart';
 import 'folder_picker.dart';
 import 'handoff.dart' show engineReason;
+import 'license_text.dart';
 import 'rust/api/commands.dart' as ffi;
 import 'rust/api/dto.dart' as engine;
 import 'rust/api/lifecycle.dart' as ffi;
@@ -357,6 +358,91 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
+  /// Hakkinda: uygulama adi, surum, kaynak kodu baglantisi ve lisans metni.
+  ///
+  /// Lisans `assets/LICENSE.txt` icinden okunur; metin gomuludur, bu yuzden
+  /// ayri bir Rust komutu gerekmez. Motor surumu motorun kendi surumudur ve
+  /// uygulama surumunden ayri gosterilir (ikisi sik karistirilir).
+  ///
+  /// Uygulama surumu `late final` ile **bir kez** okunur. `build` icinde
+  /// dogrudan cagrilirsa: (a) her yeniden cizimde FFI cagrisi olur,
+  /// (b) motorun kurulmadigi cercevelerde (widget testleri) cokmus olur.
+  late final String _appVersion = _readAppVersion();
+
+  static String _readAppVersion() {
+    try {
+      return ffi.appVersion();
+    } catch (_) {
+      return '-';
+    }
+  }
+
+  Widget _aboutTab() {
+    // Surum `build` icinde okunmaz: FFI her `build`'de cagirmak pahali ve
+    // motorun kurulmadigi cercevelerde (birim testleri) cokmus olur.
+    // `late final` bir kez okur, sonra onbellekten gelir.
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              // Uygulama simgesi: tepsi simgesiyle ayni kaynak.
+              Image.asset('assets/icons/serene_tray.png', width: 56, height: 56),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Serene', style: head(20)),
+                    const SizedBox(height: 2),
+                    Text(
+                      T.aboutDescription,
+                      style: body(13, color: Serene.secondary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _AboutRow(
+            label: T.aboutVersion,
+            value: _appVersion,
+            monoFont: true,
+          ),
+          const SizedBox(height: 8),
+          _AboutRow(
+            label: T.aboutEngine,
+            value: widget.engineVersion,
+            monoFont: true,
+          ),
+          const SizedBox(height: 20),
+          _AboutLink(
+            label: T.aboutRepository,
+            value: 'github.com/izzetwaterson/serene',
+            url: 'https://github.com/izzetwaterson/serene',
+          ),
+          const SizedBox(height: 20),
+          Text(
+            T.aboutLicense,
+            style: body(12, weight: FontWeight.w600, color: Serene.secondary),
+          ),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 220),
+            child: SingleChildScrollView(
+              child: Text(
+                kLicenseText,
+                style: mono(11, color: Serene.secondary, height: 1.5),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Shortcuts(
@@ -457,6 +543,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                                       _generalTab(),
                                       _downloadsTab(),
                                       _behaviourTab(),
+                                      _aboutTab(),
                                     ],
                                   ),
                                 ],
@@ -538,6 +625,102 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 }
 
+/// Hakkinda sekmesinde etiket + deger satiri (surum, motor surumu).
+class _AboutRow extends StatelessWidget {
+  const _AboutRow({
+    required this.label,
+    required this.value,
+    this.monoFont = false,
+  });
+
+  final String label;
+  final String value;
+
+  /// Deger monospace mi? Surum ve yol gibi degerler icin evet, duz metin icin hayir.
+  /// Alan `mono` olarak adlandirilamaz: dosyadaki `mono(...)` tipografi
+  /// fonksiyonuyla cakisir.
+  final bool monoFont;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 96,
+          child: Text(
+            label,
+            style: body(12, color: Serene.secondary),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: monoFont
+                ? mono(12, color: Serene.onSurface)
+                : body(12, color: Serene.onSurface),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Hakkinda sekmesinde tiklanabilir baglanti satiri.
+///
+/// Baglanti acma cagrisi Rust tarafinda: `url_launcher` gibi bir paket eklemek
+/// yerine Windows'un `cmd /c start` mekanizmasi kullaniliyor, boylece yeni
+/// bagimlilik getirilmiyor. Yalnizca http(s) adresleri kabul edilir.
+class _AboutLink extends StatelessWidget {
+  const _AboutLink({
+    required this.label,
+    required this.value,
+    required this.url,
+  });
+
+  final String label;
+  final String value;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 96,
+          child: Text(
+            label,
+            style: body(12, color: Serene.secondary),
+          ),
+        ),
+        Expanded(
+          child: HoverSurface(
+            onTap: () => ffi.openExternal(url: url),
+            background: Colors.transparent,
+            hoverBackground: Serene.surfaceContainer,
+            radius: Serene.radiusField,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: mono(12, color: Serene.primary),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                SIcon('open_in_new', size: 13, color: Serene.primary),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Ayarlar panelinin solundaki sekme listesi.
 ///
 /// Duz metin listesi; secili olan yesil bir arka planla isaretleniyor.
@@ -551,7 +734,12 @@ class _TabRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = [T.tabGeneral, T.tabDownloads, T.tabBehaviour];
+    final labels = [
+      T.tabGeneral,
+      T.tabDownloads,
+      T.tabBehaviour,
+      T.tabAbout,
+    ];
     // Sabit genislik: bu, yatay bir Row icindeki Column. `stretch` ve genislik
     // verilmezse Flutter'a sinirsiz (Infinity) genislik gecer ve layout coker.
     return SizedBox(

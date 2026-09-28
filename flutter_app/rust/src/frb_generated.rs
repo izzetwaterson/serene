@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1739833031;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1642787409;
 
 // Section: executor
 
@@ -678,6 +678,36 @@ fn wire__crate__api__dto__media_kind_default_impl(
                     std::result::Result::Ok(output_ok)
                 })())
             }
+        },
+    )
+}
+fn wire__crate__api__lifecycle__open_external_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "open_external",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_url = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, String>((move || {
+                let output_ok = crate::api::lifecycle::open_external(api_url)?;
+                std::result::Result::Ok(output_ok)
+            })())
         },
     )
 }
@@ -1757,21 +1787,21 @@ fn pde_ffi_dispatcher_primary_impl(
         15 => wire__crate__api__lifecycle__init_app_impl(port, ptr, rust_vec_len, data_len),
         16 => wire__crate__api__dto__link_status_default_impl(port, ptr, rust_vec_len, data_len),
         19 => wire__crate__api__dto__media_kind_default_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__commands__open_task_file_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__commands__pause_download_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__commands__remove_download_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__commands__resume_download_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__commands__retry_download_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__commands__reveal_task_file_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__commands__set_task_dest_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__commands__update_settings_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__events__watch_captures_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__events__watch_clipboard_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__events__watch_handoff_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__events__watch_present_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__events__watch_progress_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__events__watch_storage_error_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__events__watch_tasks_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__commands__open_task_file_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__commands__pause_download_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__commands__remove_download_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__commands__resume_download_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__commands__retry_download_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__commands__reveal_task_file_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__commands__set_task_dest_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__commands__update_settings_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__events__watch_captures_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__events__watch_clipboard_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__events__watch_handoff_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__events__watch_present_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__events__watch_progress_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__events__watch_storage_error_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__events__watch_tasks_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1793,9 +1823,10 @@ fn pde_ffi_dispatcher_sync_impl(
         14 => wire__crate__api__lifecycle__hand_off_to_running_impl(ptr, rust_vec_len, data_len),
         17 => wire__crate__api__commands__list_captures_impl(ptr, rust_vec_len, data_len),
         18 => wire__crate__api__commands__list_tasks_impl(ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__commands__pause_all_downloads_impl(ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__lifecycle__register_browser_host_impl(ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__lifecycle__stop_bridge_impl(ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__lifecycle__open_external_impl(ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__commands__pause_all_downloads_impl(ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__lifecycle__register_browser_host_impl(ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__lifecycle__stop_bridge_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

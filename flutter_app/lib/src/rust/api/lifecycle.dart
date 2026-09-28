@@ -37,3 +37,15 @@ String engineVersion() => RustLib.instance.api.crateApiLifecycleEngineVersion();
 /// burada **kullanilmaz**: o deger motor crate'inin surumudur (0.1.0) ve
 /// ayarlarda gosterilen degerle karistirilirsa kullanici yanlis bilgi gorur.
 String appVersion() => RustLib.instance.api.crateApiLifecycleAppVersion();
+
+/// Bir adresi varsayilan tarayicida acar (Ayarlar > Hakkinda > Kaynak kodu).
+///
+/// Neden `url_launcher` degil: o paket ek bagimlilik ve bir platform eklentisi
+/// getirir. Buradaki tek ihtiyac "bu adresi kullanilabilir bir sekilde ac" —
+/// Windows'ta bunu `cmd /c start` zaten yapar, tarayici zaten varsayilan
+/// olarak kayitlidir. Dogrudan Rust tarafinda birkac satirlik is; yeni paket yok.
+///
+/// Yalnizca `https://` ve `http://` kabul edilir; boylece komut satiri
+/// enjeksiyonuyla rastgele bir komut calistirilamaz.
+void openExternal({required String url}) =>
+    RustLib.instance.api.crateApiLifecycleOpenExternal(url: url);
