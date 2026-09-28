@@ -344,6 +344,17 @@ function buildInstaller(version, stage, stageBytes) {
   const makensis = findMakensis();
   const icon = join(DIR, "flutter_app", "windows", "runner", "resources", "app_icon.ico");
   if (!existsSync(icon)) fail(`uygulama ikonu yok: ${icon}`);
+
+  // Banner: logo + ayirici cizgi. `make_banner.py` uretir; yoksa nsi uyari
+  // verip banner'siz devam eder, bu yuzden burada zorunlu degil.
+  //
+  // Yol **mutlak** verilir: NSIS `MUI_BANNER` degerini kendi calisma
+  // dizinine gore yorumlar, goreli yol verildiginde dosyayi bulamadi
+  // (ayni sorun `SERENE_ICON` icin de vardir).
+  const bannerPath = join(DIR, "installer", "assets", "banner.bmp");
+  if (!existsSync(join(DIR, "installer", "assets", "banner.bmp"))) {
+    console.warn("  ! banner.bmp yok; yurutme sayfasi banner'siz olacak");
+  }
   const out = join(DIST, `Serene-Setup-${version}.exe`);
   rmSync(out, { force: true });
   run(makensis, [
@@ -356,6 +367,9 @@ function buildInstaller(version, stage, stageBytes) {
     `-DSERENE_STAGE=${stage}`,
     // Ikon kurulum klasorune yazilmaz, yalnizca paketin kendisinde gorunur.
     `-DSERENE_ICON=${icon}`,
+    // Yurutme sayfasi banner'i. `make_banner.py` uretir; yoksa sayfa
+    // banner'siz cizilir (nsi bunu bir uyari olarak yazar).
+    `-DSERENE_BANNER=${bannerPath}`,
     // Programs and Features'taki "Boyut" (KB). NSIS bunu kendi hesaplayamiyor.
     `-DSERENE_SIZE_KB=${Math.round(stageBytes / 1024)}`,
     `-DOUTFILE=${out}`,
