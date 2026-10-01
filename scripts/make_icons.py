@@ -1,28 +1,35 @@
-"""Urun ve eklenti ikonlarini tek kaynaktan uretir.
+"""Urun ve eklenti ikonlarini ana dosyalardan uretir.
 
-Kaynak `ui/serene-icon.png` (kullanicinin temiz alfa kanalli yapragi).
-Bu betik PNG'ye DOKUNMAZ; yalnizca ondan turetilen boyutlari uretir.
-Ciktilar depoda durur. Simge degistiginde sira:
+Iki ana dosya vardir:
+  * `ui/serene-icon.png` — karo + yaprak ("THE ICON"). Uygulama ikonu (.ico),
+    tepsi ve eklenti ikonlari buradan turetilir.
+  * `ui/serene-leaf-master.png` — yalniz yaprak. SADECE About sekmesindeki
+    marka buradan turetilir; kullanici karari (2026-10-01): "her yerde bu
+    ikon, yalnizca About'taki degismesin".
 
-    python scripts/prepare_icon.py     # kaynak -> ui/serene-icon.png
-    python scripts/make_icons.py       # -> .ico + tepsi + eklenti ikonlari
+Bu betik PNG'lere DOKUNMAZ; yalnizca onlardan turetilen boyutlari uretir.
+Ciktilar depoda durur. Ikonlar degistiginde sira:
+
+    python scripts/prepare_icon.py     # kaynaklar -> ui/serene-icon.png,
+                                       #              ui/serene-leaf-master.png
+    python scripts/make_icons.py       # -> .ico + tepsi + eklenti + About
 
 Uretilenler:
-  * `flutter_app/windows/runner/resources/app_icon.ico` (8 boyut)
-  * `flutter_app/assets/icons/serene_tray.png` (32px — tepsi)
-  * `flutter_app/assets/icons/serene_logo.png` (256px — uygulama icindeki marka)
-  * `extension/icons/{16,32,48,96,128}.png`
+  * `flutter_app/windows/runner/resources/app_icon.ico` (8 boyut)   <- icon
+  * `flutter_app/assets/icons/serene_tray.png` (32px — tepsi)       <- icon
+  * `extension/icons/{16,32,48,96,128}.png`                         <- icon
+  * `flutter_app/assets/icons/serene_logo.png` (256px — About)      <- leaf
 
-Tepsi ve logo neden ayri: tepsi tam 32px olmali (Windows bildirim alani 16/20/24/32
-ister), ama About sekmesi logoyu 56 mantiksal px'te ciziyor — 2x DPI'da 112
-fiziksel px. 32px'lik dosyayi 56'ya buyutmek bulaniklastirirdi; logo bu yuzden
-256px uretilir (2x icin 2 kattan fazla pay). Ikisi de ayni tek ana dosyadan
-gelir, yani marka tek.
+Tepsi neden 32px, About logosu neden 256px: tepsi tam 32px olmali (Windows
+bildirim alani 16/20/24/32 ister), ama About sekmesi logoyu 56 mantiksal px'te
+ciziyor — 2x DPI'da 112 fiziksel px. 32px'lik dosyayi 56'ya buyutmek
+bulaniklastirirdi; logo bu yuzden 256px uretilir (2x icin 2 kattan fazla pay).
 
-**Tek gercek vardir: `ui/serene-icon.png`.** Her boyut buradan turetilir;
-hicbir boyut elle cizilmez ve boyuta gore ayri kaynak secilmez. (Bir ara 48px
-alti icin ayri bir "acik yesil karo" ana dosyasi vardi; kullanici tek kaynak
-istedigi icin 2026-10-01'de kaldirildi.)
+Kaynak secimi boyuta gore DEGIL, kullanim yerine gore yapilir: uygulama,
+tepsi ve eklenti her zaman `serene-icon.png`'den; About logosu her zaman
+`serene-leaf-master.png`'den gelir. (Bir ara 48px alti icin ayri bir "acik
+yesil karo" ana dosyasi vardi; kullanici tek kaynak istedigi icin 2026-10-01'de
+kaldirildi. Ayni gun About icin yaprak istisnasi geri geldi.)
 
 **ICO neden elle yaziliyor.** Pillow'un ICO kaydedicisi tek bir kaynagi
 kucultur; `append_images` parametresini kabul ediyor ama ICO icin
@@ -39,6 +46,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 MASTER = ROOT / "ui" / "serene-icon.png"
+LEAF = ROOT / "ui" / "serene-leaf-master.png"
 ICO = ROOT / "flutter_app" / "windows" / "runner" / "resources" / "app_icon.ico"
 TRAY = ROOT / "flutter_app" / "assets" / "icons" / "serene_tray.png"
 LOGO = ROOT / "flutter_app" / "assets" / "icons" / "serene_logo.png"
@@ -56,6 +64,18 @@ EXT_SIZES = [16, 32, 48, 96, 128]
 
 def frame(size: int, master: Image.Image) -> Image.Image:
     return master.resize((size, size), Image.LANCZOS)
+
+
+def _load(path: Path) -> Image.Image:
+    if not path.exists():
+        raise SystemExit(f"ana dosya yok: {path} (once scripts/prepare_icon.py)")
+    img = Image.open(path)
+    if img.mode != "RGBA":
+        raise SystemExit(f"{path} saydam olmali (RGBA), gelen: {img.mode}")
+    # Kucuk bir kaynak, buyuk boyutlari bulaniklastirir; sessizce bozmayalim.
+    if img.width < 512:
+        raise SystemExit(f"{path} en az 512px olmali, gelen: {img.width}px")
+    return img
 
 
 def write_ico(path: Path, frames: list[tuple[int, Image.Image]]) -> None:
@@ -95,22 +115,15 @@ def _ico_frame_bytes(path: Path, size: int) -> bytes:
 
 
 def main() -> None:
-    if not MASTER.exists():
-        raise SystemExit(f"kaynak simge yok: {MASTER} (once prepare_icon.py)")
-
-    master = Image.open(MASTER)
-    if master.mode != "RGBA":
-        raise SystemExit(f"{MASTER} saydam olmali (RGBA), gelen: {master.mode}")
-    # Kucuk bir kaynak, buyuk boyutlari bulaniklastirir; sessizce bozmayalim.
-    if master.width < 512:
-        raise SystemExit(f"{MASTER} en az 512px olmali, gelen: {master.width}px")
+    master = _load(MASTER)
+    leaf = _load(LEAF)
 
     write_ico(ICO, [(w, frame(w, master)) for w, _ in ICO_SIZES])
     TRAY.parent.mkdir(parents=True, exist_ok=True)
     frame(TRAY_SIZE, master).save(TRAY)
-    # Uygulama icindeki marka (About sekmesi). Tepsiyle ayni ana dosyadan ama
-    # daha buyuk: orada 56 mantiksal px'e ciziliyor, 32px kaynak bulanik olurdu.
-    frame(LOGO_SIZE, master).save(LOGO)
+    # About bilincli istisna: karo degil yaprak. 56 mantiksal px / 2x DPI icin
+    # 256px kaynak pay birakiyor.
+    frame(LOGO_SIZE, leaf).save(LOGO)
 
     # Eklenti ikonlari: bu dosyalar onceden ELLE yapilmisti ve marka disiydi
     # (yesil kutu + beyaz asagi ok). Artik ayni kaynaktan uretiliyor.
@@ -138,8 +151,8 @@ def main() -> None:
             raise SystemExit(f"{size}px ICO karesi ana dosyadan gelmemis")
     if not same(Image.open(TRAY), frame(TRAY_SIZE, master)):
         raise SystemExit(f"{TRAY_SIZE}px tepsi ana dosyadan gelmemis")
-    if not same(Image.open(LOGO), frame(LOGO_SIZE, master)):
-        raise SystemExit(f"{LOGO_SIZE}px logo ana dosyadan gelmemis")
+    if not same(Image.open(LOGO), frame(LOGO_SIZE, leaf)):
+        raise SystemExit(f"{LOGO_SIZE}px About logosu yaprak ana dosyadan gelmemis")
     for size in EXT_SIZES:
         got = Image.open(EXT_ICONS / f"{size}x{size}.png")
         if not same(got, frame(size, master)):
@@ -147,9 +160,10 @@ def main() -> None:
 
     print(f"ikonlar ok: {ICO.name} {sizes}")
     print(f"           {TRAY.name} {TRAY_SIZE}x{TRAY_SIZE} (tepsi)")
-    print(f"           {LOGO.name} {LOGO_SIZE}x{LOGO_SIZE} (uygulama ici marka)")
+    print(f"           {LOGO.name} {LOGO_SIZE}x{LOGO_SIZE} (About — yaprak)")
     print(f"           extension/icons: {', '.join(f'{s}x{s}.png' for s in EXT_SIZES)}")
-    print(f"           tek kaynak: {MASTER.name} — boyuta gore ayri kaynak YOK")
+    print(f"           iki ana dosya: {MASTER.name} (uygulama+tepsi+eklenti) + "
+          f"{LEAF.name} (About)")
 
 
 if __name__ == "__main__":

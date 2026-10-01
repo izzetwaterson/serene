@@ -9,10 +9,12 @@
 > 2026-09-28. Token values were read out of `theme.dart` line by line and tab
 > contents out of `settings_view.dart`, not from memory.
 >
-> **Icon revision 2026-10-01:** the product mark moved from the standalone leaf
-> on transparency to the cut leaf on a drawn `#D3EBD8` tile, and the extension
-> icon set is now generated instead of hand-made. "The icon" below carries the
-> measurements.
+> **Icon revision 2026-10-01 (final):** the product mark is the user's own
+> artwork — the glass leaf on its dark rounded tile ("THE ICON") — everywhere
+> the product shows an icon: window, tray, extension. The one exception is
+> Settings → About, which keeps the standalone leaf by explicit user request.
+> The extension icon set is generated instead of hand-made. "The icon" below
+> carries the measurements and the pipeline.
 >
 > The previous revision of this file was written 46 commits earlier, under the
 > working title "Terra", and had drifted on the dark palette, the settings
@@ -199,7 +201,7 @@ carries size, category, target folder (editable) and filename (editable).
   and reads 0.1.0), the engine version separately, a link to the repository, and
   the root `LICENSE` embedded at build time by `scripts/embed_license.py`.
 - **Tray** — 32×32 RGBA product icon (`assets/icons/serene_tray.png`, generated
-  from the same master as the window icon and the About logo), tooltip "Serene",
+  from the same master as the window icon — THE ICON), tooltip "Serene",
   "close to tray" by default.
   Its menu is deliberately short — show window, pause all, settings, quit — and
   re-renders whenever a download's state changes, so the pause-all entry cannot
@@ -212,75 +214,45 @@ pixels of:
 
 | Surface | Status |
 |---|---|
-| In-app (Settings → About) | `assets/icons/serene_logo.png`, 256px, drawn at 56 logical px. Generated from the same master as everything else; the window and tray are separate sizes of the same leaf, so there is exactly one mark |
-| Window / `.exe` icon | 8-size `.ico` (16…256), from the single master `ui/serene-icon.png` (the leaf alone, no tile) |
-| Tray | `assets/icons/serene_tray.png`, exactly 32px — Windows' notification area wants 16/20/24/32, so this one is deliberately small rather than shared with the About logo |
+| In-app (Settings → About) | `assets/icons/serene_logo.png`, 256px, drawn at 56 logical px. The **deliberate exception**: the About mark is the leaf alone (`ui/serene-leaf-master.png`), because the user asked that this one icon not change |
+| Window / `.exe` icon | 8-size `.ico` (16…256), from the master `ui/serene-icon.png` — THE ICON (glass leaf on its dark tile) |
+| Tray | `assets/icons/serene_tray.png`, exactly 32px — Windows' notification area wants 16/20/24/32, so this one is deliberately small rather than shared with the About logo. Same master as the window icon |
 | Installer | NSIS Modern UI. The progress page carries a generated banner — the Serene logo over a hairline in `primary`. **No version number in the banner**; it is already in the filename (`Serene-Setup-1.0.0.exe`) |
-| Browser extension | Generated from the same master by `scripts/make_icons.py` — `extension/icons/{16,32,48,96,128}.png`, all five referenced by `extension/manifest.json`. Before this the set was hand-made and off-brand: a generic green tile with a white down-arrow |
+| Browser extension | Generated from the app master by `scripts/make_icons.py` — `extension/icons/{16,32,48,96,128}.png`, all five referenced by `extension/manifest.json`. Before this the set was hand-made and off-brand: a generic green tile with a white down-arrow |
 
 ### The icon
 
-A 3D glass maple leaf on a drawn rounded tile. The design source is
-`yeni ikon.jpeg` (2048×2048, **no alpha**), and it is not usable as-is for two
-measured reasons: JPEG carries no transparency, and the tile in the photograph
-has **no right or bottom edge**. The light comes from the upper left, so only
-the left edge carries a bevel ridge (L=44–72); the right edge profile at
-`y=1024` is `5,6,4,4,3,4,4,4,5,7` — no step at all, because the tile interior
-(L=3–12) and the outer background (L=13–25) are the same black. The tile cannot
-be cut out; the **leaf can**, so the leaf is extracted and the tile is drawn in
-code. Proof image: `artifacts/icon-candidates/KENAR-PROOF.png`.
+The product mark is the user's own artwork: a 3D glass maple leaf on a dark
+rounded tile — "THE ICON" (`ui/serene-icon-source.png`, 2048×2048, real alpha:
+the tile edge resolves within 4–5 px, corners fully transparent). It replaced
+every earlier mark (photograph-derived tile, code-drawn `#D3EBD8` tile,
+leaf-alone) on 2026-10-01; earlier candidates and their measurements remain in
+`artifacts/icon-candidates/` and `docs/planning/STATUS.md` §3.9.
 
-Extraction is a brightness-independent greenness test
-`(G − max(R,B)) / max(R,G,B) > 0.05` plus morphology (closing 11 → largest
-connected components → closing 25 → fill holes → opening 7). It measures
-**35.4 % canvas coverage at 1686×1638**, with veins and gloss intact.
+Usage is universal by explicit user request ("her yerde bu ikon"): window
+`.exe`, tray, browser extension. The contrast is measured, not assumed —
+alpha-weighted mean luminance 40.5:
 
-The tile is `primaryFixed` **`#D3EBD8`** with a slight gradient and a hairline
-edge. Its colour was a design decision, and all three candidates were measured
-by the silhouette's luminance distance from each background:
+| Background | Δ |
+|---|---|
+| Light (L=247) | **206** |
+| Dark (L=32) | **9** |
 
-| Tile | On light | On dark | Worst |
-|---|---|---|---|
-| `#D3EBD8` `primaryFixed` | 78 | 137 | **78** |
-| `#F7F4ED` `background` | 60 | 155 | 60 |
-| `#3D6A4B` `primary` | 177 | 38 | 38 |
+The dark number is weak by construction: the tile is dark and the Windows 11
+dark taskbar is dark. The user reviewed the measurement and the comparison
+shots and chose THE ICON everywhere anyway. For scale, the alternatives scored
+Δ66 (leaf alone, after gamma) and Δ144 (pale tile) on dark.
 
-The dark tile is the most handsome at 256 px and the worst in use: on the
-Windows 11 dark taskbar it is invisible (worst case 38). `#D3EBD8` is the only
-candidate that is never bad — and it is a real palette token, so the mark is the
-app's own dark-leaf-on-`primaryFixed` relationship rather than an invented
-colour.
-
-**One source, no tile (final).** The mark is the leaf alone. Earlier revisions
-put it on a tile — first the photograph's own dark rounded square, then a drawn
-`primaryFixed` `#D3EBD8` one for small sizes — because the dark tile cannot hold
-a silhouette on a dark background: the whole photographic composition sits at
-mean luminance ~30 while the Windows 11 dark taskbar is ~32 (worst case **Δ4**),
-and a thin rim does not rescue it (measured: Δ4 → 6, or 14 with a heavy rim).
-
-Dropping the tile entirely fixes that better than either tile did, because the
-leaf is not black: with no tile the icon's mean luminance is 58, and **gamma
-0.60** lifts it to 98.
-
-| Gamma | Mean luminance | On light | On dark | Worst |
-|---|---|---|---|---|
-| 1.00 (as supplied) | 58 | 189 | 26 | 26 |
-| **0.60 (shipped)** | **98** | **148** | **66** | **66** |
-| 0.45 | 122 | 125 | 90 | 90 |
-
-0.60 is the chosen trade: 148 on light is still excellent, and dark goes 26 → 66.
-Anything sharper (0.45) reads better at night but washes the leaf's dark green
-character out. For comparison, the discarded tile versions scored Δ4 (dark tile)
-and Δ144 (pale tile) on dark — so the tile-less mark is far better than the dark
-tile and weaker than the pale one, which is the price of a single source.
-
-`scripts/prepare_icon.py` writes exactly **one** master, `ui/serene-icon.png`,
-from `ui/serene-leaf.png` — a clean alpha cut-out (alpha 0…254, corners fully
-transparent, edge pixels `(22,36,29)` *darker* than the body `(44,72,56)`, i.e.
-no white fringe). The script crops to the leaf's bounding box, applies gamma
-0.60 and leaves 5 % margin, so the leaf fills 90 % of the canvas.
-`scripts/make_icons.py` derives every size from that one file; there is no
-per-size source selection.
+**The exception: Settings → About.** The About mark is the leaf alone. The
+user's instruction was "use this icon everywhere; only the About icon should
+not change", so the leaf's shipped look was frozen bit-exactly rather than
+re-styled: `scripts/prepare_icon.py` writes **two** masters —
+`ui/serene-icon.png` (THE ICON) and `ui/serene-leaf-master.png` (the leaf,
+gamma 0.60, 5 % margin) — and `scripts/make_icons.py` derives every size from
+them, with source selection by **usage, not size**: `.ico`, tray and extension
+icons from THE ICON; `serene_logo.png` (256 px, drawn at 56 logical px — 2×
+DPI → 112 physical) from the leaf. The tray stays an exactly-32 px file because
+Windows' notification area wants 16/20/24/32.
 
 ## Rules
 
