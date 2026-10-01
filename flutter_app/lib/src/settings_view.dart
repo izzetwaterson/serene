@@ -387,8 +387,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
         children: [
           Row(
             children: [
-              // Uygulama simgesi: tepsi simgesiyle ayni kaynak.
-              Image.asset('assets/icons/serene_tray.png', width: 56, height: 56),
+              // Uygulama markasi: tepsi simgesiyle AYNI ana dosyadan uretilir ama
+              // 256px'tir. Burada 56 mantiksal px'e ciziliyor (2x DPI'da 112
+              // fiziksel); 32px'lik tepsi dosyasi buyutulunce bulanik olurdu.
+              Image.asset('assets/icons/serene_logo.png', width: 56, height: 56),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(

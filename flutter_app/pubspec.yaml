@@ -63,7 +63,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Tepsi simgesi: Tauri kabugundaki 32x32 ikiliyle ayni gorunum.
+  # Tepsi simgesi (32px) ve uygulama ici marka (256px, About sekmesi).
+  # Ikisi de scripts/make_icons.py ile ui/serene-icon.png tek ana dosyasindan
+  # uretilir; bu klasore dosya eklemek yeter, pubspec degismez.
   assets:
     - assets/icons/
 

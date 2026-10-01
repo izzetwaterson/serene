@@ -9,8 +9,15 @@ Ciktilar depoda durur. Simge degistiginde sira:
 
 Uretilenler:
   * `flutter_app/windows/runner/resources/app_icon.ico` (8 boyut)
-  * `flutter_app/assets/icons/serene_tray.png` (32px)
+  * `flutter_app/assets/icons/serene_tray.png` (32px — tepsi)
+  * `flutter_app/assets/icons/serene_logo.png` (256px — uygulama icindeki marka)
   * `extension/icons/{16,32,48,96,128}.png`
+
+Tepsi ve logo neden ayri: tepsi tam 32px olmali (Windows bildirim alani 16/20/24/32
+ister), ama About sekmesi logoyu 56 mantiksal px'te ciziyor — 2x DPI'da 112
+fiziksel px. 32px'lik dosyayi 56'ya buyutmek bulaniklastirirdi; logo bu yuzden
+256px uretilir (2x icin 2 kattan fazla pay). Ikisi de ayni tek ana dosyadan
+gelir, yani marka tek.
 
 **Tek gercek vardir: `ui/serene-icon.png`.** Her boyut buradan turetilir;
 hicbir boyut elle cizilmez ve boyuta gore ayri kaynak secilmez. (Bir ara 48px
@@ -34,6 +41,7 @@ ROOT = Path(__file__).resolve().parent.parent
 MASTER = ROOT / "ui" / "serene-icon.png"
 ICO = ROOT / "flutter_app" / "windows" / "runner" / "resources" / "app_icon.ico"
 TRAY = ROOT / "flutter_app" / "assets" / "icons" / "serene_tray.png"
+LOGO = ROOT / "flutter_app" / "assets" / "icons" / "serene_logo.png"
 EXT_ICONS = ROOT / "extension" / "icons"
 
 ICO_SIZES = [(16, 16), (20, 20), (24, 24), (32, 32), (48, 48), (64, 64),
@@ -42,6 +50,7 @@ ICO_SIZES = [(16, 16), (20, 20), (24, 24), (32, 32), (48, 48), (64, 64),
 # kareler olmadan Windows 32'den kucultup bulaniklastiriyordu.
 
 TRAY_SIZE = 32
+LOGO_SIZE = 256      # About sekmesi 56 mantiksal px; 2x DPI'da 112 fiziksel
 EXT_SIZES = [16, 32, 48, 96, 128]
 
 
@@ -99,6 +108,9 @@ def main() -> None:
     write_ico(ICO, [(w, frame(w, master)) for w, _ in ICO_SIZES])
     TRAY.parent.mkdir(parents=True, exist_ok=True)
     frame(TRAY_SIZE, master).save(TRAY)
+    # Uygulama icindeki marka (About sekmesi). Tepsiyle ayni ana dosyadan ama
+    # daha buyuk: orada 56 mantiksal px'e ciziliyor, 32px kaynak bulanik olurdu.
+    frame(LOGO_SIZE, master).save(LOGO)
 
     # Eklenti ikonlari: bu dosyalar onceden ELLE yapilmisti ve marka disiydi
     # (yesil kutu + beyaz asagi ok). Artik ayni kaynaktan uretiliyor.
@@ -113,6 +125,9 @@ def main() -> None:
     tray = Image.open(TRAY)
     if tray.size != (TRAY_SIZE, TRAY_SIZE) or tray.mode != "RGBA":
         raise SystemExit(f"{TRAY}: {tray.size} {tray.mode}")
+    logo = Image.open(LOGO)
+    if logo.size != (LOGO_SIZE, LOGO_SIZE) or logo.mode != "RGBA":
+        raise SystemExit(f"{LOGO}: {logo.size} {logo.mode}")
 
     def same(img: Image.Image, expect: Image.Image) -> bool:
         return img.convert("RGBA").tobytes() == expect.tobytes()
@@ -123,13 +138,16 @@ def main() -> None:
             raise SystemExit(f"{size}px ICO karesi ana dosyadan gelmemis")
     if not same(Image.open(TRAY), frame(TRAY_SIZE, master)):
         raise SystemExit(f"{TRAY_SIZE}px tepsi ana dosyadan gelmemis")
+    if not same(Image.open(LOGO), frame(LOGO_SIZE, master)):
+        raise SystemExit(f"{LOGO_SIZE}px logo ana dosyadan gelmemis")
     for size in EXT_SIZES:
         got = Image.open(EXT_ICONS / f"{size}x{size}.png")
         if not same(got, frame(size, master)):
             raise SystemExit(f"eklenti {size}px karesi ana dosyadan gelmemis")
 
     print(f"ikonlar ok: {ICO.name} {sizes}")
-    print(f"           {TRAY.name} {TRAY_SIZE}x{TRAY_SIZE}")
+    print(f"           {TRAY.name} {TRAY_SIZE}x{TRAY_SIZE} (tepsi)")
+    print(f"           {LOGO.name} {LOGO_SIZE}x{LOGO_SIZE} (uygulama ici marka)")
     print(f"           extension/icons: {', '.join(f'{s}x{s}.png' for s in EXT_SIZES)}")
     print(f"           tek kaynak: {MASTER.name} — boyuta gore ayri kaynak YOK")
 
