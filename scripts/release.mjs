@@ -8,7 +8,9 @@
 //      (ayni adimda kaynak surumu tutarliligi denetlenir)
 //   3. `cargo build --release --bin serene-nmh` -> tarayici koprusu
 //   4. temiz yayin klasoru: `build/release/Serene-<surum>/`
-//   5. `makensis installer/serene.nsi`       -> `dist/Serene-Setup-<surum>.exe`
+//   5. ozel Flutter kurulum uygulamasi (`installer_app/`) derlenir; `makensis`
+//      yalniz tek-dosya tasiyici (`installer/bootstrap.nsi`) olarak
+//      kullanilir        -> `dist/Serene-Setup-<surum>.exe`
 //   6. `dist/Serene-<surum>-portable.zip` (kurulum paketi olmadan)
 //      + `python scripts/pack_extension.py` -> `dist/` altina eklenti paketleri
 //   7. `dist/SURUM-NOTU-<surum>.md` iskeleti
@@ -36,7 +38,9 @@ import { join, resolve } from "node:path";
 const DIR = resolve(import.meta.dirname, "..");
 const DIST = join(DIR, "dist");
 const STAGE_ROOT = join(DIR, "build", "release");
-const NSI = join(DIR, "installer", "serene.nsi");
+const NSI = join(DIR, "installer", "bootstrap.nsi");
+const SETUP_APP = join(DIR, "installer_app");
+const SETUP_UI = join(SETUP_APP, "build", "windows", "x64", "runner", "Release");
 const APP = "Serene.exe";
 const NMH = "serene-nmh.exe";
 const MAKENSIS_DEFAULT = "C:\\Program Files (x86)\\NSIS\\makensis.exe";
@@ -345,16 +349,11 @@ function buildInstaller(version, stage, stageBytes) {
   const icon = join(DIR, "flutter_app", "windows", "runner", "resources", "app_icon.ico");
   if (!existsSync(icon)) fail(`uygulama ikonu yok: ${icon}`);
 
-  // Banner: logo + ayirici cizgi. `make_banner.py` uretir; yoksa nsi uyari
-  // verip banner'siz devam eder, bu yuzden burada zorunlu degil.
-  //
-  // Yol **mutlak** verilir: NSIS `MUI_BANNER` degerini kendi calisma
-  // dizinine gore yorumlar, goreli yol verildiginde dosyayi bulamadi
-  // (ayni sorun `SERENE_ICON` icin de vardir).
-  const bannerPath = join(DIR, "installer", "assets", "banner.bmp");
-  if (!existsSync(join(DIR, "installer", "assets", "banner.bmp"))) {
-    console.warn("  ! banner.bmp yok; yurutme sayfasi banner'siz olacak");
-  }
+  // Gorunen her sey Flutter arayuzudur; NSIS yalnizca onu ve yayin klasorunu
+  // tek exe icine koyar. Surum Flutter tarafina `--version` ile gecer (tasiyici).
+  run("flutter", ["pub", "get"], SETUP_APP);
+  run("flutter", ["build", "windows", "--release"], SETUP_APP);
+  if (!existsSync(join(SETUP_UI, "SereneSetup.exe"))) fail(`kurulum uygulamasi derlenmedi: ${SETUP_UI}`);
   const out = join(DIST, `Serene-Setup-${version}.exe`);
   rmSync(out, { force: true });
   run(makensis, [
@@ -365,13 +364,10 @@ function buildInstaller(version, stage, stageBytes) {
     `-DSERENE_VERSION=${version}`,
     `-DSERENE_VERSION_QUAD=${versionQuad(version)}`,
     `-DSERENE_STAGE=${stage}`,
-    // Ikon kurulum klasorune yazilmaz, yalnizca paketin kendisinde gorunur.
+    // Ikon yalnizca tasiyici exe'nin dosya simgesidir.
     `-DSERENE_ICON=${icon}`,
-    // Yurutme sayfasi banner'i. `make_banner.py` uretir; yoksa sayfa
-    // banner'siz cizilir (nsi bunu bir uyari olarak yazar).
-    `-DSERENE_BANNER=${bannerPath}`,
-    // Programs and Features'taki "Boyut" (KB). NSIS bunu kendi hesaplayamiyor.
-    `-DSERENE_SIZE_KB=${Math.round(stageBytes / 1024)}`,
+    // Flutter kurulum uygulamasinin Release klasoru (mutlak yol).
+    `-DSETUP_UI=${SETUP_UI}`,
     `-DOUTFILE=${out}`,
     NSI,
   ], DIR);
