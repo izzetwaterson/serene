@@ -126,7 +126,6 @@ abstract class Strings {
   String get minimize;
   String get restore;
   String get maximize;
-  String get newDownload;
   String get queues;
   String get categories;
   String get disk;
@@ -389,8 +388,6 @@ class TrStrings extends Strings {
   String get restore => 'Geri Al';
   @override
   String get maximize => 'Büyüt';
-  @override
-  String get newDownload => 'Yeni İndirme Başlat';
   @override
   String get queues => 'Kuyruklar';
   @override
@@ -720,8 +717,6 @@ class EnStrings extends Strings {
   String get restore => 'Restore';
   @override
   String get maximize => 'Maximize';
-  @override
-  String get newDownload => 'Start New Download';
   @override
   String get queues => 'Queues';
   @override
