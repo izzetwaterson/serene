@@ -1,57 +1,59 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Serene ayarları</title>
+    <title data-i18n="optionsTitle">Serene settings</title>
     <link rel="stylesheet" href="options.css" />
   </head>
   <body>
     <main>
       <h1>Serene</h1>
-      <p class="lead">
-        İndirmeleri Firefox yerine Serene alır. Medya ve büyük dosyalar için sağ tık
-        menüsündeki <strong>Serene ile indir</strong> her zaman kullanılabilir.
+      <p class="lead" data-i18n-html="optionsLead">
+        Serene takes downloads instead of Firefox. For media and large files,
+        <strong>Download with Serene</strong> in the right-click menu is always
+        available.
       </p>
 
       <label class="row">
         <span class="row__text">
-          <span class="row__title">İndirmeleri devral</span>
-          <span class="row__hint">Firefox indirmeyi iptal eder, dosyayı Serene indirir</span>
+          <span class="row__title" data-i18n="optionsTakeoverTitle">Take over downloads</span>
+          <span class="row__hint" data-i18n="optionsTakeoverHint">Firefox cancels the download and Serene fetches the file</span>
         </span>
         <input id="takeover" type="checkbox" />
       </label>
 
       <label class="row">
         <span class="row__text">
-          <span class="row__title">Aktarınca bildirim göster</span>
-          <span class="row__hint">İndirme Serene'ye devredildiğinde kısa bilgi gösterilir</span>
+          <span class="row__title" data-i18n="optionsNotifyTitle">Show a notification on hand-off</span>
+          <span class="row__hint" data-i18n="optionsNotifyHint">A short notice appears when a download is handed to Serene</span>
         </span>
         <input id="notify" type="checkbox" />
       </label>
 
       <label class="row row--stacked">
         <span class="row__text">
-          <span class="row__title">En küçük boyut (KB)</span>
-          <span class="row__hint">Bu boyutun altındaki indirmelere karışılmaz</span>
+          <span class="row__title" data-i18n="optionsMinSizeTitle">Minimum size (KB)</span>
+          <span class="row__hint" data-i18n="optionsMinSizeHint">Downloads below this size are left alone</span>
         </span>
         <input id="min-size" type="number" min="0" max="102400" step="64" />
       </label>
 
       <label class="row row--stacked">
         <span class="row__text">
-          <span class="row__title">Hariç tutulan alan adları</span>
-          <span class="row__hint">Her satıra bir alan adı; alt alan adları da kapsanır</span>
+          <span class="row__title" data-i18n="optionsExcludedTitle">Excluded hosts</span>
+          <span class="row__hint" data-i18n="optionsExcludedHint">One host per line; subdomains are covered too</span>
         </span>
         <textarea id="excluded" rows="5" spellcheck="false"></textarea>
       </label>
 
       <footer>
-        <button id="save" type="button" class="primary">Kaydet</button>
-        <button id="reset" type="button" class="ghost">Varsayılanlara dön</button>
+        <button id="save" type="button" class="primary" data-i18n="optionsSave">Save</button>
+        <button id="reset" type="button" class="ghost" data-i18n="optionsReset">Reset to defaults</button>
         <span id="status" class="status"></span>
       </footer>
     </main>
 
+    <script src="i18n.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

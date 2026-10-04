@@ -16,6 +16,8 @@ const notifyEl = document.getElementById("notify");
 const openAppEl = document.getElementById("open-app");
 const openOptionsEl = document.getElementById("open-options");
 
+applyI18n();
+
 let pollTimer = null;
 
 /** Son render edilen adaylar; "Hepsini indir" bunlari kullanir. */
@@ -35,21 +37,21 @@ function formatBytes(bytes) {
 
 function formatSpeed(bytesPerSecond) {
   if (!bytesPerSecond || bytesPerSecond <= 0) return "";
-  return `${formatBytes(bytesPerSecond)}/sn`;
+  return `${formatBytes(bytesPerSecond)}${t("speedSuffix")}`;
 }
 
 function statusLabel(status) {
   switch (status) {
     case "downloading":
-      return "iniyor";
+      return t("statusDownloading");
     case "queued":
-      return "kuyrukta";
+      return t("statusQueued");
     case "paused":
-      return "duraklatıldı";
+      return t("statusPaused");
     case "completed":
-      return "tamamlandı";
+      return t("statusCompleted");
     case "failed":
-      return "başarısız";
+      return t("statusFailed");
     default:
       return status || "";
   }
@@ -62,7 +64,7 @@ function kindLabel(kind) {
     case "dash":
       return "DASH";
     default:
-      return "dosya";
+      return t("kindFile");
   }
 }
 
@@ -98,7 +100,7 @@ function renderCandidates(candidates) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "mini";
-    button.textContent = "İndir";
+    button.textContent = t("downloadButton");
     button.addEventListener("click", () => downloadCandidates([candidate.url]));
 
     head.append(badge, name, button);
@@ -106,7 +108,7 @@ function renderCandidates(candidates) {
     const meta = document.createElement("div");
     meta.className = "candidate__meta";
     meta.textContent = [
-      candidate.size > 0 ? formatBytes(candidate.size) : "boyut bilinmiyor",
+      candidate.size > 0 ? formatBytes(candidate.size) : t("sizeUnknown"),
       candidate.site,
     ]
       .filter(Boolean)
@@ -169,16 +171,16 @@ async function refresh() {
   }
 
   if (!state) {
-    statusEl.textContent = "arka plan betiği yanıt vermedi";
+    statusEl.textContent = t("popupStatusNoBackground");
     statusEl.className = "status status--bad";
     return;
   }
 
   if (state.connected) {
-    statusEl.textContent = "bağlı";
+    statusEl.textContent = t("popupStatusConnected");
     statusEl.className = "status status--ok";
   } else {
-    statusEl.textContent = "Serene kapalı";
+    statusEl.textContent = t("popupStatusAppClosed");
     statusEl.className = "status status--bad";
   }
 
@@ -210,12 +212,12 @@ downloadAllEl.addEventListener("click", () => {
 
 openAppEl.addEventListener("click", async () => {
   openAppEl.disabled = true;
-  openAppEl.textContent = "Açılıyor…";
+  openAppEl.textContent = t("popupOpenAppBusy");
   const result = await browser.runtime.sendMessage({ type: "popup:open-app" });
   openAppEl.disabled = false;
-  openAppEl.textContent = "Serene'yi Aç";
+  openAppEl.textContent = t("popupOpenApp");
   if (!result?.ok) {
-    statusEl.textContent = "açılamadı";
+    statusEl.textContent = t("popupStatusOpenFailed");
     statusEl.className = "status status--bad";
   }
   await refresh();

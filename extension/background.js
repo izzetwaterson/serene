@@ -116,7 +116,7 @@ function ensurePort() {
     // Bekleyen istekler cevapsiz kalmasin.
     for (const [reqId, entry] of inflight) {
       clearTimeout(entry.timer);
-      entry.reject(new Error(error?.message || "Serene baglantisi koptu"));
+      entry.reject(new Error(error?.message || t("errorConnectionLost")));
       inflight.delete(reqId);
     }
     if (wanted) scheduleReconnect();
@@ -184,7 +184,7 @@ function sendCommand(message, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       inflight.delete(reqId);
-      reject(new Error("Serene zaman asimina ugradi"));
+      reject(new Error(t("errorTimeout")));
     }, timeoutMs);
 
     inflight.set(reqId, { resolve, reject, timer });
@@ -201,7 +201,7 @@ function handleAppMessage(message) {
     inflight.delete(message.reqId);
 
     if (message.type === "error") {
-      entry.reject(new Error(message.payload?.message || "bilinmeyen hata"));
+      entry.reject(new Error(message.payload?.message || t("errorUnknown")));
     } else {
       entry.resolve(message.payload);
     }
@@ -637,7 +637,7 @@ async function handOffToSerene(item, source, refererHint) {
       browser.notifications.create({
         type: "basic",
         iconUrl: browser.runtime.getURL("icons/96x96.png"),
-        title: "Serene'ye aktarıldı",
+        title: t("notifyHandedOff"),
         message: task?.filename || payload.filename || payload.url,
       });
     }
@@ -708,7 +708,7 @@ const MENU_CONTEXTS = ["link", "video", "audio", "image", "selection"];
 
 browser.menus.create({
   id: "serene-download",
-  title: "Serene ile indir",
+  title: t("menuDownload"),
   contexts: MENU_CONTEXTS,
 });
 
@@ -732,8 +732,8 @@ browser.menus.onClicked.addListener(async (info) => {
     browser.notifications.create({
       type: "basic",
       iconUrl: browser.runtime.getURL("icons/96x96.png"),
-      title: "Serene'ye aktarılamadı",
-      message: String(result.error || "bilinmeyen hata"),
+      title: t("notifyHandOffFailed"),
+      message: String(result.error || t("errorUnknown")),
     });
   }
 });
@@ -793,7 +793,7 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           "capture"
         );
         if (result === true) queued += 1;
-        else errors.push(String(result.error || "bilinmeyen hata"));
+        else errors.push(String(result.error || t("errorUnknown")));
       }
       sendResponse({ queued, errors });
     })();

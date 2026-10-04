@@ -1,0 +1,145 @@
+{
+  "extensionName": {
+    "message": "Serene İndirme Yöneticisi"
+  },
+  "extensionDescription": {
+    "message": "İndirmeleri ve medyayı yakalayıp Serene indirme yöneticisine aktarır."
+  },
+
+  "popupStatusConnecting": {
+    "message": "bağlanıyor…"
+  },
+  "popupCandidatesTitle": {
+    "message": "Yakalananlar"
+  },
+  "popupCandidatesEmpty": {
+    "message": "Bu sekmede medya bulunamadı."
+  },
+  "popupDownloadAll": {
+    "message": "Hepsini indir"
+  },
+  "popupActiveTitle": {
+    "message": "Aktif indirmeler"
+  },
+  "popupActiveEmpty": {
+    "message": "Şu an inen bir şey yok."
+  },
+  "popupTakeoverLabel": {
+    "message": "İndirmeleri Serene devralsın"
+  },
+  "popupNotifyLabel": {
+    "message": "Aktarınca bildirim göster"
+  },
+  "popupOpenApp": {
+    "message": "Serene'yi Aç"
+  },
+  "popupOpenOptions": {
+    "message": "Ayarlar"
+  },
+
+  "popupStatusConnected": {
+    "message": "bağlı"
+  },
+  "popupStatusAppClosed": {
+    "message": "Serene kapalı"
+  },
+  "popupStatusNoBackground": {
+    "message": "arka plan betiği yanıt vermedi"
+  },
+  "popupStatusOpenFailed": {
+    "message": "açılamadı"
+  },
+  "popupOpenAppBusy": {
+    "message": "Açılıyor…"
+  },
+  "downloadButton": {
+    "message": "İndir"
+  },
+  "sizeUnknown": {
+    "message": "boyut bilinmiyor"
+  },
+  "kindFile": {
+    "message": "dosya"
+  },
+  "statusDownloading": {
+    "message": "iniyor"
+  },
+  "statusQueued": {
+    "message": "kuyrukta"
+  },
+  "statusPaused": {
+    "message": "duraklatıldı"
+  },
+  "statusCompleted": {
+    "message": "tamamlandı"
+  },
+  "statusFailed": {
+    "message": "başarısız"
+  },
+  "speedSuffix": {
+    "message": "/sn"
+  },
+
+  "optionsTitle": {
+    "message": "Serene ayarları"
+  },
+  "optionsLead": {
+    "message": "İndirmeleri Firefox yerine Serene alır. Medya ve büyük dosyalar için sağ tık menüsündeki <strong>Serene ile indir</strong> her zaman kullanılabilir."
+  },
+  "optionsTakeoverTitle": {
+    "message": "İndirmeleri devral"
+  },
+  "optionsTakeoverHint": {
+    "message": "Firefox indirmeyi iptal eder, dosyayı Serene indirir"
+  },
+  "optionsNotifyTitle": {
+    "message": "Aktarınca bildirim göster"
+  },
+  "optionsNotifyHint": {
+    "message": "İndirme Serene'ye devredildiğinde kısa bilgi gösterilir"
+  },
+  "optionsMinSizeTitle": {
+    "message": "En küçük boyut (KB)"
+  },
+  "optionsMinSizeHint": {
+    "message": "Bu boyutun altındaki indirmelere karışılmaz"
+  },
+  "optionsExcludedTitle": {
+    "message": "Hariç tutulan alan adları"
+  },
+  "optionsExcludedHint": {
+    "message": "Her satıra bir alan adı; alt alan adları da kapsanır"
+  },
+  "optionsSave": {
+    "message": "Kaydet"
+  },
+  "optionsReset": {
+    "message": "Varsayılanlara dön"
+  },
+
+  "optionsSaved": {
+    "message": "Kaydedildi"
+  },
+  "optionsResetDone": {
+    "message": "Varsayılanlara dönüldü"
+  },
+
+  "menuDownload": {
+    "message": "Serene ile indir"
+  },
+  "notifyHandedOff": {
+    "message": "Serene'ye aktarıldı"
+  },
+  "notifyHandOffFailed": {
+    "message": "Serene'ye aktarılamadı"
+  },
+  "errorUnknown": {
+    "message": "bilinmeyen hata"
+  },
+  "errorConnectionLost": {
+    "message": "Serene bağlantısı koptu"
+  },
+  "errorTimeout": {
+    "message": "Serene zaman aşımına uğradı"
+  }
+}

@@ -17,6 +17,8 @@ const saveEl = document.getElementById("save");
 const resetEl = document.getElementById("reset");
 const statusEl = document.getElementById("status");
 
+applyI18n();
+
 async function load() {
   const stored = await browser.storage.local.get("settings");
   const settings = { ...DEFAULTS, ...(stored.settings || {}) };
@@ -50,13 +52,13 @@ function flash(message) {
 saveEl.addEventListener("click", async () => {
   const settings = collect();
   await browser.runtime.sendMessage({ type: "popup:save-settings", settings });
-  flash("Kaydedildi");
+  flash(t("optionsSaved"));
 });
 
 resetEl.addEventListener("click", async () => {
   await browser.runtime.sendMessage({ type: "popup:save-settings", settings: { ...DEFAULTS } });
   await load();
-  flash("Varsayılanlara dönüldü");
+  flash(t("optionsResetDone"));
 });
 
 load();

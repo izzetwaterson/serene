@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <title>Serene</title>
@@ -11,41 +11,42 @@
         <img src="icons/48x48.png" alt="" width="20" height="20" />
         <span>Serene</span>
       </div>
-      <span id="status" class="status status--unknown">bağlanıyor…</span>
+      <span id="status" class="status status--unknown" data-i18n="popupStatusConnecting">connecting…</span>
     </header>
 
     <section id="candidate-section">
       <div class="section-head">
-        <h2>Yakalananlar</h2>
+        <h2 data-i18n="popupCandidatesTitle">Captured</h2>
         <span id="candidate-count" class="count"></span>
       </div>
       <ul id="candidate-list" class="tasks"></ul>
-      <p id="candidates-empty" class="empty">Bu sekmede medya bulunamadı.</p>
-      <button id="download-all" type="button" class="ghost wide" disabled>Hepsini indir</button>
+      <p id="candidates-empty" class="empty" data-i18n="popupCandidatesEmpty">No media found on this tab.</p>
+      <button id="download-all" type="button" class="ghost wide" disabled data-i18n="popupDownloadAll">Download all</button>
     </section>
 
     <section id="active-section">
-      <h2>Aktif indirmeler</h2>
+      <h2 data-i18n="popupActiveTitle">Active downloads</h2>
       <ul id="task-list" class="tasks"></ul>
-      <p id="empty" class="empty">Şu an inen bir şey yok.</p>
+      <p id="empty" class="empty" data-i18n="popupActiveEmpty">Nothing downloading right now.</p>
     </section>
 
     <section class="controls">
       <label class="toggle">
         <input id="takeover" type="checkbox" />
-        <span>İndirmeleri Serene devralsın</span>
+        <span data-i18n="popupTakeoverLabel">Let Serene take over downloads</span>
       </label>
       <label class="toggle">
         <input id="notify" type="checkbox" />
-        <span>Aktarınca bildirim göster</span>
+        <span data-i18n="popupNotifyLabel">Show a notification on hand-off</span>
       </label>
     </section>
 
     <footer>
-      <button id="open-app" type="button" class="primary">Serene'yi Aç</button>
-      <button id="open-options" type="button" class="ghost">Ayarlar</button>
+      <button id="open-app" type="button" class="primary" data-i18n="popupOpenApp">Open Serene</button>
+      <button id="open-options" type="button" class="ghost" data-i18n="popupOpenOptions">Settings</button>
     </footer>
 
+    <script src="i18n.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

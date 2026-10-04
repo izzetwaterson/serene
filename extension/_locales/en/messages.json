@@ -1,0 +1,145 @@
+{
+  "extensionName": {
+    "message": "Serene Download Manager"
+  },
+  "extensionDescription": {
+    "message": "Captures downloads and media and hands them off to the Serene download manager."
+  },
+
+  "popupStatusConnecting": {
+    "message": "connecting…"
+  },
+  "popupCandidatesTitle": {
+    "message": "Captured"
+  },
+  "popupCandidatesEmpty": {
+    "message": "No media found on this tab."
+  },
+  "popupDownloadAll": {
+    "message": "Download all"
+  },
+  "popupActiveTitle": {
+    "message": "Active downloads"
+  },
+  "popupActiveEmpty": {
+    "message": "Nothing downloading right now."
+  },
+  "popupTakeoverLabel": {
+    "message": "Let Serene take over downloads"
+  },
+  "popupNotifyLabel": {
+    "message": "Show a notification on hand-off"
+  },
+  "popupOpenApp": {
+    "message": "Open Serene"
+  },
+  "popupOpenOptions": {
+    "message": "Settings"
+  },
+
+  "popupStatusConnected": {
+    "message": "connected"
+  },
+  "popupStatusAppClosed": {
+    "message": "Serene is closed"
+  },
+  "popupStatusNoBackground": {
+    "message": "background script did not respond"
+  },
+  "popupStatusOpenFailed": {
+    "message": "could not open"
+  },
+  "popupOpenAppBusy": {
+    "message": "Opening…"
+  },
+  "downloadButton": {
+    "message": "Download"
+  },
+  "sizeUnknown": {
+    "message": "size unknown"
+  },
+  "kindFile": {
+    "message": "file"
+  },
+  "statusDownloading": {
+    "message": "downloading"
+  },
+  "statusQueued": {
+    "message": "queued"
+  },
+  "statusPaused": {
+    "message": "paused"
+  },
+  "statusCompleted": {
+    "message": "completed"
+  },
+  "statusFailed": {
+    "message": "failed"
+  },
+  "speedSuffix": {
+    "message": "/s"
+  },
+
+  "optionsTitle": {
+    "message": "Serene settings"
+  },
+  "optionsLead": {
+    "message": "Serene takes downloads instead of Firefox. For media and large files, <strong>Download with Serene</strong> in the right-click menu is always available."
+  },
+  "optionsTakeoverTitle": {
+    "message": "Take over downloads"
+  },
+  "optionsTakeoverHint": {
+    "message": "Firefox cancels the download and Serene fetches the file"
+  },
+  "optionsNotifyTitle": {
+    "message": "Show a notification on hand-off"
+  },
+  "optionsNotifyHint": {
+    "message": "A short notice appears when a download is handed to Serene"
+  },
+  "optionsMinSizeTitle": {
+    "message": "Minimum size (KB)"
+  },
+  "optionsMinSizeHint": {
+    "message": "Downloads below this size are left alone"
+  },
+  "optionsExcludedTitle": {
+    "message": "Excluded hosts"
+  },
+  "optionsExcludedHint": {
+    "message": "One host per line; subdomains are covered too"
+  },
+  "optionsSave": {
+    "message": "Save"
+  },
+  "optionsReset": {
+    "message": "Reset to defaults"
+  },
+
+  "optionsSaved": {
+    "message": "Saved"
+  },
+  "optionsResetDone": {
+    "message": "Defaults restored"
+  },
+
+  "menuDownload": {
+    "message": "Download with Serene"
+  },
+  "notifyHandedOff": {
+    "message": "Handed off to Serene"
+  },
+  "notifyHandOffFailed": {
+    "message": "Could not hand off to Serene"
+  },
+  "errorUnknown": {
+    "message": "unknown error"
+  },
+  "errorConnectionLost": {
+    "message": "Serene connection dropped"
+  },
+  "errorTimeout": {
+    "message": "Serene timed out"
+  }
+}
