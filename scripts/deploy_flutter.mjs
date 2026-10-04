@@ -34,8 +34,10 @@ const manifest = join(process.env.APPDATA ?? "", "Serene", "nmh", `${HOST_ID}.js
 function run(command, commandArgs, cwd) {
   // Node, kabuk olmadan .bat/.cmd türetmeyi reddediyor; `flutter` da Windows'ta
   // bir betik. Komutlar sabit oldugu icin kabuk kullanmak enjekte edilebilir
-  // bir yuzey birakmiyor.
-  const line = [command, ...commandArgs].join(" ");
+  // bir yuzey birakmiyor. Kabuk bosluklu argumanlari kendiliginden boldugu icin
+  // her parca release.mjs'teki gibi ayri ayri tirnaklaniyor.
+  const quote = (part) => (/[\s"]/.test(part) ? `"${part}"` : part);
+  const line = [command, ...commandArgs].map(quote).join(" ");
   console.log(`> ${line}`);
   try {
     execFileSync(line, { cwd, stdio: "inherit", windowsHide: true, shell: true });

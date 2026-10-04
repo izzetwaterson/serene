@@ -24,6 +24,8 @@
 //  13. Rozet aktif sekmenin aday sayisini gosterir, sekme degisiminde tazelenir
 //  14. Sekme kapaninca / gezinme baslayinca adaylar silinir
 //  15. Tarama tek basina native baglanti ACMAZ (uygulama baslamaz)
+//  16. Arayuz iki dilli (en varsayilan, tr ceviri): kataloglar birebir esit,
+//      HTML/JS/manifest'teki her anahtar en'de cozulur, kullanilmayan anahtar kalmaz
 //
 // DIKKAT: {4}. adimda `%APPDATA%\Serene\settings.json` icindeki onay ayari
 // gecici olarak kapatilir (devralma pencere beklemesin diye) ve kosum sonunda
@@ -35,7 +37,7 @@ import { execSync, spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { runInNewContext } from "node:vm";
+import { createContext, runInContext } from "node:vm";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const EXT = join(ROOT, "extension");
@@ -57,6 +59,20 @@ const TEST_UA = "Serene-Test/1.0 (eklenti dogrulama)";
 
 // Devralmada Referer, indirme ogesinin kendi alanindan gelir.
 const TEST_REFERER = "http://127.0.0.1:8795/sayfa.html";
+
+// Arayuz iki dilli: en varsayilan katalog. Denetimler iki dosyayi da okur,
+// calisma zamaninda mesajlar da bu katalogdan cozulur.
+function loadMessages(locale) {
+  const path = join(EXT, "_locales", locale, "messages.json");
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+const EN_MESSAGES = loadMessages("en");
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -189,6 +205,20 @@ function createBrowserMock(options = {}) {
       get lastError() {
         return state.lastError;
       },
+    },
+    // Mesajlar varsayilan katalogdan (en) cozulur; $1 yer tutuculari destekli.
+    i18n: {
+      getMessage: (key, substitutions) => {
+        const message = EN_MESSAGES?.[key]?.message;
+        if (typeof message !== "string") return "";
+        const subs = Array.isArray(substitutions)
+          ? substitutions
+          : substitutions == null
+            ? []
+            : [substitutions];
+        return message.replace(/\$(\d+)/g, (_, n) => String(subs[Number(n) - 1] ?? ""));
+      },
+      getUILanguage: () => "en-US",
     },
     storage: {
       local: {
@@ -358,7 +388,6 @@ function createBrowserMock(options = {}) {
 }
 
 function loadBackground(browser) {
-  const code = readFileSync(join(EXT, "background.js"), "utf8");
   const sandbox = {
     browser,
     console,
@@ -370,7 +399,12 @@ function loadBackground(browser) {
     // background.js User-Agent'i buradan okur; sandbox'ta tanimli olmali.
     navigator: { userAgent: TEST_UA },
   };
-  runInNewContext(code, sandbox, { filename: "background.js" });
+  // i18n.js ve background.js ayni baglamda kosar: `t` yardimcisi i18n.js'te
+  // tanimli, background onu kullanir (gercek eklentide de ayni sira).
+  const context = createContext(sandbox);
+  for (const file of ["i18n.js", "background.js"]) {
+    runInContext(readFileSync(join(EXT, file), "utf8"), context, { filename: file });
+  }
 }
 
 /* ---------- yardimcilar ---------- */
@@ -483,6 +517,106 @@ function checkManifest(problems) {
     problems.push(`options.js'in aradigi id'ler eksik: ${missingOptionIds.join(", ")}`);
   }
 
+  /* --- i18n: iki dilli arayuz (en varsayilan, tr ceviri) --- */
+  if (manifest.default_locale !== "en") {
+    problems.push(`default_locale "en" olmali (${manifest.default_locale})`);
+  }
+
+  const catalogs = {};
+  for (const locale of ["en", "tr"]) {
+    const path = join(EXT, "_locales", locale, "messages.json");
+    if (!existsSync(path)) {
+      problems.push(`katalog yok: _locales/${locale}/messages.json`);
+      catalogs[locale] = null;
+      continue;
+    }
+    try {
+      catalogs[locale] = JSON.parse(readFileSync(path, "utf8"));
+    } catch (error) {
+      problems.push(`_locales/${locale}/messages.json bozuk: ${error.message}`);
+      catalogs[locale] = null;
+    }
+  }
+
+  const enCatalog = catalogs.en;
+  const trCatalog = catalogs.tr;
+  if (enCatalog && trCatalog) {
+    const missingTr = Object.keys(enCatalog).filter((key) => !(key in trCatalog));
+    const extraTr = Object.keys(trCatalog).filter((key) => !(key in enCatalog));
+    if (missingTr.length) problems.push(`tr katalogunda eksik anahtar: ${missingTr.join(", ")}`);
+    if (extraTr.length) problems.push(`tr katalogunda fazla anahtar: ${extraTr.join(", ")}`);
+    for (const [locale, catalog] of [["en", enCatalog], ["tr", trCatalog]]) {
+      for (const [key, entry] of Object.entries(catalog)) {
+        if (typeof entry?.message !== "string" || !entry.message.trim()) {
+          problems.push(`${locale} katalogunda bos mesaj: ${key}`);
+        }
+      }
+    }
+  }
+
+  // Sayfalar i18n.js'i kendi betiklerinden once yuklemeli: `t` ve applyI18n
+  // orada tanimli.
+  for (const [file, html, script] of [
+    ["popup.html", popup, "popup.js"],
+    ["options.html", options, "options.js"],
+  ]) {
+    const i18nAt = html.indexOf('src="i18n.js"');
+    if (i18nAt === -1) {
+      problems.push(`${file} i18n.js yuklemiyor`);
+    } else if (html.indexOf(`src="${script}"`) < i18nAt) {
+      problems.push(`${file} i18n.js'i ${script}'den once yuklemeli`);
+    }
+  }
+
+  if (enCatalog) {
+    // HTML, JS ve manifest hangi anahtarlari istiyor?
+    const used = new Map();
+    const note = (key, source) => {
+      if (!used.has(key)) used.set(key, []);
+      used.get(key).push(source);
+    };
+
+    for (const [file, html] of [["popup.html", popup], ["options.html", options]]) {
+      for (const match of html.matchAll(/data-i18n(?:-html)?="([^"]+)"/g)) note(match[1], file);
+    }
+
+    const jsSources = [
+      [
+        "i18n.js",
+        existsSync(join(EXT, "i18n.js")) ? readFileSync(join(EXT, "i18n.js"), "utf8") : "",
+      ],
+      ["popup.js", popupJs],
+      ["options.js", optionsJs],
+      ["background.js", readFileSync(join(EXT, "background.js"), "utf8")],
+    ];
+    for (const [file, code] of jsSources) {
+      for (const match of code.matchAll(/\bt\(\s*"([^"]+)"\s*\)|getMessage\(\s*"([^"]+)"/g)) {
+        note(match[1] || match[2], file);
+      }
+    }
+
+    for (const [field, value] of [
+      ["name", manifest.name],
+      ["description", manifest.description],
+      ["browser_action.default_title", manifest.browser_action?.default_title],
+    ]) {
+      if (typeof value !== "string") continue;
+      for (const match of value.matchAll(/__MSG_([A-Za-z0-9_@]+)__/g)) {
+        note(match[1], `manifest:${field}`);
+      }
+    }
+
+    const unresolved = [...used.keys()].filter((key) => !(key in enCatalog));
+    if (unresolved.length) {
+      problems.push(`en katalogunda cozulemeyen anahtar: ${unresolved.join(", ")}`);
+    }
+    const unused = Object.keys(enCatalog).filter((key) => !used.has(key));
+    if (unused.length) {
+      problems.push(`kullanilmayan katalog anahtari: ${unused.join(", ")}`);
+    }
+    report.i18n = { keys: Object.keys(enCatalog).length, referenced: used.size };
+  }
+
   return report;
 }
 
@@ -514,6 +648,11 @@ async function main() {
       `manifest v${report.manifest.version}: ${report.manifest.permissions} izin, kimlik=${report.manifest.geckoId}`
     );
     console.log(`host allowed_extensions: ${JSON.stringify(report.manifest.hostAllowed)}`);
+    if (report.manifest.i18n) {
+      console.log(
+        `i18n: ${report.manifest.i18n.keys} anahtar (en/tr esit), kullanilan=${report.manifest.i18n.referenced}`
+      );
+    }
 
     /* 3. Tembel baglanti: yuklenince uygulama baslamamali */
     const mock = createBrowserMock();
@@ -996,12 +1135,14 @@ async function main() {
       console.log(`BASARISIZ: ${problems.join("; ")}`);
     } else {
       console.log(
-        "BASARILI: eklenti manifesti, devralma, medya taramasi, menu ve geri dusme dogrulandi"
+        "BASARILI: eklenti manifesti, iki dilli arayuz, devralma, medya taramasi, menu ve geri dusme dogrulandi"
       );
     }
   } catch (error) {
     failed = true;
     console.log("");
+    // Kosum yarisinda dusse bile simdiye kadar yazilan sorunlar gorunsun.
+    if (problems.length) console.log(`simdiye kadarki sorunlar: ${problems.join("; ")}`);
     console.log(`BASARISIZ: ${error.message}`);
   } finally {
     killAll();

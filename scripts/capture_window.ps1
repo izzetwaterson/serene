@@ -47,7 +47,10 @@ $w = $r.Right - $r.Left
 $ht = $r.Bottom - $r.Top
 if ($w -le 0 -or $ht -le 0) { Write-Output "BASARISIZ: pencere olcusu gecersiz"; exit 1 }
 
-$path = [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $Out))
+# PS 5.1'de Join-Path, ikinci arguman mutlakken de birlestirir ve gecersiz
+# bir yol uretir; mutlak Out'u oldugu gibi kullaniyoruz.
+$path = if ([System.IO.Path]::IsPathRooted($Out)) { $Out } else { Join-Path (Get-Location) $Out }
+$path = [System.IO.Path]::GetFullPath($path)
 $dir = [System.IO.Path]::GetDirectoryName($path)
 if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
 
