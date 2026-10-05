@@ -34,7 +34,6 @@ class SetupArgs {
     required this.autostart,
     required this.keepData,
     this.preview,
-    this.variant,
     this.lang,
   });
 
@@ -50,16 +49,12 @@ class SetupArgs {
   /// Gelistirici onizlemesi (`--page ADI`); normal kullanimda hep null.
   final String? preview;
 
-  /// Yerlesim varyanti (`--variant card|calm`); karar verilene kadar
-  /// iki varyant yan yana denenebilir.
-  final String? variant;
-
   /// Arayuz dili (`--lang tr|en`). Verilirse dil sorusu atlanir.
   final String? lang;
 
   /// Desteklenen bayraklar: `--uninstall`, `--silent`, `--payload KLASOR`,
   /// `--version X.Y.Z`, `--dir KLASOR`, `--no-startmenu`, `--autostart`,
-  /// `--delete-data`, `--lang tr|en`, `--variant ADI`.
+  /// `--delete-data`, `--lang tr|en`.
   factory SetupArgs.parse(List<String> args) {
     String? value(String name) {
       final i = args.indexOf(name);
@@ -77,7 +72,6 @@ class SetupArgs {
       autostart: args.contains('--autostart'),
       keepData: !args.contains('--delete-data'),
       preview: value('--page'),
-      variant: value('--variant'),
       lang: value('--lang'),
     );
   }

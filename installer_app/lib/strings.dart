@@ -25,7 +25,6 @@ class L {
   String get continueLabel => _t('Continue', 'Devam');
 
   // Marka
-  String get tagline => _t('A calm download manager.', 'Sakin bir indirme yöneticisi.');
   String get setupTitle => _t('Serene Setup', 'Serene Kurulum');
 
   // Karsilama
@@ -34,9 +33,7 @@ class L {
       'Setup takes a few seconds and does not need administrator rights.',
       'Kurulum birkaç saniye sürer ve yönetici yetkisi gerektirmez.');
   String get install => _t('Install', 'Kur');
-  String get customize => _t('Customize', 'Özelleştir');
   String get back => _t('Back', 'Geri');
-  String get version => _t('Version', 'Sürüm');
 
   // Calisan uygulama
   String get runningTitle => _t('Serene is running', 'Serene çalışıyor');
@@ -47,7 +44,6 @@ class L {
 
   // Secenekler
   String get optionsTitle => _t('Setup options', 'Kurulum ayarları');
-  String get installFolder => _t('Install folder', 'Kurulum klasörü');
   String get change => _t('Change…', 'Değiştir…');
   String get optStartMenu => _t('Start menu shortcut', 'Başlat menüsü kısayolu');
   String get optStartMenuHint => _t('Adds Serene to the Start menu.', 'Serene’i Başlat menüsüne ekler.');
@@ -96,12 +92,5 @@ class L {
   String get removedBody => _t('Your downloaded files were not deleted.', 'İndirdiğin dosyalar silinmedi.');
   String get notInstalled => _t('Serene does not seem to be installed.', 'Serene kurulu görünmüyor.');
 
-  // Deneme varyantlari icin kisa etiketler
-  String get wizLang => _t('Language', 'Dil');
-  String get wizSetup => _t('Setup', 'Kurulum');
-  String get wizDone => _t('Done', 'Bitti');
-  String get wizConfirm => _t('Confirm', 'Onay');
-  String get wizRemove => _t('Removing', 'Kaldırma');
   String get whereTitle => _t('Where should Serene be installed?', 'Serene nereye kurulsun?');
-  String get browse => _t('Browse…', 'Gözat…');
 }

@@ -48,11 +48,9 @@ Future<void> main(List<String> rawArgs) async {
     if (saved != null) L.use(saved == 'tr');
   }
 
-  final variant = resolveVariant(args.variant);
-
   await windowManager.ensureInitialized();
   final options = WindowOptions(
-    size: windowSizeFor(variant),
+    size: setupWindowSize,
     center: true,
     backgroundColor: Serene.background,
     title: L.current.setupTitle,

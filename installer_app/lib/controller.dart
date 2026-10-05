@@ -8,24 +8,6 @@ import 'strings.dart';
 
 enum SetupPage { language, welcome, options, installing, done, error, confirmUninstall, removing, removed }
 
-/// Deneme yerlesimleri (karar verilene kadar).
-///   card : yatay kucuk kart; solda yaprak, sagda icerik
-///   calm : ortalanmis, tek sutunlu, daha da sade
-///   flow : tek yuzey; yaprak madalyonu sabit, icerik ayni sahnede akar;
-///          karsilama + ayarlar tek ekranda birlesir
-///   editorial : kart yok; tipografi ve ince cizgiler dogrudan zeminde;
-///               karsilama + ayarlar tek editoryal sayfada
-///   mini  : en kucuk pencere; tek sayfa — klasor satiri, satir ici acilan
-///           ayarlar ve tek dugme
-///   wizard: solda numarali adim rayi (Dil, Kurulum, Bitti), sagda sayfa
-///   quiz  : her ekranda tek soru; ustte nokta gostergesi, tek dugme
-///   fluent: Windows'a yerli his — Segoe UI, kare kose, Fluent kontroller
-enum SetupVariant { card, calm, flow, editorial, mini, wizard, quiz, fluent }
-
-/// `--variant` bayragini cozer; verilmeyen ya da taninmayan ad `card`a duser.
-SetupVariant resolveVariant(String? name) => SetupVariant.values
-    .firstWhere((v) => v.name == name, orElse: () => SetupVariant.card);
-
 /// Arayuzun tek durum kaynagi. Sayfa gecisleri, ilerleme ve hatalar burada;
 /// widget'lar yalnizca dinler ve metot cagirir.
 class SetupController extends ChangeNotifier {
@@ -36,7 +18,6 @@ class SetupController extends ChangeNotifier {
           autostart: args.autostart,
         ),
         installer = Installer(payloadDir: args.payload, version: args.version) {
-    variant = resolveVariant(args.variant);
     options.language = L.current.isTurkish ? 'tr' : 'en';
     // Dil sorusu yalniz etkilesimli kurulumda sorulur; `--lang` ya da
     // onizleme bayragi verilirse atlanir. Kaldirma dili kurulumdan okur.
@@ -58,7 +39,6 @@ class SetupController extends ChangeNotifier {
   final SetupArgs args;
   final Installer installer;
   final SetupOptions options;
-  late final SetupVariant variant;
 
   SetupPage page = SetupPage.welcome;
   double progress = 0;
@@ -91,9 +71,6 @@ class SetupController extends ChangeNotifier {
 
   bool get busy => page == SetupPage.installing || page == SetupPage.removing;
 
-  /// Marka panelindeki halka yalniz is sirasinda gorunur.
-  double? get ringProgress => busy ? progress : null;
-
   Future<void> _poll() async {
     if (busy) return;
     final running = await isSereneRunning();
@@ -117,7 +94,6 @@ class SetupController extends ChangeNotifier {
   void toggleStartMenu(bool v) => _set(() => options.startMenu = v);
   void toggleDesktop(bool v) => _set(() => options.desktop = v);
   void toggleAutostart(bool v) => _set(() => options.autostart = v);
-  void toggleLaunch(bool v) => _set(() => launchAfter = v);
   void toggleKeepData(bool v) => _set(() => keepData = v);
   void setDir(String dir) => _set(() => options.dir = dir);
 
