@@ -81,7 +81,9 @@ class SetupController extends ChangeNotifier {
         page = p;
         progress = 0.62;
         step = p == SetupPage.removing ? SetupStep.removeFiles : SetupStep.files;
-        detail = 'data\\flutter_assets\\fonts\\Fraunces-Regular.ttf';
+        detail = p == SetupPage.removing
+            ? 'C:\\Program Files\\Serene\\Serene.exe'
+            : 'data\\flutter_assets\\fonts\\Fraunces-Regular.ttf';
         if (p == SetupPage.error) error = 'Registry write failed (DisplayName): Access is denied.';
       }
     }

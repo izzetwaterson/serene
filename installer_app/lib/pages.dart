@@ -350,11 +350,12 @@ class _EditorialLayout extends StatelessWidget {
 /// Editoryal parcalar: metin eylemi, dil secimi, klasor satiri, uyari satiri,
 /// ince ayirici ve ince ilerleme cizgisi.
 class _LinkAction extends StatefulWidget {
-  const _LinkAction({required this.label, this.onTap, this.primary = true});
+  const _LinkAction({required this.label, this.onTap, this.primary = true, this.danger = false});
 
   final String label;
   final VoidCallback? onTap;
   final bool primary;
+  final bool danger;
 
   @override
   State<_LinkAction> createState() => _LinkActionState();
@@ -369,6 +370,8 @@ class _LinkActionState extends State<_LinkAction> {
     final Color color;
     if (!enabled) {
       color = Serene.outlineVariant;
+    } else if (widget.primary && widget.danger) {
+      color = _hover ? Color.lerp(Serene.error, Colors.black, 0.16)! : Serene.error;
     } else if (widget.primary) {
       color = _hover ? Serene.primaryHover : Serene.primary;
     } else {
@@ -841,6 +844,15 @@ class _QuizLayout extends StatelessWidget {
   final SetupController c;
   final PageSpec spec;
 
+  /// Kaldirma yolu kurulumdan ayri ve kisa: onay, kaldirma, bitti.
+  bool get _uninstallFlow =>
+      c.page == SetupPage.confirmUninstall ||
+      c.page == SetupPage.removing ||
+      c.page == SetupPage.removed ||
+      (c.page == SetupPage.error && c.args.uninstall);
+
+  int get _total => _uninstallFlow ? 2 : 4;
+
   int get _step {
     switch (c.page) {
       case SetupPage.language:
@@ -849,8 +861,13 @@ class _QuizLayout extends StatelessWidget {
         return 1;
       case SetupPage.options:
         return 2;
+      case SetupPage.confirmUninstall:
+        return 0;
+      case SetupPage.removing:
+      case SetupPage.removed:
+        return 1;
       default:
-        return 3;
+        return _uninstallFlow ? 1 : 3;
     }
   }
 
@@ -865,7 +882,7 @@ class _QuizLayout extends StatelessWidget {
           FadeSlideIn(
             child: Row(
               children: [
-                for (var i = 0; i < 4; i++) ...[
+                for (var i = 0; i < _total; i++) ...[
                   if (i > 0) const SizedBox(width: 6),
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 260),
@@ -879,7 +896,7 @@ class _QuizLayout extends StatelessWidget {
                   ),
                 ],
                 const Spacer(),
-                Text('0${step + 1} / 04', style: mono(10.5, color: Serene.onSurfaceVariant).copyWith(letterSpacing: 1.2)),
+                Text('0${step + 1} / 0$_total', style: mono(10.5, color: Serene.onSurfaceVariant).copyWith(letterSpacing: 1.2)),
               ],
             ),
           ),
@@ -890,11 +907,13 @@ class _QuizLayout extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (c.page == SetupPage.done) ...[
+                if (c.page == SetupPage.done || c.page == SetupPage.removed) ...[
                   const LeafImage(size: 24),
                   const SizedBox(height: 14),
                 ],
-                _TitleBlock(spec: spec, titleSize: c.page == SetupPage.done ? 40 : 26),
+                _TitleBlock(
+                    spec: spec,
+                    titleSize: c.page == SetupPage.done || c.page == SetupPage.removed ? 40 : 26),
                 const SizedBox(height: 18),
                 spec.body,
               ],
@@ -1236,11 +1255,12 @@ class _FluentTitleBlock extends StatelessWidget {
 
 /// Fluent dugme: accent (dolu) ya da standart (kenarlikli); kose yaricapi 4.
 class _FluentButton extends StatefulWidget {
-  const _FluentButton({required this.label, required this.onTap, this.accent = true});
+  const _FluentButton({required this.label, required this.onTap, this.accent = true, this.danger = false});
 
   final String label;
   final VoidCallback? onTap;
   final bool accent;
+  final bool danger;
 
   @override
   State<_FluentButton> createState() => _FluentButtonState();
@@ -1255,7 +1275,11 @@ class _FluentButtonState extends State<_FluentButton> {
     final Color bg;
     final Color fg;
     final Border? border;
-    if (widget.accent) {
+    if (widget.accent && widget.danger) {
+      bg = enabled ? (_hover ? Color.lerp(Serene.error, Colors.black, 0.16)! : Serene.error) : Serene.outlineVariant;
+      fg = enabled ? (Serene.brightness == Brightness.dark ? const Color(0xFF33110F) : Colors.white) : Serene.onSurfaceVariant;
+      border = null;
+    } else if (widget.accent) {
       bg = enabled ? (_hover ? Serene.primaryHover : Serene.primary) : Serene.outlineVariant;
       fg = enabled ? Serene.onPrimary : Serene.onSurfaceVariant;
       border = null;
@@ -1621,18 +1645,18 @@ double _bodyWidth(SetupController c) {
 }
 
 /// Varyanta gore eylem: editoryal sayfada metin eylemi, fluent'te Windows
-/// dugmesi, digerlerinde yuvarlak dugme.
-Widget _actionFor(SetupController c, String label, VoidCallback? onTap, {bool primary = true}) {
+/// dugmesi, digerlerinde yuvarlak dugme. `danger` yikici eylemi kirmiziya cevirir.
+Widget _actionFor(SetupController c, String label, VoidCallback? onTap, {bool primary = true, bool danger = false}) {
   switch (c.variant) {
     case SetupVariant.editorial:
-      return _LinkAction(label: label, onTap: onTap, primary: primary);
+      return _LinkAction(label: label, onTap: onTap, primary: primary, danger: danger);
     case SetupVariant.quiz:
-      if (primary) return SButton(label: label, onTap: onTap);
+      if (primary) return SButton(label: label, onTap: onTap, danger: danger);
       return _QuizBack(label: label, onTap: onTap);
     case SetupVariant.fluent:
-      return _FluentButton(label: label, onTap: onTap, accent: primary);
+      return _FluentButton(label: label, onTap: onTap, accent: primary, danger: danger);
     default:
-      return SButton(label: label, onTap: onTap, primary: primary);
+      return SButton(label: label, onTap: onTap, primary: primary, danger: danger);
   }
 }
 
@@ -1913,7 +1937,7 @@ PageSpec _specFor(SetupController c, L t) {
         subtitle: t.uninstallBody,
         actions: [
           _actionFor(c, t.cancel, () => exit(0), primary: false),
-          _actionFor(c, t.uninstall, c.sereneRunning ? null : c.startUninstall),
+          _actionFor(c, t.uninstall, c.sereneRunning ? null : c.startUninstall, danger: true),
         ],
         body: SizedBox(
           width: w,
@@ -1940,7 +1964,7 @@ PageSpec _specFor(SetupController c, L t) {
         title: t.removedTitle,
         subtitle: t.removedBody,
         actions: [_actionFor(c, t.finish, c.finish)],
-        body: const AnimatedCheck(size: 46),
+        body: quiz ? const SizedBox.shrink() : const AnimatedCheck(size: 46),
       );
   }
 }

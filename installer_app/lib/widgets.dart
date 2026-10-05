@@ -184,12 +184,15 @@ class _RingPainter extends CustomPainter {
 
 /// Dolu (birincil) ve hayalet dugme.
 class SButton extends StatefulWidget {
-  const SButton({super.key, required this.label, required this.onTap, this.primary = true, this.compact = false});
+  const SButton({super.key, required this.label, required this.onTap, this.primary = true, this.compact = false, this.danger = false});
 
   final String label;
   final VoidCallback? onTap;
   final bool primary;
   final bool compact;
+
+  /// Yikici eylem (kaldirma): dolgu kirmiziya doner.
+  final bool danger;
 
   @override
   State<SButton> createState() => _SButtonState();
@@ -203,7 +206,11 @@ class _SButtonState extends State<SButton> {
     final enabled = widget.onTap != null;
     final Color bg;
     final Color fg;
-    if (widget.primary) {
+    if (widget.primary && widget.danger) {
+      bg = enabled ? (_hover ? Color.lerp(Serene.error, Colors.black, 0.16)! : Serene.error) : Serene.outlineVariant;
+      // Koyu temada hata rengi acik pembe; ustune beyaz yazi okunmaz.
+      fg = enabled ? (Serene.brightness == Brightness.dark ? const Color(0xFF33110F) : Colors.white) : Serene.onSurfaceVariant;
+    } else if (widget.primary) {
       bg = enabled ? (_hover ? Serene.primaryHover : Serene.primary) : Serene.outlineVariant;
       fg = enabled ? Serene.onPrimary : Serene.onSurfaceVariant;
     } else {
