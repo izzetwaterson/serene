@@ -16,7 +16,7 @@ Ciktilar depoda durur. Ikonlar degistiginde sira:
 
 Uretilenler:
   * `flutter_app/windows/runner/resources/app_icon.ico` (8 boyut)   <- icon
-  * `flutter_app/assets/icons/serene_tray.png` (32px — tepsi)       <- icon
+  * `flutter_app/assets/icons/serene_tray.png` (32px — tepsi)       <- leaf
   * `extension/icons/{16,32,48,96,128}.png`                         <- icon
   * `flutter_app/assets/icons/serene_logo.png` (256px — About)      <- leaf
 
@@ -25,11 +25,10 @@ bildirim alani 16/20/24/32 ister), ama About sekmesi logoyu 56 mantiksal px'te
 ciziyor — 2x DPI'da 112 fiziksel px. 32px'lik dosyayi 56'ya buyutmek
 bulaniklastirirdi; logo bu yuzden 256px uretilir (2x icin 2 kattan fazla pay).
 
-Kaynak secimi boyuta gore DEGIL, kullanim yerine gore yapilir: uygulama,
-tepsi ve eklenti her zaman `serene-icon.png`'den; About logosu her zaman
-`serene-leaf-master.png`'den gelir. (Bir ara 48px alti icin ayri bir "acik
-yesil karo" ana dosyasi vardi; kullanici tek kaynak istedigi icin 2026-10-01'de
-kaldirildi. Ayni gun About icin yaprak istisnasi geri geldi.)
+Kaynak secimi BOYUTA gore: <=32px kareler `serene-leaf-master.png` yapragindan,
+ustundekiler `serene-icon.png` karo+yapragindan. Kucuk boyutta karo icindeki
+yaprak siluetlesip kayboluyordu; yaprak tuvali doldurdugu icin gorev cubugu ve
+tepside net kalir. About logosu da her zaman yapraktan gelir (bilincli istisna).
 
 **ICO neden elle yaziliyor.** Pillow'un ICO kaydedicisi tek bir kaynagi
 kucultur; `append_images` parametresini kabul ediyor ama ICO icin
@@ -60,6 +59,11 @@ ICO_SIZES = [(16, 16), (20, 20), (24, 24), (32, 32), (48, 48), (64, 64),
 TRAY_SIZE = 32
 LOGO_SIZE = 256      # About sekmesi 56 mantiksal px; 2x DPI'da 112 fiziksel
 EXT_SIZES = [16, 32, 48, 96, 128]
+
+# Kucuk karelerde karo+yaprak siluetlesip kaybolur; bu esik ve altindaki
+# boyutlar YAPRAKTAN uretilir (tuvali doldurur, gorev cubugu/tepsi'de net).
+# Ustundekiler karo+yaprak (kimlik). Windows her boyutu kendi secer.
+SMALL_FROM_LEAF = 32
 
 
 def frame(size: int, master: Image.Image) -> Image.Image:
@@ -118,9 +122,9 @@ def main() -> None:
     master = _load(MASTER)
     leaf = _load(LEAF)
 
-    write_ico(ICO, [(w, frame(w, master)) for w, _ in ICO_SIZES])
+    write_ico(ICO, [(w, frame(w, leaf if w <= SMALL_FROM_LEAF else master)) for w, _ in ICO_SIZES])
     TRAY.parent.mkdir(parents=True, exist_ok=True)
-    frame(TRAY_SIZE, master).save(TRAY)
+    frame(TRAY_SIZE, leaf).save(TRAY)  # tepsi kucuk: yaprak (karo siluetlesirdi)
     # About bilincli istisna: karo degil yaprak. 56 mantiksal px / 2x DPI icin
     # 256px kaynak pay birakiyor.
     frame(LOGO_SIZE, leaf).save(LOGO)
@@ -129,7 +133,8 @@ def main() -> None:
     # (yesil kutu + beyaz asagi ok). Artik ayni kaynaktan uretiliyor.
     EXT_ICONS.mkdir(parents=True, exist_ok=True)
     for size in EXT_SIZES:
-        frame(size, master).save(EXT_ICONS / f"{size}x{size}.png")
+        source = leaf if size <= SMALL_FROM_LEAF else master
+        frame(size, source).save(EXT_ICONS / f"{size}x{size}.png")
 
     # Yanlis ada yazan bir betik sessizce gecmesin: ciktilar burada dogrulanir.
     sizes = sorted(Image.open(ICO).info["sizes"])
@@ -147,16 +152,18 @@ def main() -> None:
 
     for size in (16, 20, 24, 32, 48, 64, 128):
         got = Image.open(io.BytesIO(_ico_frame_bytes(ICO, size)))
-        if not same(got, frame(size, master)):
-            raise SystemExit(f"{size}px ICO karesi ana dosyadan gelmemis")
-    if not same(Image.open(TRAY), frame(TRAY_SIZE, master)):
-        raise SystemExit(f"{TRAY_SIZE}px tepsi ana dosyadan gelmemis")
+        expect = frame(size, leaf if size <= SMALL_FROM_LEAF else master)
+        if not same(got, expect):
+            raise SystemExit(f"{size}px ICO karesi dogru ana dosyadan gelmemis")
+    if not same(Image.open(TRAY), frame(TRAY_SIZE, leaf)):
+        raise SystemExit(f"{TRAY_SIZE}px tepsi yaprak ana dosyadan gelmemis")
     if not same(Image.open(LOGO), frame(LOGO_SIZE, leaf)):
         raise SystemExit(f"{LOGO_SIZE}px About logosu yaprak ana dosyadan gelmemis")
     for size in EXT_SIZES:
         got = Image.open(EXT_ICONS / f"{size}x{size}.png")
-        if not same(got, frame(size, master)):
-            raise SystemExit(f"eklenti {size}px karesi ana dosyadan gelmemis")
+        expect = frame(size, leaf if size <= SMALL_FROM_LEAF else master)
+        if not same(got, expect):
+            raise SystemExit(f"eklenti {size}px karesi dogru ana dosyadan gelmemis")
 
     print(f"ikonlar ok: {ICO.name} {sizes}")
     print(f"           {TRAY.name} {TRAY_SIZE}x{TRAY_SIZE} (tepsi)")
