@@ -10,7 +10,10 @@ use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 use tokio_util::sync::CancellationToken;
 
-use crate::engine::{build_request, hide_dir, merge_parts};
+use crate::engine::{
+    backoff_delay, build_request, hide_dir, merge_parts, request_error_is_transient,
+    status_is_transient, TransferError, MAX_ATTEMPTS,
+};
 use crate::manager::{DownloadEntry, DownloadManager};
 use crate::models::{DownloadMeta, SegmentInfo};
 use crate::runtime;
@@ -172,8 +175,62 @@ pub async fn run(
     Ok(total)
 }
 
-/// Tek parca: varsa once sifresini cozer, sonra atomik olarak adlandirir.
+/// Tek bir akis parcasini indirir; gecici hatalarda sinirli sayida yeniden
+/// dener. Parca bastan inildigi icin (`Range` yok) her denemede canli sayac
+/// sifirlanir; boylece yeniden deneme ilerlemeyi cift saymaz.
 async fn download_one(
+    client: &Client,
+    meta: &DownloadMeta,
+    segment: &Segment,
+    index: usize,
+    temp_dir: &Path,
+    counter: &AtomicU64,
+    cancel: &CancellationToken,
+) -> Result<()> {
+    let mut attempt: u32 = 0;
+    loop {
+        if cancel.is_cancelled() {
+            return Err(TransferError::Fatal("iptal edildi".into()).into_anyhow());
+        }
+
+        counter.store(0, Ordering::Relaxed);
+
+        match download_one_once(client, meta, segment, index, temp_dir, counter, cancel).await {
+            Ok(()) => return Ok(()),
+            Err(err) => {
+                let transient = matches!(
+                    err.downcast_ref::<TransferError>(),
+                    Some(TransferError::Transient(_))
+                );
+                if !transient || attempt + 1 >= MAX_ATTEMPTS {
+                    if attempt > 0 {
+                        return Err(TransferError::Fatal(format!(
+                            "{} kez yeniden denendi, son deneme basarisiz: {}",
+                            attempt + 1,
+                            err
+                        ))
+                        .into_anyhow());
+                    }
+                    return Err(err);
+                }
+
+                let delay = backoff_delay(attempt, 0x5EED_0000u64 ^ index as u64);
+                attempt += 1;
+                tokio::select! {
+                    _ = cancel.cancelled() => {
+                        return Err(TransferError::Fatal("iptal edildi".into()).into_anyhow())
+                    }
+                    _ = tokio::time::sleep(delay) => {}
+                }
+            }
+        }
+    }
+}
+
+/// Tek parcanin tek denemesi: varsa once sifresini cozer, sonra atomik olarak
+/// adlandirir. Hatalar `TransferError` olarak cikar ki cagirici gecici mi
+/// kalici mi oldugunu bilebilsin.
+async fn download_one_once(
     client: &Client,
     meta: &DownloadMeta,
     segment: &Segment,
@@ -194,17 +251,29 @@ async fn download_one(
     let part_path = partial_path(temp_dir, index);
     let _ = fs::remove_file(&part_path).await;
 
-    let resp = build_request(client, &segment.url, meta)
-        .send()
-        .await
-        .with_context(|| format!("Parca indirilemedi: {}", segment.url))?;
+    let resp = match build_request(client, &segment.url, meta).send().await {
+        Ok(resp) => resp,
+        Err(err) => {
+            let text = format!("Parca indirilemedi: {} ({err})", segment.url);
+            return Err(if request_error_is_transient(&err) {
+                TransferError::Transient(text).into_anyhow()
+            } else {
+                TransferError::Fatal(text).into_anyhow()
+            });
+        }
+    };
     let status = resp.status();
     if !status.is_success() {
-        return Err(anyhow!(
+        let text = format!(
             "Sunucu {} yanitini dondurdu ({})",
             status.as_u16(),
             segment.url
-        ));
+        );
+        return Err(if status_is_transient(status) {
+            TransferError::Transient(text).into_anyhow()
+        } else {
+            TransferError::Fatal(text).into_anyhow()
+        });
     }
 
     let mut sink = File::create(&part_path)
@@ -215,21 +284,36 @@ async fn download_one(
 
     loop {
         let next = tokio::select! {
-            _ = cancel.cancelled() => return Err(anyhow!("iptal edildi")),
+            _ = cancel.cancelled() => {
+                return Err(TransferError::Fatal("iptal edildi".into()).into_anyhow())
+            }
             next = stream.next() => next,
         };
         let Some(chunk) = next else { break };
-        let chunk = chunk.context("Veri akisi kesildi")?;
-        sink.write_all(&chunk).await?;
+        let chunk = match chunk {
+            Ok(chunk) => chunk,
+            Err(err) => {
+                return Err(
+                    TransferError::Transient(format!("Veri akisi kesildi: {err}")).into_anyhow()
+                )
+            }
+        };
+        if let Err(err) = sink.write_all(&chunk).await {
+            return Err(TransferError::Fatal(format!("Parca yazilamadi: {err}")).into_anyhow());
+        }
         written += chunk.len() as u64;
         counter.fetch_add(chunk.len() as u64, Ordering::Relaxed);
     }
-    sink.flush().await?;
+    if let Err(err) = sink.flush().await {
+        return Err(TransferError::Fatal(format!("Parca yazilamadi: {err}")).into_anyhow());
+    }
     drop(sink);
 
     if written == 0 {
         let _ = fs::remove_file(&part_path).await;
-        return Err(anyhow!("Bos parca indi: {}", segment.url));
+        return Err(
+            TransferError::Transient(format!("Bos parca indi: {}", segment.url)).into_anyhow(),
+        );
     }
 
     if let Some(key) = &segment.key {

@@ -33,8 +33,7 @@ const RETRY_CAP: Duration = Duration::from_secs(30);
 /// ~18 saniyede "bu adrese ulasilamiyor" sonucunu verir. Besinci deneme iki
 /// saniye daha ekler ama kullaniciya gorunur bir faydasi yok: ayni sunucu
 /// ikinci kez de kabul etmiyorsa ucuncu de etmez.
-const MAX_ATTEMPTS: u32 = 4;
-
+pub const MAX_ATTEMPTS: u32 = 4;
 /// Bir **baglanti** denemesinin tavani. `reqwest`in `connect_timeout`u 20
 /// saniye ve `is_connect()` hatasi gecici sayildigi icin, oldugu gibi birakilsa
 /// kapali bir adrese 5 x 20 = 100 saniyeye varan bir bekleme cikiyordu.
@@ -449,6 +448,13 @@ async fn run_segment_once(job: &SegmentJob<'_>) -> Result<()> {
     let mut have = existing.min(want);
     if !unknown_end && have >= want {
         return Ok(());
+    }
+
+    // Sunucu aralik desteklemiyorsa (`unknown_end`) devam edilemez: `Range`
+    // gonderilemedigi icin sunucu govdeyi bastan yollar. Yarim kalan parcanin
+    // uzerine eklemek dosyayi bozar; bu yuzden bastan indirilir.
+    if unknown_end {
+        have = 0;
     }
 
     // Yarim kalmis kuyrugu at, dogru offsetten devam et.
