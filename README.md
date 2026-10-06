@@ -229,7 +229,7 @@ Output lands in `dist/`.
 ```bash
 cd core && cargo test               # 79 tests
 cd ../native-host && cargo test     # 36 tests
-cd ../flutter_app && flutter test   # 53 tests
+cd ../flutter_app && flutter test   # 55 tests
 ```
 
 The end-to-end scripts launch the real app and talk to it through the same
