@@ -19,9 +19,13 @@ import 'widgets.dart';
 /// calisan ornekten periyodik (400 ms) okur ve parcalari canli gosterir.
 /// Yakalanan bir indirme onaydan gecip basladiginda ana pencere acar.
 class DownloadWindow extends StatefulWidget {
-  const DownloadWindow({super.key, required this.id});
+  const DownloadWindow({super.key, required this.id, this.fetch});
 
   final String id;
+
+  /// Gorevi okur; varsayilan olarak calisan ornegin koprusunu kullanir.
+  /// Test icin degistirilebilir.
+  final Future<Task?> Function(String id)? fetch;
 
   @override
   State<DownloadWindow> createState() => _DownloadWindowState();
@@ -62,24 +66,29 @@ class _DownloadWindowState extends State<DownloadWindow>
     }
   }
 
+  Future<Task?> _load() async {
+    final custom = widget.fetch;
+    if (custom != null) return custom(widget.id);
+    final raw = await ffi.taskSnapshot(id: widget.id);
+    return raw == null ? null : Task.fromEngine(raw);
+  }
+
   Future<void> _refresh() async {
     Task? task;
     try {
-      final raw = await ffi.taskSnapshot(id: widget.id);
-      if (raw == null) {
-        // Gorev listeden cikti: tamamlandi/temizlendi ya da iptal edildi.
-        if (!mounted) return;
-        _poll?.cancel();
-        setState(() => _notice = T.downloadGone);
-        return;
-      }
-      task = Task.fromEngine(raw);
+      task = await _load();
     } catch (error) {
       if (!mounted) return;
       setState(() => _notice = engineReason(error));
       return;
     }
     if (!mounted) return;
+    if (task == null) {
+      // Gorev listeden cikti: tamamlandi/temizlendi ya da iptal edildi.
+      _poll?.cancel();
+      setState(() => _notice = T.downloadGone);
+      return;
+    }
     setState(() {
       _task = task;
       _notice = null;
