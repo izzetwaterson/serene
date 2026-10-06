@@ -130,6 +130,10 @@ pub struct Settings {
     /// anahtarinda `Serene` degeridir; kurulum paketi de ayni anahtari yazar.
     /// Kullanici bu isi Ayarlar'dan ya da kurulumdan yapabilir.
     pub autostart: bool,
+    /// Tarayici eklentisi tanitimi gosterildi; ilk acilis penceresi bir daha
+    /// kendiliginden acilmaz. Ayarlar panelinde gorunmez, yalnizca bu kapiyi
+    /// tutar; "Tarayici yok" rozeti istendiginde yine acar.
+    pub extension_offer_done: bool,
 }
 
 /// Tema degerini taninan kumesine indirger. Ayar dosyasi elle duzenlenebilir
@@ -166,6 +170,7 @@ impl Default for Settings {
             theme: "light".to_string(),
             language: "en".to_string(),
             autostart: false,
+            extension_offer_done: false,
         }
     }
 }

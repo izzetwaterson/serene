@@ -10,8 +10,11 @@ artifacts/*
 dist/
 build/
 
-# Oturum kayitlari (asistan gorusmelerinin disa aktarimi, 18 MB)
+# Oturum/arac dosyalari (asistan gorusmeleri + AI araclarinin durum dosyalari)
 selam_*.md
+lastsession.md
+session-*.md
+.zcodeignore
 
 # Python onbellegi
 __pycache__/

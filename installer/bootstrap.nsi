@@ -11,7 +11,7 @@
 ;   payload\  kurulacak Serene dosyalari (yayin klasoru)
 ;
 ; Komut satiri bayraklari aynen Flutter uygulamasina iletilir (`--silent`,
-; `--dir KLASOR`, `--autostart`, `--no-startmenu`, `--no-bridge` ...).
+; `--dir KLASOR`, `--autostart`, `--no-startmenu`, `--lang tr|en` ...).
 ;
 ; Derleme (scripts/release.mjs yapar):
 ;   makensis /INPUTCHARSET UTF8 ^

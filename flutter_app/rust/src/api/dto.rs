@@ -226,6 +226,7 @@ pub struct AppConfig {
     pub theme: String,
     pub language: String,
     pub autostart: bool,
+    pub extension_offer_done: bool,
 }
 
 impl From<Settings> for AppConfig {
@@ -240,6 +241,7 @@ impl From<Settings> for AppConfig {
             theme: normalize_theme(&value.theme),
             language: normalize_language(&value.language),
             autostart: value.autostart,
+            extension_offer_done: value.extension_offer_done,
         }
     }
 }
@@ -256,6 +258,7 @@ impl From<AppConfig> for Settings {
             theme: normalize_theme(&value.theme),
             language: normalize_language(&value.language),
             autostart: value.autostart,
+            extension_offer_done: value.extension_offer_done,
         }
     }
 }

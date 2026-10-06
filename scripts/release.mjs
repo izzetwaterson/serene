@@ -7,7 +7,8 @@
 //   2. `flutter build windows --release`      -> uygulama + gomulu motor
 //      (ayni adimda kaynak surumu tutarliligi denetlenir)
 //   3. `cargo build --release --bin serene-nmh` -> tarayici koprusu
-//   4. temiz yayin klasoru: `build/release/Serene-<surum>/`
+//   4. temiz yayin klasoru: `build/release/Serene-<surum>/` (uygulama,
+//      kopru ve `extension\` klasoru birlikte)
 //   5. ozel Flutter kurulum uygulamasi (`installer_app/`) derlenir; `makensis`
 //      yalniz tek-dosya tasiyici (`installer/bootstrap.nsi`) olarak
 //      kullanilir        -> `dist/Serene-Setup-<surum>.exe`
@@ -178,6 +179,18 @@ function stageRelease(version, bundle, hostExe) {
     });
   }
 
+  // Tarayici eklentisi pakete dahildir: uygulama ilk acilista bu klasoru
+  // gosterir, kullanici gecici eklenti olarak yukler. Klasor yoksa paket
+  // eksik cikar; sessizce devam edilmez.
+  const extensionDir = join(DIR, "extension");
+  if (!existsSync(join(extensionDir, "manifest.json"))) {
+    fail(`eklenti klasoru eksik: ${extensionDir}`);
+  }
+  cpSync(extensionDir, join(stage, "extension"), {
+    recursive: true,
+    filter: (src) => !isJunk(src.split("\\").pop()),
+  });
+
   // Lisansta dagitimla birlikte gitmek zorunda (MIT) ve kurulum paketinin
   // lisans sayfasi buradan okuyor.
   copyFileSync(join(DIR, "LICENSE"), join(stage, "LICENSE.txt"));
@@ -307,15 +320,17 @@ eklenebilir.
 - Kod imzasi yok: Windows SmartScreen "bilinmeyen yayinci" uyarisi verir.
   Kurulumdan once bu uyariyi gorursunuz, "Daha fazla bilgi" > "Yine de
   calistir" demek gerekebilir.
-- Tarayici eklentisi Manifest V2: Firefox AMO'ya yuklenemez, elle
-  (gecici yukleme veya profil klasorune \`extensions\`) kurulur.
+- Tarayici eklentisi Manifest V2: Firefox AMO'ya yuklenemez; uygulama ilk
+  acilista \`extension\` klasorunu gosterir, eklenti oradan gecici olarak
+  yuklenir (tarayici kapaninca yukleme adimi tekrarlanir).
 
 ## Yukleme
 
 - Kurulum paketi: \`Serene-Setup-${version}.exe\` (kullanici bazli, yonetici
   hakki istemez)
 - Tasinabilir surum: \`Serene-${version}-portable.zip\`
-- Tarayici eklentisi: \`dist/\` altindaki \`.xpi\` (ayrica yuklenmeli)
+- Tarayici eklentisi pakete dahildir (\`extension\` klasoru); kurulumdan
+  sonra uygulama ilk acilista kurulum adimlarini gosterir
 
 ## Geri Bildirim
 

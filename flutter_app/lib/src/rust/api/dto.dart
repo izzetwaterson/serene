@@ -20,6 +20,7 @@ class AppConfig {
   final String theme;
   final String language;
   final bool autostart;
+  final bool extensionOfferDone;
 
   const AppConfig({
     required this.downloadDir,
@@ -31,6 +32,7 @@ class AppConfig {
     required this.theme,
     required this.language,
     required this.autostart,
+    required this.extensionOfferDone,
   });
 
   @override
@@ -43,7 +45,8 @@ class AppConfig {
       confirmBrowserDownload.hashCode ^
       theme.hashCode ^
       language.hashCode ^
-      autostart.hashCode;
+      autostart.hashCode ^
+      extensionOfferDone.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -58,7 +61,8 @@ class AppConfig {
           confirmBrowserDownload == other.confirmBrowserDownload &&
           theme == other.theme &&
           language == other.language &&
-          autostart == other.autostart;
+          autostart == other.autostart &&
+          extensionOfferDone == other.extensionOfferDone;
 }
 
 /// Tarayicidan yakalanan medya kaydi.

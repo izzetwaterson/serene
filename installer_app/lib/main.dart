@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
@@ -16,8 +15,7 @@ import 'theme.dart';
 ///   * `SereneSetup.exe`                 -> kurulum (varsayilan)
 ///   * `SereneSetup.exe --uninstall`     -> kaldirma (`<kurulum>\uninstall\` icinden)
 ///   * `--silent` ile arayuz hic cizilmeden calisir.
-Brightness? _forcedBrightness;
-
+/// Pencere her zaman acik temadir; sistem karanligi izlenmez.
 Future<void> main(List<String> rawArgs) async {
 
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,16 +26,6 @@ Future<void> main(List<String> rawArgs) async {
   if (args.silent) {
     exit(await _runSilent(args));
   }
-
-  // `--theme light|dark` yalniz onizleme icindir; normalde sistem temasi izlenir.
-  final themeFlag = rawArgs.indexOf('--theme');
-  final forced = themeFlag >= 0 && themeFlag + 1 < rawArgs.length ? rawArgs[themeFlag + 1] : null;
-  _forcedBrightness = forced == 'light'
-      ? Brightness.light
-      : forced == 'dark'
-          ? Brightness.dark
-          : null;
-  Serene.activate(_forcedBrightness ?? ui.PlatformDispatcher.instance.platformBrightness);
 
   // Dil: `--lang` > kurulumda saklanan (kaldirma) > sistem. Etkilesimli kurulumda
   // ilk sayfa dili sorar ve bunu ezer.
@@ -122,17 +110,15 @@ class SetupApp extends StatefulWidget {
   State<SetupApp> createState() => _SetupAppState();
 }
 
-class _SetupAppState extends State<SetupApp> with WidgetsBindingObserver {
+class _SetupAppState extends State<SetupApp> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_rebuild);
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_rebuild);
     super.dispose();
   }
@@ -140,17 +126,11 @@ class _SetupAppState extends State<SetupApp> with WidgetsBindingObserver {
   void _rebuild() => setState(() {});
 
   @override
-  void didChangePlatformBrightness() {
-    Serene.activate(_forcedBrightness ?? ui.PlatformDispatcher.instance.platformBrightness);
-    setState(() {});
-  }
-
-  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: L.current.setupTitle,
-      theme: sereneTheme(Serene.brightness),
+      theme: sereneTheme(),
       home: Scaffold(
         backgroundColor: Serene.background,
         body: SetupShell(controller: widget.controller),

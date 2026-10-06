@@ -10,6 +10,7 @@ import 'app_theme.dart';
 import 'cards.dart';
 import 'data.dart';
 import 'demo.dart';
+import 'extension_offer.dart';
 import 'folder_picker.dart';
 import 'format.dart';
 import 'handoff.dart';
@@ -54,7 +55,10 @@ class _MainWindowState extends State<MainWindow>
   String _query = '';
 
   bool _demoOn = false;
-  bool _bridgeUp = false;
+
+  /// Köprü durumu; tanitim penceresi eklentinin baglanmasini bununla izler.
+  final ValueNotifier<bool> _browserUp = ValueNotifier(false);
+  bool _offerOpen = false;
   bool _maximized = false;
   bool _showSettings = false;
 
@@ -166,6 +170,11 @@ class _MainWindowState extends State<MainWindow>
     );
     _loadDisk();
     _syncDemoClock();
+    // Tanitim penceresi ancak ilk kare cizildikten sonra acilabilir; ayni
+    // karede kopru durumu da okunmus olur.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _maybeOfferExtension(),
+    );
   }
 
   Timer? _bridgeClock;
@@ -269,6 +278,7 @@ class _MainWindowState extends State<MainWindow>
     WidgetsBinding.instance.removeObserver(this);
     appThemeMode.removeListener(_onThemeChanged);
     appLanguage.removeListener(_onLanguageChanged);
+    _browserUp.dispose();
     _search.dispose();
     _url.dispose();
     super.dispose();
@@ -397,7 +407,63 @@ class _MainWindowState extends State<MainWindow>
   Future<void> _checkBridge() async {
     final status = ffi.bridgeStatus();
     if (!mounted) return;
-    setState(() => _bridgeUp = status.clients > 0);
+    final up = status.clients > 0;
+    if (_browserUp.value == up) return;
+    setState(() => _browserUp.value = up);
+  }
+
+  /// Ilk acilis: tanitim yalnizca bir kez ve yalnizca gerekliyse gosterilir.
+  Future<void> _maybeOfferExtension() async {
+    if (_settings.extensionOfferDone || _browserUp.value) return;
+    await _openExtensionOffer();
+  }
+
+  /// Tanitim penceresini acar; "Tarayici yok" rozeti de buraya gelir.
+  ///
+  /// Kapi isaretlenmis olsa da acilir: rozet, kullaniciya kaldigi yerden
+  /// devam etme yolu olarak kalir.
+  Future<void> _openExtensionOffer() async {
+    if (_offerOpen || _browserUp.value) return;
+    final folder = extensionFolder();
+    if (folder == null) return;
+    _offerOpen = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) =>
+            ExtensionOfferDialog(browserUp: _browserUp, folder: folder),
+      );
+    } finally {
+      _offerOpen = false;
+    }
+    await _markExtensionOfferDone();
+  }
+
+  /// Pencere her kapandiginda kapi isaretlenir: "Simdi degil" de karar sayilir.
+  Future<void> _markExtensionOfferDone() async {
+    if (_settings.extensionOfferDone) return;
+    try {
+      final raw = ffi.getSettings();
+      final saved = await ffi.updateSettings(
+        settings: engine.AppConfig(
+          downloadDir: raw.downloadDir,
+          maxConcurrent: raw.maxConcurrent,
+          connections: raw.connections,
+          watchClipboard: raw.watchClipboard,
+          closeToTray: raw.closeToTray,
+          confirmBrowserDownload: raw.confirmBrowserDownload,
+          theme: raw.theme,
+          language: raw.language,
+          autostart: raw.autostart,
+          extensionOfferDone: true,
+        ),
+      );
+      if (!mounted) return;
+      setState(() => _settings = Settings.fromEngine(saved));
+    } catch (_) {
+      // Kayit yazilamazsa kapi acik kalir; sonraki acilis yeniden sorar.
+    }
   }
 
   Future<void> _loadDisk() async {
@@ -690,11 +756,12 @@ class _MainWindowState extends State<MainWindow>
           Column(
             children: [
               Header(
-                bridgeUp: _bridgeUp,
+                bridgeUp: _browserUp.value,
                 maximized: _maximized,
                 search: _search,
                 onQuery: (value) => setState(() => _query = value),
                 onSettings: _openSettings,
+                onBrowserSetup: _browserUp.value ? null : _openExtensionOffer,
                 onMinimize: windowManager.minimize,
                 onMaximize: () async {
                   if (await windowManager.isMaximized()) {
@@ -840,6 +907,7 @@ class Header extends StatelessWidget {
     required this.search,
     required this.onQuery,
     required this.onSettings,
+    this.onBrowserSetup,
     required this.onMinimize,
     required this.onMaximize,
     required this.onClose,
@@ -850,6 +918,9 @@ class Header extends StatelessWidget {
   final TextEditingController search;
   final ValueChanged<String> onQuery;
   final VoidCallback onSettings;
+
+  /// Baglanti yokken rozeti tiklanabilir kilar: tanitim penceresini acar.
+  final VoidCallback? onBrowserSetup;
   final VoidCallback onMinimize;
   final VoidCallback onMaximize;
   final VoidCallback onClose;
@@ -898,6 +969,7 @@ class Header extends StatelessWidget {
             _Pill(
               dot: bridgeUp ? Serene.primary : Serene.outline,
               label: bridgeUp ? T.browserConnected : T.browserMissing,
+              onTap: onBrowserSetup,
             ),
             // Hiz rozeti kaldirildi: (a) her kartin satirinda zaten yaziyor,
             // yani ust bar tekrarliyordu; (b) surekli degisen sayi gozun
@@ -1053,18 +1125,20 @@ class _SearchField extends StatelessWidget {
 
 /// Ust bardaki bilgi rozetleri.
 ///
-/// Yalnizca tarayici baglantisi icin kullanilir. Hiz rozeti de bu bicimi
-/// kullaniyordu; kaldirildigindan `monoFont` ve `pulse` parametreleri de
-/// kullanimsiz kaldi ve kaldirildi.
+/// Yalnizca tarayici baglantisi icin kullanilir. Baglanti yokken tiklanabilir:
+/// tanitim penceresini yeniden acar. Hiz rozeti de bu bicimi kullaniyordu;
+/// kaldirildigindan `monoFont` ve `pulse` parametreleri de kullanimsiz kaldi
+/// ve kaldirildi.
 class _Pill extends StatelessWidget {
-  const _Pill({required this.dot, required this.label});
+  const _Pill({required this.dot, required this.label, this.onTap});
 
   final Color dot;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final pill = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: Serene.surfaceContainerLow,
@@ -1082,6 +1156,15 @@ class _Pill extends StatelessWidget {
           const SizedBox(width: 8),
           Text(label, style: body(12, color: Serene.secondary)),
         ],
+      ),
+    );
+    if (onTap == null) return pill;
+    return Tooltip(
+      message: T.extensionPillHint,
+      waitDuration: const Duration(milliseconds: 500),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(onTap: onTap, child: pill),
       ),
     );
   }

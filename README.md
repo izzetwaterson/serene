@@ -53,19 +53,23 @@ rights.
 |---|---|
 | Install folder | `%LOCALAPPDATA%\Programs\Serene` |
 | Start menu shortcut | on |
+| Desktop shortcut | on |
 | Start when Windows starts | **off** |
-| Browser bridge registration | on (Firefox/Zen required) |
 
 To uninstall: `Settings → Apps → Serene`. Your **download list in
 `%APPDATA%\Serene` is preserved.**
 
 ### Browser extension (optional)
 
-The installer registers the browser bridge. The extension itself is unsigned,
+The extension ships inside the installer. On first launch the app offers it
+once and can open the `extension\` folder next to `Serene.exe` for you.
+The installer doesn't touch the browser bridge — the app refreshes that
+registration silently on every launch. The extension itself is unsigned,
 so it is not on the add-on store — load it manually:
 
 1. Open `about:debugging#/runtime/this-firefox` in Firefox or Zen
-2. **Load Temporary Add-on** → choose `extension/manifest.json`
+2. **Load Temporary Add-on** → choose `extension/manifest.json` in the
+   install folder
 3. Click the toolbar icon; the status should read **connected**
 
 > Temporary add-ons are dropped when the browser closes; repeat step 2 next
@@ -223,9 +227,9 @@ Output lands in `dist/`.
 <summary><b>Tests</b></summary>
 
 ```bash
-cd core && cargo test               # 80 tests
+cd core && cargo test               # 79 tests
 cd ../native-host && cargo test     # 36 tests
-cd ../flutter_app && flutter test   # 51 tests
+cd ../flutter_app && flutter test   # 53 tests
 ```
 
 The end-to-end scripts launch the real app and talk to it through the same
@@ -271,8 +275,9 @@ Serene; it exists for anyone continuing the work.
 ## Contributing
 
 Use the **Issues** and **Pull requests** sections on the repository page.
-For product status and architecture, see `docs/planning/STATUS.md` — the pitfalls discovered
-during development are collected there.
+For the current state and architecture, see `docs/MASTER.md`; the development
+log in `docs/planning/STATUS.md` collects the decisions and pitfalls hit along
+the way.
 
 ---
 
@@ -294,8 +299,9 @@ Symbols (Apache 2.0).
 olmaya çalışmaz; sakin olmaya çalışır: tek ekran, sırasız, kesintisiz.
 
 **Kurulum:** `Serene-Setup-1.0.0.exe` dosyasını çalıştırın; yönetici şifresi
-sorulmaz. Tarayıcı eklentisi isteğe bağlıdır ve `about:debugging` üzerinden
-elle yüklenir (imzasız olduğu için mağazada yoktur).
+sorulmaz. Tarayıcı eklentisi isteğe bağlıdır; kurulum paketiyle birlikte gelir,
+uygulama ilk açılışta klasörünü gösterip yüklemeyi önerir (imzasız olduğu için
+mağazada yoktur; `about:debugging` üzerinden yüklenir).
 
 **Varsayılanlar:** dil İngilizce, tema aydınlık. Ayarlar penceresinden
 Türkçe'ye ve karanlık temaya geçebilirsiniz.

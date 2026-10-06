@@ -178,6 +178,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
     theme: themeModeSetting(_theme),
     language: languageSetting(_language),
     autostart: _autostart,
+    // Panelde gorunmez; kaydetme yolu alani oldugu gibi tasimali ki
+    // kullanici ayar kaydedince tanitim kapisi sifirlanmasin.
+    extensionOfferDone: widget.settings.extensionOfferDone,
   );
 
   Future<void> _save() async {

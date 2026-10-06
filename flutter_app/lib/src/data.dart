@@ -161,6 +161,7 @@ class Settings {
     required this.theme,
     required this.language,
     required this.autostart,
+    required this.extensionOfferDone,
   });
 
   static Settings fromEngine(engine.AppConfig raw) => Settings(
@@ -173,6 +174,7 @@ class Settings {
     theme: raw.theme,
     language: raw.language,
     autostart: raw.autostart,
+    extensionOfferDone: raw.extensionOfferDone,
   );
 
   final String downloadDir;
@@ -191,4 +193,9 @@ class Settings {
   /// Gercek tutulmasi `HKCU\...\CurrentVersion\Run` anahtaridir; motor ayar
   /// dosyasina yazmakla birlikte anahtari da yazar.
   final bool autostart;
+
+  /// Tarayici eklentisi tanitimi gosterildi; ilk acilis penceresi bir daha
+  /// kendiliginden acilmaz. Ayarlar panelinde gorunmez; "Tarayici yok"
+  /// rozeti istendiginde pencereyi yine acar.
+  final bool extensionOfferDone;
 }

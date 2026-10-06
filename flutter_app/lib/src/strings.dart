@@ -123,6 +123,18 @@ abstract class Strings {
   String get browserConnected;
   String get browserMissing;
   String get localProfile;
+
+  // --- Eklenti tanitimi ---
+  String get extensionOfferTitle;
+  String get extensionOfferBadge;
+  String get extensionOfferBody;
+  String get extensionOfferStep1;
+  String get extensionOfferStep2;
+  String get extensionOfferNote;
+  String get extensionOfferOpen;
+  String get extensionOfferLater;
+  String get extensionOfferConnected;
+  String get extensionPillHint;
   String get minimize;
   String get restore;
   String get maximize;
@@ -382,6 +394,31 @@ class TrStrings extends Strings {
   String get browserMissing => 'Tarayıcı yok';
   @override
   String get localProfile => 'Yerel profil';
+
+  // --- Eklenti tanitimi ---
+  @override
+  String get extensionOfferTitle => 'Tarayıcı eklentisi';
+  @override
+  String get extensionOfferBadge => 'Önerilir';
+  @override
+  String get extensionOfferBody =>
+      'İndirmeleri tarayıcıdan devralmak için Serene eklentisini yükle:';
+  @override
+  String get extensionOfferStep1 => '«Eklenti klasörünü aç» düğmesine bas.';
+  @override
+  String get extensionOfferStep2 =>
+      'Tarayıcıda about:debugging → «Geçici eklenti yükle» → manifest.json seç.';
+  @override
+  String get extensionOfferNote =>
+      'Eklenti imzasız; tarayıcı kapanınca yükleme adımı tekrarlanır.';
+  @override
+  String get extensionOfferOpen => 'Eklenti klasörünü aç';
+  @override
+  String get extensionOfferLater => 'Şimdi değil';
+  @override
+  String get extensionOfferConnected => 'Eklenti bağlandı';
+  @override
+  String get extensionPillHint => 'Eklenti kurulumunu göster';
   @override
   String get minimize => 'Küçült';
   @override
@@ -711,6 +748,31 @@ class EnStrings extends Strings {
   String get browserMissing => 'Browser offline';
   @override
   String get localProfile => 'Local profile';
+
+  // --- Eklenti tanitimi ---
+  @override
+  String get extensionOfferTitle => 'Browser extension';
+  @override
+  String get extensionOfferBadge => 'Recommended';
+  @override
+  String get extensionOfferBody =>
+      'Install the Serene extension to take over downloads from your browser:';
+  @override
+  String get extensionOfferStep1 => 'Press "Open extension folder".';
+  @override
+  String get extensionOfferStep2 =>
+      'In the browser: about:debugging → "Load Temporary Add-on" → pick manifest.json.';
+  @override
+  String get extensionOfferNote =>
+      'The extension is unsigned; when the browser closes, load it again.';
+  @override
+  String get extensionOfferOpen => 'Open extension folder';
+  @override
+  String get extensionOfferLater => 'Not now';
+  @override
+  String get extensionOfferConnected => 'Extension connected';
+  @override
+  String get extensionPillHint => 'Show extension setup';
   @override
   String get minimize => 'Minimize';
   @override

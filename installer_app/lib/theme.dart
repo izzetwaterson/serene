@@ -78,44 +78,12 @@ const _light = _Palette(
   ],
 );
 
-const _dark = _Palette(
-  background: Color(0xFF161815),
-  onBackground: Color(0xFFE8E7DE),
-  onSurface: Color(0xFFE5E4DB),
-  surfaceLowest: Color(0xFF1D1F1B),
-  surfaceLow: Color(0xFF212420),
-  surfaceContainer: Color(0xFF272A25),
-  onSurfaceVariant: Color(0xFFB7BBB0),
-  outlineVariant: Color(0xFF3F433B),
-  primary: Color(0xFF5A8F68),
-  onPrimary: Color(0xFF0B2013),
-  primaryContainer: Color(0xFF33543C),
-  primaryFixed: Color(0xFF2F4A35),
-  primaryFixedDim: Color(0xFF6FA37E),
-  primaryHover: Color(0xFF6BA377),
-  tintPrimary: Color(0xFF2C4233),
-  tertiary: Color(0xFFD8A468),
-  tintTertiary: Color(0xFF3E2D17),
-  error: Color(0xFFE8928E),
-  errorContainer: Color(0xFF5A2422),
-  onErrorContainer: Color(0xFFF5C9C6),
-  shadowFloat: <BoxShadow>[
-    BoxShadow(color: Color(0x59000000), blurRadius: 30, spreadRadius: -6, offset: Offset(0, 10)),
-    BoxShadow(color: Color(0x33000000), blurRadius: 8, spreadRadius: -2, offset: Offset(0, 2)),
-  ],
-);
-
+/// Kurulum ve kaldirma yalnizca acik paletle calisir; sistem karanlik olsa
+/// bile pencere acik kalir. Karanlik palet ve tema izleme kaldirildi.
 class Serene {
   const Serene._();
 
-  static _Palette _p = _light;
-  static Brightness _brightness = Brightness.light;
-  static Brightness get brightness => _brightness;
-
-  static void activate(Brightness value) {
-    _brightness = value;
-    _p = value == Brightness.dark ? _dark : _light;
-  }
+  static const _Palette _p = _light;
 
   static Color get background => _p.background;
   static Color get onBackground => _p.onBackground;
@@ -171,17 +139,19 @@ TextStyle mono(double size, {Color? color}) => TextStyle(
       color: color ?? Serene.onSurfaceVariant,
     );
 
-ThemeData sereneTheme(Brightness brightness) {
-  final dark = brightness == Brightness.dark;
-  final p = dark ? _dark : _light;
+ThemeData sereneTheme() {
   return ThemeData(
     useMaterial3: true,
-    brightness: brightness,
-    scaffoldBackgroundColor: p.background,
+    brightness: Brightness.light,
+    scaffoldBackgroundColor: Serene.background,
     fontFamily: Serene.fontBody,
     splashFactory: NoSplash.splashFactory,
-    colorScheme: dark
-        ? ColorScheme.dark(primary: p.primary, onPrimary: p.onPrimary, surface: p.surfaceLow, onSurface: p.onSurface, error: p.error)
-        : ColorScheme.light(primary: p.primary, onPrimary: p.onPrimary, surface: p.surfaceLow, onSurface: p.onSurface, error: p.error),
+    colorScheme: ColorScheme.light(
+      primary: Serene.primary,
+      onPrimary: Serene.onPrimary,
+      surface: Serene.surfaceLow,
+      onSurface: Serene.onSurface,
+      error: Serene.error,
+    ),
   );
 }

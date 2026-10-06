@@ -49,8 +49,7 @@ class _FadeSlideInState extends State<FadeSlideIn> with SingleTickerProviderStat
   }
 }
 
-/// Marka yapragi. Koyu temada gamma ile acilmis kopya kullanilir; yoksa
-/// koyu zumrut yaprak koyu zeminde kaybolur.
+/// Marka yapragi.
 class LeafImage extends StatelessWidget {
   const LeafImage({super.key, required this.size, this.opacity = 1});
 
@@ -59,11 +58,10 @@ class LeafImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = Serene.brightness == Brightness.dark;
     return Opacity(
       opacity: opacity,
       child: Image.asset(
-        dark ? 'assets/icons/leaf_dark.png' : 'assets/icons/leaf.png',
+        'assets/icons/leaf.png',
         width: size,
         height: size,
         filterQuality: FilterQuality.high,
@@ -98,8 +96,7 @@ class _SButtonState extends State<SButton> {
     final Color fg;
     if (widget.primary && widget.danger) {
       bg = enabled ? (_hover ? Color.lerp(Serene.error, Colors.black, 0.16)! : Serene.error) : Serene.outlineVariant;
-      // Koyu temada hata rengi acik pembe; ustune beyaz yazi okunmaz.
-      fg = enabled ? (Serene.brightness == Brightness.dark ? const Color(0xFF33110F) : Colors.white) : Serene.onSurfaceVariant;
+      fg = enabled ? Colors.white : Serene.onSurfaceVariant;
     } else if (widget.primary) {
       bg = enabled ? (_hover ? Serene.primaryHover : Serene.primary) : Serene.outlineVariant;
       fg = enabled ? Serene.onPrimary : Serene.onSurfaceVariant;

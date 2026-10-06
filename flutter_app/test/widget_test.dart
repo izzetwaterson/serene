@@ -45,6 +45,7 @@ Settings _engineSettings() => Settings(
       theme: 'system',
       language: 'tr',
       autostart: false,
+      extensionOfferDone: true,
     );
 
 /// Test mantiksal penceresinin olcusunu gercek uygulama penceresine sabitler.
@@ -305,6 +306,7 @@ void main() {
           theme: 'light',
           language: 'tr',
           autostart: false,
+          extensionOfferDone: true,
         ),
         onClose: () {},
         engineVersion: '0.1.0',
