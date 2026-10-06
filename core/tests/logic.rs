@@ -8,7 +8,8 @@ use serene_core::category::classify;
 use serene_core::clipboard::extract_url;
 use serene_core::enqueue::{normalize_url, should_hold};
 use serene_core::dash::{
-    expand_template, plan_segments as dash_plan, timeline_values, TemplateValues, TimelineEntry,
+    expand_template, plan_segments as dash_plan, plan_tracks, timeline_values, TemplateValues,
+    TimelineEntry,
 };
 use serene_core::engine::{
     build_client, build_request, filename_from_url, plan_segments, sanitize_filename, split_point,
@@ -717,6 +718,69 @@ fn dash_plan_uses_template_of_selected_video_set() {
     </Representation></AdaptationSet></Period></MPD>"#;
     let err = dash_plan(ranged, &base_url()).unwrap_err();
     assert!(err.to_string().contains("mediaRange"), "{err}");
+}
+
+#[test]
+fn dash_plan_tracks_video_and_audio_separately() {
+    let mpd = r#"<MPD mediaPresentationDuration="PT20S"><Period>
+      <AdaptationSet mimeType="audio/mp4" contentType="audio">
+        <Representation id="a1" bandwidth="128000">
+          <SegmentTemplate timescale="1000" duration="4000" media="a-$Number$.m4s"/>
+        </Representation>
+      </AdaptationSet>
+      <AdaptationSet mimeType="video/mp4" contentType="video">
+        <Representation id="v1" bandwidth="2400000" width="1280" height="720">
+          <SegmentTemplate timescale="1000" duration="4000" initialization="v-init.mp4" media="v-$Number%02d$.m4s"/>
+        </Representation>
+      </AdaptationSet>
+    </Period></MPD>"#;
+
+    let plan = plan_tracks(mpd, &base_url()).unwrap();
+    // Video: init + 5 parca; ses: 5 parca (init yok).
+    assert_eq!(plan.video.len(), 6);
+    assert!(plan.video[0].ends_with("v-init.mp4"));
+    assert_eq!(plan.audio.len(), 5);
+    assert!(plan.audio[0].ends_with("a-1.m4s"));
+    assert!(plan.audio[4].ends_with("a-5.m4s"));
+}
+
+#[test]
+fn dash_plan_tracks_skips_drm_audio_but_keeps_video() {
+    let mpd = r#"<MPD mediaPresentationDuration="PT8S"><Period>
+      <AdaptationSet mimeType="audio/mp4" contentType="audio">
+        <ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011"/>
+        <Representation id="a1" bandwidth="128000">
+          <SegmentTemplate timescale="1000" duration="4000" media="a-$Number$.m4s"/>
+        </Representation>
+      </AdaptationSet>
+      <AdaptationSet mimeType="video/mp4" contentType="video">
+        <Representation id="v1" bandwidth="2400000" width="1280" height="720">
+          <SegmentTemplate timescale="1000" duration="4000" media="v-$Number$.m4s"/>
+        </Representation>
+      </AdaptationSet>
+    </Period></MPD>"#;
+
+    let plan = plan_tracks(mpd, &base_url()).unwrap();
+    assert!(!plan.video.is_empty());
+    assert!(plan.audio.is_empty());
+}
+
+#[test]
+fn dash_plan_tracks_audio_only_manifest_lands_in_video_slot() {
+    // Yalnizca ses temsili: video yuvasi bos kalmasin, ses oraya duser ve
+    // ikinci kez ses kumesi olarak tekrarlanmaz.
+    let mpd = r#"<MPD mediaPresentationDuration="PT8S"><Period>
+      <AdaptationSet mimeType="audio/mp4" contentType="audio">
+        <Representation id="a1" bandwidth="128000">
+          <SegmentTemplate timescale="1000" duration="4000" media="a-$Number$.m4s"/>
+        </Representation>
+      </AdaptationSet>
+    </Period></MPD>"#;
+
+    let plan = plan_tracks(mpd, &base_url()).unwrap();
+    assert_eq!(plan.video.len(), 2);
+    assert!(plan.video[0].ends_with("a-1.m4s"));
+    assert!(plan.audio.is_empty());
 }
 
 #[test]

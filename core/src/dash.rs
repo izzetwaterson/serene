@@ -1,3 +1,4 @@
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
@@ -5,9 +6,11 @@ use quick_xml::escape::unescape;
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::{Reader, XmlVersion};
 use reqwest::{Client, Url};
+use tokio::fs;
 use tokio_util::sync::CancellationToken;
 
 use crate::engine::build_request;
+use crate::ffmpeg;
 use crate::manager::{DownloadEntry, DownloadManager};
 use crate::models::{now_secs, DownloadMeta, Status};
 use crate::stream::{self, Segment};
@@ -58,18 +61,110 @@ async fn run_inner(
     let body = fetch(&client, &meta.url, &meta).await?;
     let text = std::str::from_utf8(&body).context("MPD metni UTF-8 degil")?;
 
-    let urls = plan_segments(text, &manifest_url)?;
-    if urls.is_empty() {
+    let plan = plan_tracks(text, &manifest_url)?;
+    if plan.video.is_empty() {
         return Err(anyhow!("Manifestte indirilecek parca yok"));
     }
 
+    let root = PathBuf::from(&meta.temp_dir);
+    let video_file = root.join("video.mp4");
+    let audio_file = root.join("audio.m4a");
+
     // DASH parcalari sifresiz fMP4'tur; anahtar HLS yolundaki gibi tasinmaz.
-    let segments: Vec<Segment> = urls
+    let video_segments: Vec<Segment> = plan
+        .video
         .into_iter()
         .map(|url| Segment { url, key: None })
         .collect();
+    let video_bytes = stream::collect(
+        mgr,
+        entry,
+        cancel,
+        &video_segments,
+        &root.join("v"),
+        &video_file,
+        0,
+    )
+    .await?;
 
-    stream::run(mgr, entry, cancel, &segments).await
+    // Ses ayri bir alt klasore iner; ilerleme tabani videodan devam eder.
+    let mut audio_bytes = 0u64;
+    if !plan.audio.is_empty() {
+        let audio_segments: Vec<Segment> = plan
+            .audio
+            .into_iter()
+            .map(|url| Segment { url, key: None })
+            .collect();
+        audio_bytes = stream::collect(
+            mgr,
+            entry,
+            cancel,
+            &audio_segments,
+            &root.join("a"),
+            &audio_file,
+            video_bytes,
+        )
+        .await?;
+    }
+
+    let dest = PathBuf::from(&meta.dest);
+    finish(&root, &video_file, &audio_file, &dest, video_bytes, audio_bytes).await
+}
+
+/// Indirilen kumeleri ciktiya cevirir.
+///
+/// Ses yoksa video dogrudan `dest` olur. Ses varsa ve `ffmpeg` bulunursa tek
+/// dosyaya mux edilir (yeniden kodlama yok); aksi halde video `dest` kalir ve
+/// ses `<ad>.audio.m4a` olarak yanina birakilir.
+async fn finish(
+    root: &Path,
+    video_file: &Path,
+    audio_file: &Path,
+    dest: &Path,
+    video_bytes: u64,
+    audio_bytes: u64,
+) -> Result<u64> {
+    if audio_bytes == 0 {
+        move_file(video_file, dest).await?;
+        let _ = fs::remove_dir_all(root).await;
+        return Ok(video_bytes);
+    }
+
+    if ffmpeg::available() && ffmpeg::mux(video_file, audio_file, dest).await.is_ok() {
+        let _ = fs::remove_dir_all(root).await;
+        let total = fs::metadata(dest).await.map(|m| m.len()).unwrap_or(0);
+        return Ok(total);
+    }
+
+    // ffmpeg yok ya da mux basarisiz: video ana dosya, ses yaninda.
+    let _ = fs::remove_file(dest).await;
+    move_file(video_file, dest).await?;
+    let side = side_audio_path(dest);
+    let _ = fs::remove_file(&side).await;
+    fs::rename(audio_file, &side)
+        .await
+        .context("ses dosyasi tasinamadi")?;
+    let _ = fs::remove_dir_all(root).await;
+    Ok(video_bytes + audio_bytes)
+}
+
+/// Dosyayi hedefe tasir (ayni birimde atomik rename).
+async fn move_file(from: &Path, to: &Path) -> Result<()> {
+    if fs::metadata(to).await.is_ok() {
+        let _ = fs::remove_file(to).await;
+    }
+    fs::rename(from, to)
+        .await
+        .with_context(|| format!("Dosya tasinamadi: {}", to.display()))
+}
+
+/// Ses ayri kaldiginda yanindaki `<ad>.audio.m4a` yolu.
+fn side_audio_path(dest: &Path) -> PathBuf {
+    let stem = dest
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "indirme".to_string());
+    dest.with_file_name(format!("{stem}.audio.m4a"))
 }
 
 async fn fetch(client: &Client, url: &str, meta: &DownloadMeta) -> Result<Vec<u8>> {
@@ -435,10 +530,74 @@ struct Candidate {
 
 /* ---------- planlama ---------- */
 
-/// MPD'yi cozup secilen video temsili icin indirilecek parca adreslerini
-/// (init bolumu varsa basta) dondurur. Desteklenmeyen yapi tahmin edilmez,
-/// net hatayla reddedilir.
+/// Video ve (varsa) ayri ses temsilinin parca adresleri.
+pub struct TrackPlan {
+    pub video: Vec<String>,
+    pub audio: Vec<String>,
+}
+
+/// Video ve ses temsillerini ayri ayri planlar; ses yoksa `audio` bostur.
+pub fn plan_tracks(text: &str, manifest_url: &Url) -> Result<TrackPlan> {
+    let (found, period_duration) = scan(text, manifest_url)?;
+
+    let video = pick(&found, TrackKind::Video)?;
+    if video.drm {
+        return Err(anyhow!(DRM_ERROR));
+    }
+    let video_urls = urls_for(video, period_duration)?;
+
+    // Ses-only manifestte ses zaten video yuvasina dustu; ikinci kez inmesin.
+    // Aksi halde sifreli ses atlanir, temiz ses videoyla birlikte iner.
+    let mut audio_urls = Vec::new();
+    if video.kind != TrackKind::Audio {
+        if let Some(audio) = found
+            .iter()
+            .filter(|candidate| candidate.kind == TrackKind::Audio)
+            .max_by_key(|candidate| candidate.bandwidth)
+        {
+            if !audio.drm {
+                audio_urls = urls_for(audio, period_duration)?;
+            }
+        }
+    }
+
+    Ok(TrackPlan {
+        video: video_urls,
+        audio: audio_urls,
+    })
+}
+
+/// Yalnizca video temsilinin parca adresleri (mevcut imza korunur).
 pub fn plan_segments(text: &str, manifest_url: &Url) -> Result<Vec<String>> {
+    Ok(plan_tracks(text, manifest_url)?.video)
+}
+
+/// Tek temsili secer: dogrudan tur eslesmesi; yoksa video icin tur bilinmeyen
+/// temsiller (ses kumesi son care, ses-only manifestler de inebilsin).
+fn pick<'a>(found: &'a [Candidate], kind: TrackKind) -> Result<&'a Candidate> {
+    let direct: Vec<&Candidate> = found
+        .iter()
+        .filter(|candidate| candidate.kind == kind)
+        .collect();
+    if !direct.is_empty() {
+        return direct
+            .into_iter()
+            .max_by_key(|candidate| candidate.bandwidth)
+            .ok_or_else(|| anyhow!("MPD'de indirilebilir temsil yok"));
+    }
+    if kind == TrackKind::Video {
+        return found
+            .iter()
+            .filter(|candidate| candidate.kind != TrackKind::Audio)
+            .max_by_key(|candidate| candidate.bandwidth)
+            .or_else(|| found.iter().max_by_key(|candidate| candidate.bandwidth))
+            .ok_or_else(|| anyhow!("MPD'de indirilebilir temsil yok"));
+    }
+    Err(anyhow!("MPD'de indirilebilir temsil yok"))
+}
+
+/// MPD'yi cozup tum indirilebilir temsilleri (ve donem suresini) toplar.
+fn scan(text: &str, manifest_url: &Url) -> Result<(Vec<Candidate>, Option<f64>)> {
     let root = parse_dom(text)?;
     let mpd_base = resolve_base(manifest_url, &root)?;
     let mpd_duration = root
@@ -532,35 +691,11 @@ pub fn plan_segments(text: &str, manifest_url: &Url) -> Result<Vec<String>> {
         }
     }
 
-    // Video ve ses ayri AdaptationSet'lerdeyse plan iki ayri gorev der. Ancak
-    // gorev olusturma yolu (commands::enqueue_download) dosya adini manifestten
-    // turetir ve tur alaninda video/ses ayrimi yok: ikinci gorev videoyla ayni
-    // .mp4 adini alir, ses icerigi yanlis adla kalirdi. Bu yuzden simdilik
-    // yalnizca video temsili inilir; ses parcasi indirilmez (mux yok).
-    let video: Vec<&Candidate> = found
-        .iter()
-        .filter(|candidate| candidate.kind == TrackKind::Video)
-        .collect();
-    let chosen = if video.is_empty() {
-        // Tur bilgisi olmayan temsiller video sayilir; ses kumesi son care
-        // (ses-only manifestler de indirilebilsin).
-        found
-            .iter()
-            .filter(|candidate| candidate.kind != TrackKind::Audio)
-            .max_by_key(|candidate| candidate.bandwidth)
-            .or_else(|| found.iter().max_by_key(|candidate| candidate.bandwidth))
-    } else {
-        video
-            .iter()
-            .copied()
-            .max_by_key(|candidate| candidate.bandwidth)
-    }
-    .ok_or_else(|| anyhow!("MPD'de indirilebilir temsil yok"))?;
+    Ok((found, period_duration))
+}
 
-    if chosen.drm {
-        return Err(anyhow!(DRM_ERROR));
-    }
-
+/// Secilen temsilin parca adreslerini uretir.
+fn urls_for(chosen: &Candidate, period_duration: Option<f64>) -> Result<Vec<String>> {
     let raw_urls = if let Some(tmpl) = &chosen.tmpl {
         template_urls(tmpl, &chosen.id, chosen.bandwidth, period_duration)?
     } else if let Some(list) = &chosen.list {

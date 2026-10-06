@@ -39,11 +39,11 @@ export const AES_MEDIA_SEQUENCE = 7;
 
 /* ---------- DASH ---------- */
 
-/// fMP4 init bolumu + 5 medya parca. Ses kumesi kasten ayri parcalardan olusur:
-/// cikan dosyada bulunmamalari "yalnizca video inildi" kuralini dogrular.
+/// fMP4 init bolumu + 5 medya parca. Ses kumesi ayri parcalardan olusur ve
+/// ayri iner: video ciktisinda bulunmamali, sesin kendi dosyasinda olmali.
 export const DASH_INIT = ts(4, 0x21);
 export const DASH_SEGMENTS = [0, 1, 2, 3, 4].map((i) => ts(28 + i, 0x50 + i));
-export const DASH_AUDIO_SEGMENTS = [0, 1, 2].map((i) => ts(6, 0x90 + i));
+export const DASH_AUDIO_SEGMENTS = [0, 1, 2, 3, 4].map((i) => ts(6, 0x90 + i));
 
 /// SegmentTimeline senaryosu: 3 + 2 parca, $Time$ ve $RepresentationID$ sablonlu.
 export const DASH_TIMELINE_INIT = ts(3, 0x22);
@@ -57,6 +57,7 @@ export const EXPECTED = {
   auth: Buffer.concat([INIT, ...SEGMENTS]),
   slow: Buffer.concat([INIT, ...SEGMENTS]),
   dash: Buffer.concat([DASH_INIT, ...DASH_SEGMENTS]),
+  dashAudio: Buffer.concat(DASH_AUDIO_SEGMENTS),
   dashTimeline: Buffer.concat([DASH_TIMELINE_INIT, ...DASH_TIMELINE_SEGMENTS]),
 };
 
@@ -252,7 +253,7 @@ function buildRoutes() {
   DASH_SEGMENTS.forEach((body, i) => {
     routes.set(`/dash/v-${String(i + 1).padStart(2, "0")}.m4s`, () => segment(body));
   });
-  // Ses kumesi indirilmemeli: bu parcalar hicbir zaman cikti dosyasinda gorunmez.
+  // Ses kumesi ayri iner; parcalar video ciktisina degil, yanindaki dosyaya gider.
   DASH_AUDIO_SEGMENTS.forEach((body, i) => {
     routes.set(`/dash/a-${i + 1}.m4s`, () => segment(body));
   });

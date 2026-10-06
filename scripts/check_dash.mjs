@@ -7,7 +7,10 @@
 // Dogrulananlar:
 //   1. SegmentTemplate + $Number$: video kumesi (en yuksek bandwidth) secilir,
 //      init parcasi + 5 parca tek .mp4 dosyada birlesir (boyut = parcalarin toplami)
-//   2. Ayri ses AdaptationSet'i inilmez: cikti yalnizca video parcalarindan olusur
+//   2. Ayri ses AdaptationSet'i de iner: video ana dosyada kalir, ses
+//      <ad>.audio.m4a olarak yanina iner (ffmpeg varsa once mux denenir; test
+//      parcalari gercek fMP4 olmadigi icin mux basarisiz olur ve yedek
+//      yol dogrulanir)
 //   3. SegmentTimeline + $Time$ + $RepresentationID$ sablonu acilir ve dogru sirada iner
 //   4. SegmentBase indexRange (desteklenmeyen yapi) net bir hatayla reddedilir,
 //      uygulama cokmez
@@ -21,8 +24,7 @@
 // Indirilenler'i etkilenmez.
 
 import { spawn, spawnSync, execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { connect as netConnect } from "node:net";
 
@@ -227,7 +229,10 @@ async function enqueue(client, url) {
 }
 
 /// Indirilen dosyayi diskten okuyup beklenen baytlarla karsilastirir.
-function verifyFile(task, expected, label, problems, report) {
+///
+/// `total`, gorevin `meta.total` degeri icin beklenendir; ses ayri kaldiginda
+/// video + ses toplamina esit olur (`expected.length`'ten farkli olabilir).
+function verifyFile(task, expected, label, problems, report, total = expected.length) {
   const info = { dest: task.dest, total: task.total, downloaded: task.downloaded };
   report[label] = info;
 
@@ -246,8 +251,8 @@ function verifyFile(task, expected, label, problems, report) {
   } else if (!actual.equals(expected)) {
     problems.push(`${label}: icerik parcalarin birlesimiyle ayni degil`);
   }
-  if (task.total !== expected.length) {
-    problems.push(`${label}: meta.total beklenen degil (${task.total})`);
+  if (task.total !== total) {
+    problems.push(`${label}: meta.total beklenen degil (${task.total} != ${total})`);
   }
   if (task.downloaded !== task.total) {
     problems.push(`${label}: meta.downloaded meta.total'e esit degil`);
@@ -267,9 +272,12 @@ async function main() {
   if (!existsSync(EXE)) fail("uygulama bulunamadi: " + EXE + " (once `flutter build windows --debug`)");
   if (openWindows().length) fail(`calisan bir ${IMAGE}.exe var; kosumdan once onu kapat`);
 
-  const dataDir = mkdtempSync(join(tmpdir(), "serene-dash-"));
+  // Gecici klasor agac icinde tutulur: bazi ortamlarda %TEMP% yazimi engelli
+  // olabiliyor (check_resilience/check_dynamic ile ayni gerekce).
+  const dataDir = join(ROOT, "build", "verify-dash");
+  rmSync(dataDir, { recursive: true, force: true });
   const downloadDir = join(dataDir, "indir");
-  mkdirSync(downloadDir);
+  mkdirSync(downloadDir, { recursive: true });
   writeFileSync(
     join(dataDir, "settings.json"),
     JSON.stringify(
@@ -315,7 +323,14 @@ async function main() {
       problems.push(`template: gorev tamamlanmadi (${done1.status}: ${done1.error})`);
     }
     report.templateStatus = done1.status;
-    verifyFile(done1, EXPECTED.dash, "template", problems, report);
+    verifyFile(
+      done1,
+      EXPECTED.dash,
+      "template",
+      problems,
+      report,
+      EXPECTED.dash.length + EXPECTED.dashAudio.length,
+    );
     if (!String(done1.dest).startsWith(downloadDir)) {
       problems.push("template: dosya indirme klasorunun disinda");
     }
@@ -323,7 +338,22 @@ async function main() {
     if (existsSync(done1.dest)) {
       const head = readFileSync(done1.dest);
       if (head[0] !== 0x21) problems.push("template: init parcasi basta degil");
-      if (head.includes(0x90)) problems.push("template: ayri ses parcasi ciktiya karismis");
+      if (head.includes(0x90)) {
+        problems.push("template: ayri ses parcasi video ciktisina karismis");
+      }
+    }
+    // Ses kumesi de inmeli. Test parcalari gercek fMP4 olmadigi icin mux
+    // basarisiz olur; ses ayri dosyada kalir ve icerigi beklenen kume olmali.
+    const audioDest = join(downloadDir, "dash-template.audio.m4a");
+    report.audio = { dest: audioDest, exists: existsSync(audioDest) };
+    if (!existsSync(audioDest)) {
+      problems.push("template: ayri ses dosyasi inmemis (" + audioDest + ")");
+    } else {
+      const audio = readFileSync(audioDest);
+      report.audio.bytes = audio.length;
+      if (!audio.equals(EXPECTED.dashAudio)) {
+        problems.push("template: ses icerigi beklenen kume degil");
+      }
     }
 
     /* 3. SegmentTimeline + $Time$ + $RepresentationID$ */
@@ -377,7 +407,7 @@ async function main() {
   console.log(JSON.stringify(report, null, 2));
   if (problems.length) fail(problems.join(" | "));
   console.log(
-    "BASARILI: DASH SegmentTemplate $Number$, SegmentTimeline $Time$, video secimi, ayri sesin dislanmasi ve desteklenmeyen yapinin reddi dogrulandi",
+    "BASARILI: DASH SegmentTemplate $Number$ (video + ayri ses), SegmentTimeline $Time$ ve desteklenmeyen yapinin reddi dogrulandi",
   );
 }
 

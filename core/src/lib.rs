@@ -10,6 +10,7 @@ pub mod clipboard;
 pub mod dash;
 pub mod engine;
 pub mod enqueue;
+pub mod ffmpeg;
 pub mod hls;
 pub mod manager;
 pub mod models;

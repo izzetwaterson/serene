@@ -47,13 +47,41 @@ pub async fn run(
     cancel: &CancellationToken,
     segments: &[Segment],
 ) -> Result<u64> {
+    let meta = entry.meta.lock().unwrap().clone();
+    collect(
+        mgr,
+        entry,
+        cancel,
+        segments,
+        Path::new(&meta.temp_dir),
+        Path::new(&meta.dest),
+        0,
+    )
+    .await
+}
+
+/// Bir parca kumesini indirip tek dosyaya birlestirir; inen bayt sayisini doner.
+///
+/// `temp_dir` ve `dest` cagirandan gelir: DASH'ta video ve ses ayri alt
+/// klasorlere iner. `carry`, onceden inmis baska bir kumenin bayt sayisidir ve
+/// ilerleme tabanina eklenir; boylece ikinci kume sifirdan gostermez.
+/// `meta.total` burada yazilmaz: toplam, kumeleri birlestiren cagirana aittir.
+pub(crate) async fn collect(
+    mgr: &Arc<DownloadManager>,
+    entry: &Arc<DownloadEntry>,
+    cancel: &CancellationToken,
+    segments: &[Segment],
+    temp_dir: &Path,
+    dest: &Path,
+    carry: u64,
+) -> Result<u64> {
     if segments.is_empty() {
         return Err(anyhow!("Indirilecek parca yok"));
     }
 
     let meta_snapshot = Arc::new(entry.meta.lock().unwrap().clone());
-    let temp_dir = PathBuf::from(&meta_snapshot.temp_dir);
-    let dest = PathBuf::from(&meta_snapshot.dest);
+    let temp_dir = temp_dir.to_path_buf();
+    let dest = dest.to_path_buf();
 
     fs::create_dir_all(&temp_dir)
         .await
@@ -77,12 +105,12 @@ pub async fn run(
         counters.push(Arc::new(AtomicU64::new(0)));
     }
 
-    entry.base_bytes.store(base, Ordering::Relaxed);
+    entry.base_bytes.store(carry + base, Ordering::Relaxed);
     *entry.parts.lock().unwrap() = counters.clone();
 
     {
         let mut meta = entry.meta.lock().unwrap();
-        // Parca listesi motorun plani gibi doldurulur; bitince hls::run temizler.
+        // Parca listesi motorun plani gibi doldurulur; bitince cagiran temizler.
         meta.segments = (0..segments.len() as u32)
             .map(|index| SegmentInfo {
                 index,
@@ -94,7 +122,7 @@ pub async fn run(
         // Toplam boyut ancak butun parcalar inince bilinir; arayuz bu sirada
         // "boyut bilinmiyor" gosterir (motorun akis yolundaki davranisi).
         meta.total = 0;
-        meta.downloaded = base;
+        meta.downloaded = carry + base;
     }
 
     let child = cancel.child_token();
@@ -167,8 +195,9 @@ pub async fn run(
     let total = fs::metadata(&dest).await.map(|m| m.len()).unwrap_or(0);
     {
         let mut meta = entry.meta.lock().unwrap();
-        meta.total = total;
-        meta.downloaded = total;
+        // `total` cagirana aittir (iki kume varsa toplam orada hesaplanir);
+        // burada yalnizca bu kumenin bitmis bayt sayisi yazilir.
+        meta.downloaded = carry + total;
     }
 
     let _ = fs::remove_dir_all(&temp_dir).await;

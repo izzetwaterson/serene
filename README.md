@@ -171,8 +171,10 @@ Being straightforward about these:
   `SAMPLE-AES` fail with a clear message. There is no way to decrypt them and
   none will be added.
 - **Magnet / torrent links are rejected.**
-- **DASH audio is not muxed with video.** When video and audio live in separate
-  AdaptationSets, only the video is downloaded.
+- **DASH audio needs ffmpeg to be merged.** When video and audio live in separate
+  AdaptationSets both are downloaded; if `ffmpeg` is on `PATH` they are muxed into
+  one `.mp4`, otherwise the video stays as the main file and the audio is saved
+  next to it as `<name>.audio.m4a`.
 - **Total stream size is unknown until the download finishes.** The progress
   bar advances by segment count.
 - **No intra-segment resume for streams.** Completed segments are kept, a
