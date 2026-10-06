@@ -60,6 +60,23 @@ double percentOf(Task task) {
   return (task.downloaded / task.total * 100).clamp(0, 100);
 }
 
+/// Motorun `u64::MAX` isareti; FRB'de `i64::MAX`'e kirpilir ve "boyut
+/// bilinmiyor" anlamina gelir.
+const int unknownSegmentEnd = 9223372036854775807;
+
+/// Bir baglanti parcasinin doluluk orani (0..1).
+///
+/// Parca boyutu bilinmiyorsa (HLS/DASH ya da tek akis) yalnizca "bayt alindi
+/// mi" bilgisi kullanilir.
+double segmentRatio(UiSegment part) {
+  if (part.end <= part.start || part.end >= unknownSegmentEnd) {
+    return part.downloaded > 0 ? 1 : 0;
+  }
+  final size = part.end - part.start + 1;
+  if (size <= 0) return 0;
+  return (part.downloaded / size).clamp(0, 1).toDouble();
+}
+
 /// app.js metaLine ile ayni metin.
 String metaLine(Task task) {
   if (task.pending) {

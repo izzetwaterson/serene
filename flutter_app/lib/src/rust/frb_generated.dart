@@ -1489,13 +1489,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Progress dco_decode_progress(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 4)
-      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return Progress(
       id: dco_decode_String(arr[0]),
       downloaded: dco_decode_i_64(arr[1]),
       total: dco_decode_i_64(arr[2]),
       speed: dco_decode_f_64(arr[3]),
+      segments: dco_decode_list_segment(arr[4]),
     );
   }
 
@@ -1862,11 +1863,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_downloaded = sse_decode_i_64(deserializer);
     var var_total = sse_decode_i_64(deserializer);
     var var_speed = sse_decode_f_64(deserializer);
+    var var_segments = sse_decode_list_segment(deserializer);
     return Progress(
       id: var_id,
       downloaded: var_downloaded,
       total: var_total,
       speed: var_speed,
+      segments: var_segments,
     );
   }
 
@@ -2274,6 +2277,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_64(self.downloaded, serializer);
     sse_encode_i_64(self.total, serializer);
     sse_encode_f_64(self.speed, serializer);
+    sse_encode_list_segment(self.segments, serializer);
   }
 
   @protected

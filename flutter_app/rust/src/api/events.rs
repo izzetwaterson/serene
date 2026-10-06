@@ -111,6 +111,7 @@ pub fn watch_progress(sink: StreamSink<Vec<Progress>>) -> Result<(), String> {
                         downloaded: count(missed),
                         total: 0,
                         speed: 0.0,
+                        segments: Vec::new(),
                     };
                     if sink.add(vec![signal]).is_err() {
                         return;

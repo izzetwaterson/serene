@@ -1577,7 +1577,10 @@ ProgressBatch applyProgress(
     if (task == null) continue;
     task
       ..downloaded = tick.downloaded.toInt()
-      ..speed = tick.speed;
+      ..speed = tick.speed
+      ..segments = [
+        for (final part in tick.segments) UiSegment.fromEngine(part),
+      ];
     changed = true;
   }
   return ProgressBatch(lost: false, changed: changed);

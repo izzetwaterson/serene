@@ -24,6 +24,7 @@ class Task {
     this.source,
     this.pending = false,
     this.resumable = false,
+    this.segments = const [],
   });
 
   final String id;
@@ -48,6 +49,9 @@ class Task {
   /// Onay bekleyen gorevler duraklatilmis dogar; ayri tutulur ki demo
   /// gorevlerde de yerinde degistirilebilsin.
   bool pending;
+
+  /// Baglanti parcalari (IDM tarzi barlar icin); ilerleme paketiyle yenilenir.
+  List<UiSegment> segments;
 
   String get dir {
     final cut = dest.lastIndexOf(RegExp(r'[\\/]'));
@@ -75,6 +79,7 @@ class Task {
     source: raw.source,
     pending: raw.pending,
     resumable: raw.resumable,
+    segments: [for (final part in raw.segments) UiSegment.fromEngine(part)],
   );
 
   static Task fromJson(Map<String, dynamic> raw) => Task(
@@ -114,6 +119,28 @@ class Task {
     'pending': pending,
     'resumable': resumable,
   };
+}
+
+/// Motorun tek bir baglanti parcasinin arayuzdeki hali.
+class UiSegment {
+  UiSegment({
+    required this.index,
+    required this.start,
+    required this.end,
+    required this.downloaded,
+  });
+
+  final int index;
+  final int start;
+  final int end;
+  int downloaded;
+
+  static UiSegment fromEngine(engine.Segment raw) => UiSegment(
+    index: raw.index,
+    start: raw.start.toInt(),
+    end: raw.end.toInt(),
+    downloaded: raw.downloaded.toInt(),
+  );
 }
 
 /// Eklentinin yakaladigi medya adayi (kayit bicimi camelCase).

@@ -18,12 +18,23 @@ final RegExp _uuid = RegExp(
 );
 
 engine.Progress _tick(String id, {int downloaded = 0, double speed = 0}) =>
-    engine.Progress(id: id, downloaded: downloaded, total: 1000, speed: speed);
+    engine.Progress(
+      id: id,
+      downloaded: downloaded,
+      total: 1000,
+      speed: speed,
+      segments: const [],
+    );
 
 /// Motorun tasma bildirimi: gercek bir tik degil, kac olayin dustugunu tasiyan
 /// ayirici bir kayit.
-engine.Progress _lost(int missed) =>
-    engine.Progress(id: lostEventsId, downloaded: missed, total: 0, speed: 0);
+engine.Progress _lost(int missed) => engine.Progress(
+      id: lostEventsId,
+      downloaded: missed,
+      total: 0,
+      speed: 0,
+      segments: const [],
+    );
 
 Task _task(String id, {bool pending = false}) => Task(
       id: id,

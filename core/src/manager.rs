@@ -14,7 +14,7 @@ use crate::category;
 use crate::dash;
 use crate::engine;
 use crate::hls;
-use crate::models::{CaptureItem, DownloadKind, DownloadMeta, Settings, Status};
+use crate::models::{CaptureItem, DownloadKind, DownloadMeta, SegmentInfo, Settings, Status};
 use crate::platform;
 use crate::runtime;
 use crate::store;
@@ -97,6 +97,8 @@ pub struct ProgressTick {
     pub downloaded: u64,
     pub total: u64,
     pub speed: f64,
+    /// Parca basina canli bayt sayilari (IDM tarzi parca barlari icin).
+    pub segments: Vec<SegmentInfo>,
 }
 
 pub struct DownloadManager {
@@ -652,6 +654,7 @@ impl DownloadManager {
                 downloaded: meta.downloaded,
                 total: meta.total,
                 speed: meta.speed,
+                segments: meta.segments.clone(),
             });
         }
 

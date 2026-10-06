@@ -174,6 +174,7 @@ pub struct Progress {
     pub downloaded: i64,
     pub total: i64,
     pub speed: f64,
+    pub segments: Vec<Segment>,
 }
 
 impl From<ProgressTick> for Progress {
@@ -183,6 +184,7 @@ impl From<ProgressTick> for Progress {
             downloaded: fit(value.downloaded),
             total: fit(value.total),
             speed: value.speed,
+            segments: value.segments.into_iter().map(Segment::from).collect(),
         }
     }
 }

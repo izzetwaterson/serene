@@ -186,17 +186,23 @@ class Progress {
   final PlatformInt64 downloaded;
   final PlatformInt64 total;
   final double speed;
+  final List<Segment> segments;
 
   const Progress({
     required this.id,
     required this.downloaded,
     required this.total,
     required this.speed,
+    required this.segments,
   });
 
   @override
   int get hashCode =>
-      id.hashCode ^ downloaded.hashCode ^ total.hashCode ^ speed.hashCode;
+      id.hashCode ^
+      downloaded.hashCode ^
+      total.hashCode ^
+      speed.hashCode ^
+      segments.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -206,7 +212,8 @@ class Progress {
           id == other.id &&
           downloaded == other.downloaded &&
           total == other.total &&
-          speed == other.speed;
+          speed == other.speed &&
+          segments == other.segments;
 }
 
 /// Tek bir baglanti parcasinin arayuze yansiyan hali.

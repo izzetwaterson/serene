@@ -1659,11 +1659,13 @@ impl SseDecode for crate::api::dto::Progress {
         let mut var_downloaded = <i64>::sse_decode(deserializer);
         let mut var_total = <i64>::sse_decode(deserializer);
         let mut var_speed = <f64>::sse_decode(deserializer);
+        let mut var_segments = <Vec<crate::api::dto::Segment>>::sse_decode(deserializer);
         return crate::api::dto::Progress {
             id: var_id,
             downloaded: var_downloaded,
             total: var_total,
             speed: var_speed,
+            segments: var_segments,
         };
     }
 }
@@ -1966,6 +1968,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::dto::Progress {
             self.downloaded.into_into_dart().into_dart(),
             self.total.into_into_dart().into_dart(),
             self.speed.into_into_dart().into_dart(),
+            self.segments.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -2316,6 +2319,7 @@ impl SseEncode for crate::api::dto::Progress {
         <i64>::sse_encode(self.downloaded, serializer);
         <i64>::sse_encode(self.total, serializer);
         <f64>::sse_encode(self.speed, serializer);
+        <Vec<crate::api::dto::Segment>>::sse_encode(self.segments, serializer);
     }
 }
 

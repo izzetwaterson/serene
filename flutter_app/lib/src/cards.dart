@@ -464,30 +464,71 @@ class TaskCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              height: 8,
+          _TaskBar(task: task),
+        ],
+      ),
+    );
+  }
+}
+
+/// Gorev kartinin ilerleme alani.
+///
+/// Birden fazla baglanti parcasi varsa IDM gibi yan yana ince barlar cizilir;
+/// aksi halde tek toplam bar kalir.
+class _TaskBar extends StatelessWidget {
+  const _TaskBar({required this.task});
+
+  final Task task;
+
+  @override
+  Widget build(BuildContext context) {
+    final segments = task.segments;
+    if (segments.length <= 1) {
+      return _Bar(ratio: percentOf(task) / 100, tone: barTone(task));
+    }
+    return Row(
+      children: [
+        for (var i = 0; i < segments.length; i++) ...[
+          if (i > 0) const SizedBox(width: 2),
+          Expanded(
+            child: _Bar(ratio: segmentRatio(segments[i]), tone: barTone(task)),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Tek bir ilerleme bari: parca ya da toplam.
+class _Bar extends StatelessWidget {
+  const _Bar({required this.ratio, required this.tone});
+
+  final double ratio;
+  final Color tone;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        height: 8,
+        decoration: BoxDecoration(
+          color: Serene.surfaceContainer,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) => Align(
+            alignment: Alignment.centerLeft,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: constraints.maxWidth * ratio.clamp(0, 1),
               decoration: BoxDecoration(
-                color: Serene.surfaceContainer,
+                color: tone,
                 borderRadius: BorderRadius.circular(999),
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) => Align(
-                  alignment: Alignment.centerLeft,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    width: constraints.maxWidth * percentOf(task) / 100,
-                    decoration: BoxDecoration(
-                      color: barTone(task),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
