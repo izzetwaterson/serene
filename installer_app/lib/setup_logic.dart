@@ -129,6 +129,19 @@ class SetupFailure implements Exception {
 
 /* ---------- Windows yardimcilari ---------- */
 
+/// Windows yan etkileri tek bir arayuzde toplanir. Uretimde varsayilan
+/// (gercek) uygulama kullanilir; testte sahtesi verilerek kur/kaldir AKISI
+/// (registry yazimi, silme sirasi, veri dizini) OS'a dokunmadan sınanir.
+class HostOps {
+  const HostOps();
+
+  Future<ProcessResult> reg(List<String> args) => _reg(args);
+  Future<ProcessResult> powershell(String script) => _powershell(script);
+  Future<bool> isSereneRunning() => _isSereneRunning();
+  Future<void> killSerene() => _killSerene();
+  String dataDir() => _dataDir();
+}
+
 Future<ProcessResult> _reg(List<String> args) => Process.run('reg', args, runInShell: false);
 
 /// PowerShell betigini `-EncodedCommand` ile calistirir. Betik UTF-16LE
@@ -153,7 +166,9 @@ Future<ProcessResult> _powershell(String script) {
 /// Serene.exe calisiyor mu? `tasklist /FO CSV` ilk karakteri tirnak olan bir
 /// satir verir; "gorev yok" mesaji dile gore degistigi icin metne degil bu
 /// karaktere bakilir.
-Future<bool> isSereneRunning() async {
+Future<bool> isSereneRunning() => _isSereneRunning();
+
+Future<bool> _isSereneRunning() async {
   try {
     final result = await Process.run('tasklist', ['/FI', 'IMAGENAME eq $appExe', '/NH', '/FO', 'CSV']);
     return result.stdout.toString().trimLeft().startsWith('"');
@@ -162,11 +177,13 @@ Future<bool> isSereneRunning() async {
   }
 }
 
-Future<void> killSerene() async {
+Future<void> killSerene() => _killSerene();
+
+Future<void> _killSerene() async {
   await Process.run('taskkill', ['/IM', appExe, '/F']);
   // Dosya kilitlerinin birakilmasi icin kisa bir bekleme.
   for (var i = 0; i < 20; i++) {
-    if (!await isSereneRunning()) return;
+    if (!await _isSereneRunning()) return;
     await Future<void>.delayed(const Duration(milliseconds: 150));
   }
 }
@@ -181,10 +198,21 @@ String _dataDir() => '${Platform.environment['APPDATA'] ?? ''}\\Serene';
 /* ---------- kurulum ---------- */
 
 class Installer {
-  Installer({required this.payloadDir, required this.version});
+  Installer({
+    required this.payloadDir,
+    required this.version,
+    this.host = const HostOps(),
+    this.selfDir,
+  });
 
   final String payloadDir;
   final String version;
+  final HostOps host;
+
+  /// Kaldiricinin kopyalanacagi kaynak klasor. Uretimde null: exe'nin yanindaki
+  /// klasor. Testte gecici bir klasor verilir (aksi halde test kosucusunun
+  /// kendi dizini kopyalanirdi).
+  final String? selfDir;
 
   /// Kurulum paketinde dosya var mi (taşıyıcı dogru acmis mi).
   bool get payloadPresent => File('$payloadDir\\$appExe').existsSync();
@@ -208,7 +236,7 @@ class Installer {
     if (!payloadPresent) {
       throw SetupFailure('Setup files are missing: $payloadDir');
     }
-    if (await isSereneRunning()) {
+    if (await host.isSereneRunning()) {
       throw SetupFailure('Serene is still running.');
     }
 
@@ -236,7 +264,8 @@ class Installer {
     // 3) Kaldirici = bu uygulamanin kendi klasorunun kopyasi.
     final uninstallDir = '$dir\\$uninstallDirName';
     await Directory(uninstallDir).create(recursive: true);
-    await _copyBundle(Directory(File(Platform.resolvedExecutable).parent.path), Directory(uninstallDir));
+    final source = selfDir ?? File(Platform.resolvedExecutable).parent.path;
+    await _copyBundle(Directory(source), Directory(uninstallDir));
     await File('$uninstallDir\\$manifestName').writeAsString(installed.join('\n'), encoding: utf8);
     await File('$uninstallDir\\$languageFileName').writeAsString(options.language);
 
@@ -257,7 +286,7 @@ class Installer {
     if (options.autostart) {
       report(0.92, SetupStep.autostart, '');
       // Deger tirnakli mutlak yol: `core/src/platform.rs` `run_value` ile ayni.
-      await _reg(['add', regRunKey, '/v', regRunValue, '/t', 'REG_SZ', '/d', '"$dir\\$appExe"', '/f']);
+      await host.reg(['add', regRunKey, '/v', regRunValue, '/t', 'REG_SZ', '/d', '"$dir\\$appExe"', '/f']);
     }
 
     report(1, SetupStep.done, '');
@@ -320,7 +349,7 @@ class Installer {
       ['EstimatedSize', 'REG_DWORD', '${(totalBytes / 1024).round()}'],
     ];
     for (final v in values) {
-      final result = await _reg(['add', regUninstallKey, '/v', v[0], '/t', v[1], '/d', v[2], '/f']);
+      final result = await host.reg(['add', regUninstallKey, '/v', v[0], '/t', v[1], '/d', v[2], '/f']);
       if (result.exitCode != 0) {
         throw SetupFailure('Registry write failed (${v[0]}): ${result.stderr}');
       }
@@ -331,7 +360,7 @@ class Installer {
     final lnk = _startMenuShortcutPath().replaceAll("'", "''");
     final exe = '$dir\\$appExe'.replaceAll("'", "''");
     final work = dir.replaceAll("'", "''");
-    await _powershell('''
+    await host.powershell('''
 \$shell = New-Object -ComObject WScript.Shell
 \$s = \$shell.CreateShortcut('$lnk')
 \$s.TargetPath = '$exe'
@@ -345,7 +374,7 @@ class Installer {
   Future<void> _createDesktopShortcut(String dir) async {
     final exe = '$dir\\$appExe'.replaceAll("'", "''");
     final work = dir.replaceAll("'", "''");
-    await _powershell('''
+    await host.powershell('''
 \$desktop = [Environment]::GetFolderPath('Desktop')
 \$shell = New-Object -ComObject WScript.Shell
 \$s = \$shell.CreateShortcut((Join-Path \$desktop '$shortcutName'))
@@ -361,6 +390,10 @@ class Installer {
 /* ---------- kaldirma ---------- */
 
 class Uninstaller {
+  Uninstaller({this.host = const HostOps()});
+
+  final HostOps host;
+
   /// Kurulu klasor: bu exe `<dir>\uninstall\` icinden calisir.
   static String? installDir() {
     final exeDir = File(Platform.resolvedExecutable).parent;
@@ -383,25 +416,25 @@ class Uninstaller {
   }
 
   Future<void> uninstall(String dir, {required bool keepData, required ProgressCallback report}) async {
-    if (await isSereneRunning()) {
+    if (await host.isSereneRunning()) {
       throw SetupFailure('Serene is still running.');
     }
 
     // 1) Tarayici koprusu: kayit defteri + manifest. Dosyalar silinmeden once.
     report(0.1, SetupStep.removeBridge, '');
-    final host = File('$dir\\$nmhExe');
-    if (host.existsSync()) {
+    final nmh = File('$dir\\$nmhExe');
+    if (nmh.existsSync()) {
       try {
-        await Process.run(host.path, ['--unregister-host']);
+        await Process.run(nmh.path, ['--unregister-host']);
       } catch (_) {
         // Kaydi baska bir kurulum yazmis olabilir; sessizce gec.
       }
     }
 
     // Otomatik baslatma yalnizca bize aitse silinir (tasinabilir kopyanin kaydi kalir).
-    final query = await _reg(['query', regRunKey, '/v', regRunValue]);
+    final query = await host.reg(['query', regRunKey, '/v', regRunValue]);
     if (query.exitCode == 0 && query.stdout.toString().contains('$dir\\$appExe')) {
-      await _reg(['delete', regRunKey, '/v', regRunValue, '/f']);
+      await host.reg(['delete', regRunKey, '/v', regRunValue, '/f']);
     }
 
     // 2) Kisayol ve dosyalar.
@@ -409,7 +442,7 @@ class Uninstaller {
     final shortcut = File(_startMenuShortcutPath());
     if (shortcut.existsSync()) await shortcut.delete();
     try {
-      await _powershell('''
+      await host.powershell('''
 \$desktop = [Environment]::GetFolderPath('Desktop')
 \$lnk = Join-Path \$desktop '$shortcutName'
 if (Test-Path \$lnk) { Remove-Item -LiteralPath \$lnk -Force }
@@ -437,12 +470,12 @@ if (Test-Path \$lnk) { Remove-Item -LiteralPath \$lnk -Force }
 
     // 3) Windows kayitlari.
     report(0.8, SetupStep.removeRegistry, '');
-    await _reg(['delete', regUninstallKey, '/f']);
+    await host.reg(['delete', regUninstallKey, '/f']);
 
     // 4) Kullanici verisi: yalnizca acikca istenirse.
     if (!keepData) {
       report(0.9, SetupStep.removeData, '');
-      final data = Directory(_dataDir());
+      final data = Directory(host.dataDir());
       if (data.existsSync()) await data.delete(recursive: true);
     }
 
