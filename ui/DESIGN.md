@@ -283,6 +283,6 @@ No open items (2026-10-05). The two entries that lived here are resolved:
   note that stood here is closed.
 - The installer (2026-10-01 → 10-04/05): the Modern UI 2 bitmaps were replaced
   outright — the installer is a custom Flutter app carried by a silent NSIS
-  stub, and `installer/serene.nsi` / `scripts/make_installer_art.py` are no
-  longer used (`STATUS.md` §3.10–§3.12). The `MUI_BANNER` correction is kept
-  there too (§3.10.1).
+  stub, and `installer/serene.nsi` / `scripts/make_installer_art.py` were
+  **deleted on 2026-10-06** (`STATUS.md` §3.10–§3.12). The `MUI_BANNER`
+  correction is kept there too (§3.10.1).

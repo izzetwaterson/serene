@@ -261,7 +261,7 @@ node scripts/check_extension.mjs   # extension logic (under a browser mock)
 | `native-host/` | Browser bridge binary (Rust) |
 | `extension/` | Firefox extension (JavaScript) |
 | `installer_app/` | Custom installer / uninstaller UI (Flutter) |
-| `installer/` | Single-file carrier (`bootstrap.nsi`, no UI of its own); legacy `serene.nsi` kept for reference |
+| `installer/` | Single-file carrier (`bootstrap.nsi`, no UI of its own) |
 | `scripts/` | Verification scripts, icon generation, release pipeline |
 | `ui/` | Design source and mockups |
 
