@@ -12,16 +12,24 @@ use reqwest::header::{
 use reqwest::{Client, StatusCode};
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncSeekExt, AsyncWriteExt, SeekFrom};
+use tokio::task::{Id, JoinSet};
 use tokio_util::sync::CancellationToken;
 
 use crate::manager::{DownloadEntry, DownloadManager};
 use crate::models::{now_secs, DownloadMeta, SegmentInfo, Status};
-use crate::runtime;
 
 pub const USER_AGENT: &str = "Serene/0.1 (Windows)";
 /// Bir parcayi bolmeye degmeyecek minimum boyut.
 const MIN_SEGMENT_BYTES: u64 = 1 << 20;
 const MAX_SEGMENTS: usize = 16;
+
+/// Parca hizlarinin yeniden olculdugu aralik.
+const SUPERVISE_MS: u64 = 400;
+/// Bir parca, kardeslerinin ortalama hizinin bu oranindan yavas kalirsa
+/// bolunmeye deger sayilir.
+const SPLIT_FACTOR: f64 = 0.35;
+/// Hic bayt gelmeden bu sure gecerse parca tikali sayilir.
+const STALL_MS: u64 = 3000;
 
 /// Gecici bir hata icin ilk bekleme. Sonraki denemeler bunu ikiye katlar.
 const RETRY_BASE: Duration = Duration::from_millis(500);
@@ -364,6 +372,39 @@ pub fn plan_segments(total: u64, requested: usize) -> Vec<SegmentInfo> {
         start = end + 1;
     }
     segments
+}
+
+/// Bir parca bolunmeli mi? Bolunurse yeni parcanin baslangic baytini doner.
+///
+/// Yalnizca anlamli bir kalan varken (>= `MIN_SEGMENT_BYTES`) ve parca ya
+/// kardeslerinin ortalamasinin belirgin altinda kalirsa ya da hic
+/// ilerlemezse bolunur. Tek akis (`end == u64::MAX`) bolunemez; tavan
+/// `MAX_SEGMENTS`tur ve henuz hic bayt almamis parca bolunmez.
+pub fn split_point(
+    seg: &SegmentInfo,
+    have: u64,
+    rate: f64,
+    peer_rate: f64,
+    parts: usize,
+    idle_ms: u64,
+) -> Option<u64> {
+    if seg.end == u64::MAX || parts >= MAX_SEGMENTS || have == 0 {
+        return None;
+    }
+    let consumed = seg.start.checked_add(have)?;
+    if consumed > seg.end {
+        return None;
+    }
+    let remaining = seg.end - consumed + 1;
+    if remaining < MIN_SEGMENT_BYTES {
+        return None;
+    }
+    let slow = peer_rate > 0.0 && rate < peer_rate * SPLIT_FACTOR;
+    let stalled = rate <= 0.0 && idle_ms >= STALL_MS;
+    if !slow && !stalled {
+        return None;
+    }
+    Some(consumed + remaining / 2)
 }
 
 /// Tek bir araligi indirir; var olan parca dosyasinin boyutundan devam eder.
@@ -775,45 +816,65 @@ async fn run_inner(
     // 429 gorulurse butun parcalar bu kapida bekler.
     let cooldown = Arc::new(CoolDown::default());
 
-    let mut handles = Vec::with_capacity(segments.len());
-    for (seg, counter) in segments.iter().cloned().zip(counters.iter().cloned()) {
-        let client = client.clone();
-        let url = url.clone();
-        let meta = Arc::clone(&meta_snapshot);
-        let etag = etag.clone();
-        let path = part_path(&temp_dir, seg.index);
-        let cancel = child.clone();
-        let first_error = Arc::clone(&first_error);
-        let cooldown = Arc::clone(&cooldown);
+    let ctx = PartCtx {
+        client: client.clone(),
+        url: url.clone(),
+        meta: Arc::clone(&meta_snapshot),
+        temp_dir: temp_dir.clone(),
+        etag: etag.clone(),
+        child: child.clone(),
+        first_error: Arc::clone(&first_error),
+        cooldown: Arc::clone(&cooldown),
+    };
 
-        handles.push(runtime::spawn(async move {
-            let outcome = run_segment(SegmentJob {
-                client: &client,
-                url: &url,
-                meta: &meta,
-                etag: etag.as_deref(),
-                seg: &seg,
-                part_path: &path,
-                counter: &counter,
-                cancel: &cancel,
-                cooldown: &cooldown,
-            })
-            .await;
-            if let Err(err) = &outcome {
-                let mut slot = first_error.lock().unwrap();
-                if slot.is_none() {
-                    *slot = Some(format!("{err:#}"));
-                }
-                drop(slot);
-                // Kardes parcalari da durdur, bosa indirmeyi surdurmesinler.
-                cancel.cancel();
-            }
-            outcome
-        }));
+    // Her parca bir is; denetleyici yavas/tikali parcalari bolup yenisini ekler.
+    let mut set: JoinSet<()> = JoinSet::new();
+    let mut runs: Vec<PartRun> = Vec::with_capacity(segments.len());
+    let mut next_index: u32 = segments
+        .iter()
+        .map(|s| s.index)
+        .max()
+        .map_or(0, |m| m + 1);
+    for (seg, counter) in segments.iter().cloned().zip(counters.into_iter()) {
+        runs.push(spawn_part(&mut set, &ctx, seg, counter));
     }
 
-    for handle in handles {
-        let _ = handle.await;
+    let mut tick = tokio::time::interval(Duration::from_millis(SUPERVISE_MS));
+    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    tick.tick().await; // ilk tick hemen tetiklenir; atla.
+
+    // Bolunmesi istenen parcanin isi; bitisi beklenip bolme uygulanir.
+    let mut splitting: Option<Id> = None;
+
+    while !set.is_empty() {
+        tokio::select! {
+            _ = tick.tick() => {
+                if splitting.is_none() {
+                    splitting = supervise(&mut runs);
+                }
+            }
+            joined = set.join_next_with_id() => {
+                match joined {
+                    Some(Ok((id, ()))) => {
+                        if Some(id) == splitting {
+                            apply_split(&mut set, &mut runs, &ctx, id, &mut next_index, entry);
+                            splitting = None;
+                        } else {
+                            runs.retain(|run| run.id != id);
+                        }
+                    }
+                    Some(Err(err)) => {
+                        let mut slot = first_error.lock().unwrap();
+                        if slot.is_none() {
+                            *slot = Some(format!("parca gorevi coktu: {err}"));
+                        }
+                        drop(slot);
+                        child.cancel();
+                    }
+                    None => break,
+                }
+            }
+        }
     }
 
     if cancel.is_cancelled() {
@@ -823,8 +884,9 @@ async fn run_inner(
         return Err(anyhow!(message));
     }
 
-    // Tum parcalar tamam: birlestir ve gecici klasoru temizle.
-    let parts: Vec<PathBuf> = segments
+    // Tum parcalar tamam: guncel plan sirasina gore birlestir ve temizle.
+    let plan = entry.meta.lock().unwrap().segments.clone();
+    let parts: Vec<PathBuf> = plan
         .iter()
         .map(|s| part_path(&temp_dir, s.index))
         .collect();
@@ -841,6 +903,212 @@ async fn run_inner(
 
     let _ = fs::remove_dir_all(&temp_dir).await;
     Ok(())
+}
+
+/// Parca gorevlerinin paylastigi baglam (istek basliklari, iptal, hata).
+struct PartCtx {
+    client: Client,
+    url: String,
+    meta: Arc<DownloadMeta>,
+    temp_dir: PathBuf,
+    etag: Option<String>,
+    child: CancellationToken,
+    first_error: Arc<Mutex<Option<String>>>,
+    cooldown: Arc<CoolDown>,
+}
+
+/// Denetleyicinin izledigi canli parca.
+struct PartRun {
+    id: Id,
+    index: u32,
+    start: u64,
+    end: u64,
+    counter: Arc<AtomicU64>,
+    cancel: CancellationToken,
+    last_bytes: u64,
+    last_at: Instant,
+    last_change: Instant,
+    rate: f64,
+}
+
+/// Bir parcayi is setine ekler ve denetleyicinin izleyecegi kaydi doner.
+fn spawn_part(
+    set: &mut JoinSet<()>,
+    ctx: &PartCtx,
+    seg: SegmentInfo,
+    counter: Arc<AtomicU64>,
+) -> PartRun {
+    let seg_cancel = ctx.child.child_token();
+    let job_cancel = seg_cancel.clone();
+    let child = ctx.child.clone();
+    let client = ctx.client.clone();
+    let url = ctx.url.clone();
+    let meta = Arc::clone(&ctx.meta);
+    let path = part_path(&ctx.temp_dir, seg.index);
+    let etag = ctx.etag.clone();
+    let first_error = Arc::clone(&ctx.first_error);
+    let cooldown = Arc::clone(&ctx.cooldown);
+    let job_counter = Arc::clone(&counter);
+    let job_seg = seg.clone();
+
+    let handle = set.spawn(async move {
+        let outcome = run_segment(SegmentJob {
+            client: &client,
+            url: &url,
+            meta: &meta,
+            etag: etag.as_deref(),
+            seg: &job_seg,
+            part_path: &path,
+            counter: &job_counter,
+            cancel: &job_cancel,
+            cooldown: &cooldown,
+        })
+        .await;
+        if let Err(err) = &outcome {
+            // Denetleyici bu parcayi bolmek icin iptal ettiyse hata degildir.
+            if !job_cancel.is_cancelled() {
+                let mut slot = first_error.lock().unwrap();
+                if slot.is_none() {
+                    *slot = Some(format!("{err:#}"));
+                }
+                drop(slot);
+                // Kardes parcalari da durdur, bosa indirmeyi surdurmesinler.
+                child.cancel();
+            }
+        }
+    });
+
+    let now = Instant::now();
+    PartRun {
+        id: handle.id(),
+        index: seg.index,
+        start: seg.start,
+        end: seg.end,
+        counter,
+        cancel: seg_cancel,
+        last_bytes: 0,
+        last_at: now,
+        last_change: now,
+        rate: 0.0,
+    }
+}
+
+/// Parca hizlarini ornekler ve bolunmesi gereken parcayi isaretler.
+///
+/// Bir turda yalnizca en yavas parca secilir; boylece parca sayisi kontrollu
+/// artar ve ayni anda birden fazla bolme olmaz.
+fn supervise(runs: &mut [PartRun]) -> Option<Id> {
+    let now = Instant::now();
+    for run in runs.iter_mut() {
+        let bytes = run.counter.load(Ordering::Relaxed);
+        let elapsed = now.duration_since(run.last_at).as_secs_f64();
+        if bytes > run.last_bytes && elapsed > 0.0 {
+            let instant = (bytes - run.last_bytes) as f64 / elapsed;
+            run.rate = if run.rate > 0.0 {
+                run.rate * 0.6 + instant * 0.4
+            } else {
+                instant
+            };
+            run.last_bytes = bytes;
+            run.last_change = now;
+        } else {
+            run.rate = 0.0;
+        }
+        run.last_at = now;
+    }
+
+    let moving: Vec<f64> = runs
+        .iter()
+        .map(|run| run.rate)
+        .filter(|rate| *rate > 0.0)
+        .collect();
+    let peer = if moving.is_empty() {
+        0.0
+    } else {
+        moving.iter().sum::<f64>() / moving.len() as f64
+    };
+    let parts = runs.len();
+
+    let mut victim: Option<(usize, f64)> = None;
+    for (i, run) in runs.iter().enumerate() {
+        let have = run.counter.load(Ordering::Relaxed);
+        let idle = now.duration_since(run.last_change).as_millis() as u64;
+        let seg = SegmentInfo {
+            index: run.index,
+            start: run.start,
+            end: run.end,
+            downloaded: have,
+        };
+        if split_point(&seg, have, run.rate, peer, parts, idle).is_some()
+            && victim.map_or(true, |(_, best)| run.rate < best)
+        {
+            victim = Some((i, run.rate));
+        }
+    }
+
+    let (i, _) = victim?;
+    runs[i].cancel.cancel();
+    Some(runs[i].id)
+}
+
+/// Kurban parcayi ikiye ayirir: kalan yarisini yeni bir baglantiya verir.
+///
+/// Kurbanin isi coktan bitmis olmali (denetleyici iptal etti, `join_next` ile
+/// bekledik); boylece sayaci sabittir ve diskle tutarlidir.
+fn apply_split(
+    set: &mut JoinSet<()>,
+    runs: &mut Vec<PartRun>,
+    ctx: &PartCtx,
+    id: Id,
+    next_index: &mut u32,
+    entry: &Arc<DownloadEntry>,
+) {
+    let Some(pos) = runs.iter().position(|run| run.id == id) else {
+        return;
+    };
+    let run = runs.remove(pos);
+    let have = run.counter.load(Ordering::Relaxed);
+    if have == 0 {
+        return;
+    }
+    let Some(boundary) = run.start.checked_add(have) else {
+        return;
+    };
+    if boundary > run.end {
+        return;
+    }
+
+    let fresh = SegmentInfo {
+        index: *next_index,
+        start: boundary,
+        end: run.end,
+        downloaded: 0,
+    };
+    *next_index += 1;
+    let counter = Arc::new(AtomicU64::new(0));
+
+    // Plan ve canli sayaclar konumsal hizali kalmali: ayni sirada guncelle.
+    let insert_at = {
+        let mut meta = entry.meta.lock().unwrap();
+        if let Some(seg) = meta.segments.iter_mut().find(|s| s.index == run.index) {
+            seg.end = boundary - 1;
+            seg.downloaded = have;
+        }
+        let at = meta
+            .segments
+            .iter()
+            .position(|s| s.start > fresh.start)
+            .unwrap_or(meta.segments.len());
+        meta.segments.insert(at, fresh.clone());
+        at
+    };
+    {
+        let mut parts = entry.parts.lock().unwrap();
+        let at = insert_at.min(parts.len());
+        parts.insert(at, Arc::clone(&counter));
+    }
+
+    runs.push(spawn_part(set, ctx, fresh, counter));
 }
 
 fn header_str(headers: &HeaderMap, name: reqwest::header::HeaderName) -> Option<String> {

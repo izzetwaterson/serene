@@ -19,8 +19,7 @@
 
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { connect as netConnect } from "node:net";
 
@@ -295,9 +294,12 @@ async function main() {
   if (!existsSync(EXE)) fail("uygulama bulunamadi: " + EXE + " (once `flutter build windows --debug`)");
   if (openWindows().length) fail(`calisan bir ${IMAGE}.exe var; kosumdan once onu kapat`);
 
-  const dataDir = mkdtempSync(join(tmpdir(), "serene-resil-"));
+  // Gecici klasor agac icinde tutulur: LOW butunlukte %TEMP% yazilamaz
+  // (MASTER §11), motor oraya kayit birakamaz.
+  const dataDir = join(ROOT, "build", "verify-resil");
+  rmSync(dataDir, { recursive: true, force: true });
   const downloadDir = join(dataDir, "indir");
-  mkdirSync(downloadDir);
+  mkdirSync(downloadDir, { recursive: true });
   writeFileSync(
     join(dataDir, "settings.json"),
     JSON.stringify(

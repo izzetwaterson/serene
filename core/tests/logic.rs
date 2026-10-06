@@ -11,13 +11,15 @@ use serene_core::dash::{
     expand_template, plan_segments as dash_plan, timeline_values, TemplateValues, TimelineEntry,
 };
 use serene_core::engine::{
-    build_client, build_request, filename_from_url, plan_segments, sanitize_filename, USER_AGENT,
+    build_client, build_request, filename_from_url, plan_segments, sanitize_filename, split_point,
+    USER_AGENT,
 };
 use serene_core::hls::{aes_key_for, plan_segments as hls_plan, resolve_uri, select_variant};
 use serene_core::manager::DownloadManager;
 use serene_core::runtime;
 use serene_core::models::{
-    normalize_language, normalize_theme, Category, CaptureItem, DownloadKind, DownloadMeta, Settings,
+    normalize_language, normalize_theme, Category, CaptureItem, DownloadKind, DownloadMeta,
+    SegmentInfo, Settings,
 };
 use serene_core::store::{load_captures, save_captures, upsert_capture};
 
@@ -69,6 +71,72 @@ fn unknown_size_uses_streaming_sentinel() {
     let segs = plan_segments(0, 8);
     assert_eq!(segs.len(), 1);
     assert_eq!(segs[0].end, u64::MAX);
+}
+
+/// Yardimci: tek bir kapsayici aralik.
+fn segment(start: u64, end: u64) -> SegmentInfo {
+    SegmentInfo {
+        index: 0,
+        start,
+        end,
+        downloaded: 0,
+    }
+}
+
+#[test]
+fn fast_segment_is_not_split() {
+    const MB: u64 = 1 << 20;
+    let seg = segment(0, 16 * MB - 1);
+    // Kardesleriyle ayni hizda: bolmeye gerek yok.
+    assert_eq!(
+        split_point(&seg, 4 * MB, 1_000_000.0, 1_000_000.0, 4, 0),
+        None
+    );
+}
+
+#[test]
+fn slow_segment_splits_in_half() {
+    const MB: u64 = 1 << 20;
+    let seg = segment(0, 16 * MB - 1);
+    let have = 4 * MB;
+    let point = split_point(&seg, have, 100_000.0, 1_000_000.0, 4, 0).unwrap();
+    // Kalan [4MB, 16MB-1] ikiye bolunur: 4MB + 6MB.
+    assert_eq!(point, have + (12 * MB) / 2);
+}
+
+#[test]
+fn stalled_segment_splits_even_without_peers() {
+    const MB: u64 = 1 << 20;
+    let seg = segment(0, 16 * MB - 1);
+    // Hic bayt gelmiyor ve 3 sn gecti: tikali sayilir.
+    assert!(split_point(&seg, 2 * MB, 0.0, 0.0, 4, 3_000).is_some());
+    // Ayni parca ama yeni durdu: beklenir.
+    assert_eq!(split_point(&seg, 2 * MB, 0.0, 0.0, 4, 1_000), None);
+}
+
+#[test]
+fn split_respects_caps_and_edges() {
+    const MB: u64 = 1 << 20;
+    let seg = segment(0, 24 * MB - 1);
+    // Tavan (16 parca) doldu: bolunmez.
+    assert_eq!(
+        split_point(&seg, 8 * MB, 10_000.0, 1_000_000.0, 16, 0),
+        None
+    );
+    // Kalan 1 MiB'den kucuk: bolunmez.
+    let almost = segment(0, 8 * MB + 100);
+    assert_eq!(
+        split_point(&almost, 8 * MB, 10_000.0, 1_000_000.0, 4, 0),
+        None
+    );
+    // Hic bayt alinmamis: bolunmez.
+    assert_eq!(split_point(&seg, 0, 0.0, 1_000_000.0, 4, 9_000), None);
+    // Tek akis (boyut bilinmiyor): bolunmez.
+    let stream = segment(0, u64::MAX);
+    assert_eq!(
+        split_point(&stream, 8 * MB, 0.0, 1_000_000.0, 4, 9_000),
+        None
+    );
 }
 
 #[test]
