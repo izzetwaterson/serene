@@ -307,7 +307,7 @@ function createBrowserMock(options = {}) {
     notifications: {
       create: (options_) => state.notifications.push(options_),
     },
-    browserAction: {
+    action: {
       setBadgeText: ({ text }) => (state.badge = text || ""),
       setBadgeBackgroundColor: () => {},
     },
@@ -446,7 +446,7 @@ function checkManifest(problems) {
   const manifest = JSON.parse(readFileSync(join(EXT, "manifest.json"), "utf8"));
   const report = { version: manifest.version, permissions: manifest.permissions.length };
 
-  if (manifest.manifest_version !== 2) problems.push("manifest_version 2 degil");
+  if (manifest.manifest_version !== 3) problems.push("manifest_version 3 degil");
   if (!manifest.browser_specific_settings?.gecko?.id) {
     problems.push("gecko.id tanimli degil (native messaging icin zorunlu)");
   }
@@ -470,10 +470,10 @@ function checkManifest(problems) {
   // Basvurulan her dosya gercekten var mi?
   const referenced = new Set();
   referenced.add(manifest.background.scripts[0]);
-  referenced.add(manifest.browser_action.default_popup);
+  referenced.add(manifest.action.default_popup);
   referenced.add(manifest.options_ui.page);
   for (const size of Object.values(manifest.icons)) referenced.add(size);
-  for (const size of Object.values(manifest.browser_action.default_icon)) referenced.add(size);
+  for (const size of Object.values(manifest.action.default_icon)) referenced.add(size);
 
   const missing = [];
   for (const file of referenced) {
@@ -598,7 +598,7 @@ function checkManifest(problems) {
     for (const [field, value] of [
       ["name", manifest.name],
       ["description", manifest.description],
-      ["browser_action.default_title", manifest.browser_action?.default_title],
+      ["action.default_title", manifest.action?.default_title],
     ]) {
       if (typeof value !== "string") continue;
       for (const match of value.matchAll(/__MSG_([A-Za-z0-9_@]+)__/g)) {

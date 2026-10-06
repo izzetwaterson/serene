@@ -237,8 +237,8 @@ async function updateBadge(tabId = activeTabId) {
     (task) => task.status === "downloading" || task.status === "queued"
   ).length;
   const count = candidates || downloads;
-  browser.browserAction.setBadgeText({ text: count ? String(count) : "" });
-  browser.browserAction.setBadgeBackgroundColor({ color: "#2f5d50" });
+  browser.action.setBadgeText({ text: count ? String(count) : "" });
+  browser.action.setBadgeBackgroundColor({ color: "#3D6A4B" });
 }
 
 /* ------------------------------------------------------------------ */

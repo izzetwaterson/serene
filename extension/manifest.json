@@ -1,5 +1,5 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "__MSG_extensionName__",
   "version": "1.0.0",
   "description": "__MSG_extensionDescription__",
@@ -8,7 +8,10 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "serene@izzet.local",
-      "strict_min_version": "115.0"
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
 
@@ -16,21 +19,20 @@
     "nativeMessaging",
     "downloads",
     "webRequest",
-    "webRequestBlocking",
     "cookies",
     "storage",
     "menus",
     "notifications",
-    "tabs",
-    "<all_urls>"
+    "tabs"
   ],
 
+  "host_permissions": ["<all_urls>"],
+
   "background": {
-    "scripts": ["i18n.js", "background.js"],
-    "persistent": true
+    "scripts": ["i18n.js", "background.js"]
   },
 
-  "browser_action": {
+  "action": {
     "default_popup": "popup.html",
     "default_title": "Serene",
     "default_icon": {

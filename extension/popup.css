@@ -1,11 +1,53 @@
+/* Serene eklenti popup'i.
+ *
+ * Palet, radius ve tipografi uygulamayla (flutter_app/lib/src/theme.dart) ayni
+ * tutulur; bir deger degisirse ikisini birlikte guncelle. Fontlar
+ * `scripts/make_extension_fonts.py` ile uretilen woff2 dosyalarindan gelir.
+ */
+
+@font-face { font-family: "Fraunces"; src: url("fonts/fraunces-regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Nunito Sans"; src: url("fonts/nunito-regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Nunito Sans"; src: url("fonts/nunito-semibold.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Nunito Sans"; src: url("fonts/nunito-bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
 :root {
   --bg: #f7f4ed;
   --surface: #ffffff;
-  --on-surface: #1b1c1a;
-  --secondary: #6b6f68;
-  --primary: #2f5d50;
-  --outline: #d9d5cb;
-  --bad: #9c3b32;
+  --surface-2: #f2eee6;
+  --on-surface: #2e3230;
+  --secondary: #5f6660;
+  --primary: #3d6a4b;
+  --on-primary: #ffffff;
+  --outline: #dcd8ce;
+  --bad: #b83230;
+  --bad-bg: #fce4e2;
+  --bad-border: #e6c9c5;
+  --ok-bg: #e5f0e7;
+  --ok-border: #bcd2c9;
+  --font-body: "Nunito Sans", "Segoe UI", system-ui, sans-serif;
+  --font-head: "Fraunces", Georgia, "Times New Roman", serif;
+  --radius-card: 16px;
+  --radius-tile: 12px;
+  --radius-pill: 999px;
+}
+
+/* Uygulama iki temayi da uretir; eklenti sistemi izler. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161815;
+    --surface: #212420;
+    --surface-2: #272a25;
+    --on-surface: #e5e4db;
+    --secondary: #b7bbb0;
+    --primary: #5a8f68;
+    --on-primary: #0b2013;
+    --outline: #3f433b;
+    --bad: #e8928e;
+    --bad-bg: #5a2422;
+    --bad-border: #7a3b38;
+    --ok-bg: #2c4233;
+    --ok-border: #3d5c48;
+  }
 }
 
 * {
@@ -16,7 +58,7 @@ body {
   width: 340px;
   margin: 0;
   padding: 14px;
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   color: var(--on-surface);
   background: var(--bg);
@@ -33,14 +75,16 @@ header {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-weight: 600;
+  font-family: var(--font-head);
+  font-size: 17px;
+  font-weight: 400;
   letter-spacing: 0.01em;
 }
 
 .status {
   font-size: 11px;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface);
   border: 1px solid var(--outline);
   color: var(--secondary);
@@ -48,14 +92,14 @@ header {
 
 .status--ok {
   color: var(--primary);
-  border-color: #bcd2c9;
-  background: #eaf2ee;
+  border-color: var(--ok-border);
+  background: var(--ok-bg);
 }
 
 .status--bad {
   color: var(--bad);
-  border-color: #e6c9c5;
-  background: #fbeeec;
+  border-color: var(--bad-border);
+  background: var(--bad-bg);
 }
 
 h2 {
@@ -100,7 +144,7 @@ h2 {
   flex: 1;
   min-width: 0;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -117,7 +161,7 @@ h2 {
 .kind {
   flex: 0 0 auto;
   font-size: 9.5px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 2px 6px;
@@ -128,8 +172,8 @@ h2 {
 }
 
 .kind--hls {
-  border-color: #bcd2c9;
-  background: #eaf2ee;
+  border-color: var(--ok-border);
+  background: var(--ok-bg);
   color: var(--primary);
 }
 
@@ -171,7 +215,7 @@ button.ghost:disabled {
 .task {
   background: var(--surface);
   border: 1px solid var(--outline);
-  border-radius: 12px;
+  border-radius: var(--radius-tile);
   padding: 9px 10px;
 }
 
@@ -185,7 +229,7 @@ button.ghost:disabled {
 
 .task__name {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -199,15 +243,15 @@ button.ghost:disabled {
 
 .bar {
   height: 4px;
-  border-radius: 999px;
-  background: #e7e3da;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
   overflow: hidden;
 }
 
 .bar__fill {
   height: 100%;
   width: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--primary);
   transition: width 0.3s ease;
 }
@@ -217,7 +261,7 @@ button.ghost:disabled {
 }
 
 .bar__fill--completed {
-  background: #4f8a75;
+  background: var(--primary);
 }
 
 .empty {
@@ -260,7 +304,7 @@ button {
   padding: 8px 10px;
   border-radius: 10px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   border: 1px solid transparent;
@@ -268,7 +312,7 @@ button {
 
 button.primary {
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
 }
 
 button.primary:disabled {

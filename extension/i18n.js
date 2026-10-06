@@ -23,7 +23,11 @@ function applyI18n(root = document) {
   }
   for (const el of root.querySelectorAll("[data-i18n-html]")) {
     const html = t(el.dataset.i18nHtml);
-    if (html) el.innerHTML = html;
+    if (!html) continue;
+    // Kaynak kendi `_locales` katalogumuzdur; yine de `innerHTML` yerine
+    // ayristirip ekleriz: "guvensiz degisken atamasi" uyarisi ve riski kalkar.
+    const parsed = new DOMParser().parseFromString(html, "text/html");
+    el.replaceChildren(...parsed.body.childNodes);
   }
   const ui = browser.i18n.getUILanguage?.() || "";
   if (ui) document.documentElement.lang = ui.split("-")[0];

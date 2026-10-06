@@ -320,9 +320,9 @@ eklenebilir.
 - Kod imzasi yok: Windows SmartScreen "bilinmeyen yayinci" uyarisi verir.
   Kurulumdan once bu uyariyi gorursunuz, "Daha fazla bilgi" > "Yine de
   calistir" demek gerekebilir.
-- Tarayici eklentisi Manifest V2: Firefox AMO'ya yuklenemez; uygulama ilk
-  acilista \`extension\` klasorunu gosterir, eklenti oradan gecici olarak
-  yuklenir (tarayici kapaninca yukleme adimi tekrarlanir).
+- Tarayici eklentisi Manifest V3 (Firefox). Uygulama ilk acilista \`extension\`
+  klasorunu gosterir; eklenti oradan gecici olarak yuklenebilir. AMO paketi
+  \`dist\\serene-<surum>.zip\`.
 
 ## Yukleme
 

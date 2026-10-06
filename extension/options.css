@@ -1,10 +1,38 @@
+/* Serene eklenti ayarlar sayfasi.
+ *
+ * Palet, radius ve tipografi popup.css ve uygulamayla (theme.dart) ortaktir.
+ * Fontlar `scripts/make_extension_fonts.py` ile uretilen woff2 dosyalarindan
+ * gelir.
+ */
+
+@font-face { font-family: "Fraunces"; src: url("fonts/fraunces-regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Nunito Sans"; src: url("fonts/nunito-regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Nunito Sans"; src: url("fonts/nunito-semibold.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Nunito Sans"; src: url("fonts/nunito-bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
 :root {
   --bg: #f7f4ed;
   --surface: #ffffff;
-  --on-surface: #1b1c1a;
-  --secondary: #6b6f68;
-  --primary: #2f5d50;
-  --outline: #d9d5cb;
+  --on-surface: #2e3230;
+  --secondary: #5f6660;
+  --primary: #3d6a4b;
+  --on-primary: #ffffff;
+  --outline: #dcd8ce;
+  --font-body: "Nunito Sans", "Segoe UI", system-ui, sans-serif;
+  --font-head: "Fraunces", Georgia, "Times New Roman", serif;
+  --radius-tile: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161815;
+    --surface: #212420;
+    --on-surface: #e5e4db;
+    --secondary: #b7bbb0;
+    --primary: #5a8f68;
+    --on-primary: #0b2013;
+    --outline: #3f433b;
+  }
 }
 
 * {
@@ -14,7 +42,7 @@
 body {
   margin: 0;
   padding: 22px;
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 13.5px;
   color: var(--on-surface);
   background: var(--bg);
@@ -27,7 +55,9 @@ main {
 
 h1 {
   margin: 0 0 6px;
-  font-size: 18px;
+  font-family: var(--font-head);
+  font-weight: 400;
+  font-size: 22px;
   letter-spacing: 0.01em;
 }
 
@@ -45,7 +75,7 @@ h1 {
   gap: 14px;
   background: var(--surface);
   border: 1px solid var(--outline);
-  border-radius: 12px;
+  border-radius: var(--radius-tile);
   padding: 12px 14px;
   margin-bottom: 10px;
 }
@@ -62,7 +92,7 @@ h1 {
 }
 
 .row__title {
-  font-weight: 500;
+  font-weight: 600;
   font-size: 13px;
 }
 
@@ -108,7 +138,7 @@ button {
   padding: 9px 16px;
   border-radius: 10px;
   font-size: 12.5px;
-  font-weight: 500;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   border: 1px solid transparent;
@@ -116,7 +146,7 @@ button {
 
 button.primary {
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
 }
 
 button.ghost {
