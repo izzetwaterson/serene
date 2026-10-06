@@ -9,9 +9,10 @@
 # Her adimin adi basindaki [engine] / [shell] / [bridge] etiketi, kirilan
 # katmani logda tek bakista soyler:
 #
-#   [engine]  core/        indirme motoru, saf Rust birim testleri
-#   [shell]   flutter_app/ Dart arayuzu: analyze, widget testleri, Windows ikilisi
-#   [bridge]  native-host/ + uygulama kosumlari: tarayici koprusunun iki ucu
+#   [engine]    core/          indirme motoru, saf Rust birim testleri
+#   [shell]     flutter_app/   Dart arayuzu: analyze, widget testleri, Windows ikilisi
+#   [installer] installer_app/ kurulum sihirbazi: saf mantik + HostOps sahtesi
+#   [bridge]    native-host/ + uygulama kosumlari: tarayici koprusunun iki ucu
 #
 # ---------------------------------------------------------------------------
 # BILEREK DISARIDA BIRAKILANLAR - yeniden acmayin, gerekceleri asagida.
@@ -204,6 +205,15 @@ jobs:
         working-directory: flutter_app
         run: flutter test
 
+      # Kurulum uygulamasi ayri bir Flutter kabugudur (quiz akisi + NSIS
+      # tasiyicisi). Testleri saf mantigi (argumanlar, kurulum yolu) ve
+      # HostOps sahtesiyle kur/kaldir akisini kapsar; kayit defterine ve
+      # kullanici verisine dokunmaz, bu yuzden izole CI ortamina uygundur.
+      - name: "[installer] flutter test (installer_app/)"
+        id: installer_test
+        working-directory: installer_app
+        run: flutter test
+
       # Rust motorunu cargokit ile derleyen tek adim; sonucu
       # build\windows\x64\runner\Debug\Serene.exe. Asagidaki bes kosum bu
       # ikiliyi kullanir, bu yuzden bu adim onlarin onkosuludur.
@@ -244,6 +254,14 @@ jobs:
         id: run_captures
         run: node scripts/check_captures.mjs
 
+      - name: "[bridge] check_resilience.mjs - non-resumable devam + akis yeniden deneme"
+        id: run_resilience
+        run: node scripts/check_resilience.mjs
+
+      - name: "[bridge] check_dynamic.mjs - yavas parca bolme"
+        id: run_dynamic
+        run: node scripts/check_dynamic.mjs
+
       # Hata halinde tek bakista hangi katmanin kirdigini yazar. Adim
       # adlarinda zaten [engine]/[shell]/[bridge] yaziyor; bu, yesil olan
       # katmanlari da listeleyip gecilenleri gosterir.
@@ -256,12 +274,15 @@ jobs:
             @{ katman = "shell";   adim = "flutter pub get";                            sonuc = "${{ steps.shell_get.outcome }}" },
             @{ katman = "shell";   adim = "flutter analyze";                            sonuc = "${{ steps.shell_analyze.outcome }}" },
             @{ katman = "shell";   adim = "flutter test";                               sonuc = "${{ steps.shell_test.outcome }}" },
+            @{ katman = "installer"; adim = "flutter test (installer_app/)";            sonuc = "${{ steps.installer_test.outcome }}" },
             @{ katman = "shell";   adim = "flutter build windows --debug";              sonuc = "${{ steps.shell_build.outcome }}" },
             @{ katman = "bridge";  adim = "check_ffi.mjs";                             sonuc = "${{ steps.run_ffi.outcome }}" },
             @{ katman = "bridge";  adim = "check_bridge.mjs";                          sonuc = "${{ steps.run_bridge.outcome }}" },
             @{ katman = "bridge";  adim = "check_hls.mjs";                              sonuc = "${{ steps.run_hls.outcome }}" },
             @{ katman = "bridge";  adim = "check_dash.mjs";                             sonuc = "${{ steps.run_dash.outcome }}" },
-            @{ katman = "bridge";  adim = "check_captures.mjs";                         sonuc = "${{ steps.run_captures.outcome }}" }
+            @{ katman = "bridge";  adim = "check_captures.mjs";                         sonuc = "${{ steps.run_captures.outcome }}" },
+            @{ katman = "bridge";  adim = "check_resilience.mjs";                       sonuc = "${{ steps.run_resilience.outcome }}" },
+            @{ katman = "bridge";  adim = "check_dynamic.mjs";                          sonuc = "${{ steps.run_dynamic.outcome }}" }
           )
           foreach ($layer in $layers) {
             switch ($layer.sonuc) {
