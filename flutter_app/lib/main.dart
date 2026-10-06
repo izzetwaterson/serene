@@ -6,6 +6,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'src/app_theme.dart';
 import 'src/data.dart';
+import 'src/download_window.dart';
 import 'src/handoff_window.dart';
 import 'src/main_window.dart';
 // Motor koprusu; `Task` adi eskiden dosya okuyan katmanla carpistigi icin
@@ -24,6 +25,8 @@ import 'src/theme.dart';
 ///   `Serene.exe --handoff=<b64>`  -> ayri "İndirme Bilgileri" penceresi
 ///        (`--handoff-theme=system|light|dark` ile o pencerenin temasi)
 ///        (`--handoff-lang=tr|en` ile o pencerenin dili)
+///   `Serene.exe --download=<id>`  -> ayri canli indirme penceresi
+///        (`--download-theme=...`, `--download-lang=...` ayni bicimde)
 ///   `Serene.exe --selfcheck`      -> pencere acmadan Rust motorunu yoklar
 ///
 /// Onay penceresi kendi surecinde acilir; boylece gercek bir isletim sistemi
@@ -51,6 +54,17 @@ Future<void> main(List<String> args) async {
     );
     return;
   }
+
+  final downloadId = _arg(args, 'download');
+  if (downloadId != null) {
+    applyLanguageSetting(_arg(args, 'download-lang') ?? 'en');
+    await _openDownload(
+      downloadId,
+      theme: _arg(args, 'download-theme') ?? 'light',
+    );
+    return;
+  }
+
   await _openMain(
     demo: args.contains('--demo'),
     settings: args.contains('--settings'),
@@ -184,6 +198,30 @@ Future<void> _openHandoff(
   runApp(HandoffApp(task: task, preview: preview));
 }
 
+/// Canli indirme penceresi: onay penceresi gibi ayri bir surectir ve kendi
+/// motorunu kurmaz; gorevi calisan ornekten kopru uzerinden okur.
+Future<void> _openDownload(String id, {required String theme}) async {
+  await RustLib.init();
+  applyThemeSetting(theme);
+
+  final options = WindowOptions(
+    size: Size(520, 560),
+    center: true,
+    backgroundColor: Serene.surfaceContainerLowest,
+    title: T.downloadTitle,
+  );
+
+  await windowManager.waitUntilReadyToShow(options, () async {
+    await windowManager.setAsFrameless();
+    await windowManager.setResizable(false);
+    await windowManager.setTitle(T.downloadTitle);
+    await windowManager.show();
+    await windowManager.focus();
+  });
+
+  runApp(DownloadApp(id: id));
+}
+
 String? _arg(List<String> args, String name) {
   final prefix = '--$name=';
   for (final value in args) {
@@ -258,6 +296,27 @@ class HandoffApp extends StatelessWidget {
         darkTheme: sereneTheme(Brightness.dark),
         themeMode: mode,
         home: HandoffWindow(task: task, preview: preview),
+      ),
+    );
+  }
+}
+
+class DownloadApp extends StatelessWidget {
+  const DownloadApp({super.key, required this.id});
+
+  final String id;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: appThemeMode,
+      builder: (context, mode, _) => MaterialApp(
+        title: T.downloadTitle,
+        debugShowCheckedModeBanner: false,
+        theme: sereneTheme(Brightness.light),
+        darkTheme: sereneTheme(Brightness.dark),
+        themeMode: mode,
+        home: DownloadWindow(id: id),
       ),
     );
   }

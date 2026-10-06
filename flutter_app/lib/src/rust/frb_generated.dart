@@ -4,6 +4,7 @@
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
 import 'api/commands.dart';
+import 'api/download.dart';
 import 'api/dto.dart';
 import 'api/events.dart';
 import 'api/handoff.dart';
@@ -73,7 +74,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -1642787409;
+  int get rustContentHash => -159017739;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -167,6 +168,14 @@ abstract class RustLibApi extends BaseApi {
   });
 
   void crateApiLifecycleStopBridge();
+
+  Future<void> crateApiDownloadTaskPause({required String id});
+
+  Future<void> crateApiDownloadTaskRemove({required String id});
+
+  Future<void> crateApiDownloadTaskResume({required String id});
+
+  Future<Task?> crateApiDownloadTaskSnapshot({required String id});
 
   Future<AppConfig> crateApiCommandsUpdateSettings({
     required AppConfig settings,
@@ -1013,6 +1022,118 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "stop_bridge", argNames: []);
 
   @override
+  Future<void> crateApiDownloadTaskPause({required String id}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 31,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDownloadTaskPauseConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDownloadTaskPauseConstMeta =>
+      const TaskConstMeta(debugName: "task_pause", argNames: ["id"]);
+
+  @override
+  Future<void> crateApiDownloadTaskRemove({required String id}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 32,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDownloadTaskRemoveConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDownloadTaskRemoveConstMeta =>
+      const TaskConstMeta(debugName: "task_remove", argNames: ["id"]);
+
+  @override
+  Future<void> crateApiDownloadTaskResume({required String id}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 33,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDownloadTaskResumeConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDownloadTaskResumeConstMeta =>
+      const TaskConstMeta(debugName: "task_resume", argNames: ["id"]);
+
+  @override
+  Future<Task?> crateApiDownloadTaskSnapshot({required String id}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 34,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_box_autoadd_task,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDownloadTaskSnapshotConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDownloadTaskSnapshotConstMeta =>
+      const TaskConstMeta(debugName: "task_snapshot", argNames: ["id"]);
+
+  @override
   Future<AppConfig> crateApiCommandsUpdateSettings({
     required AppConfig settings,
   }) {
@@ -1024,7 +1145,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 31,
+            funcId: 35,
             port: port_,
           );
         },
@@ -1054,7 +1175,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 32,
+              funcId: 36,
               port: port_,
             );
           },
@@ -1086,7 +1207,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 33,
+              funcId: 37,
               port: port_,
             );
           },
@@ -1118,7 +1239,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 34,
+              funcId: 38,
               port: port_,
             );
           },
@@ -1150,7 +1271,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 35,
+              funcId: 39,
               port: port_,
             );
           },
@@ -1182,7 +1303,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 36,
+              funcId: 40,
               port: port_,
             );
           },
@@ -1214,7 +1335,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 37,
+              funcId: 41,
               port: port_,
             );
           },
@@ -1246,7 +1367,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 38,
+              funcId: 42,
               port: port_,
             );
           },
@@ -1360,6 +1481,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MediaKind dco_decode_box_autoadd_media_kind(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_media_kind(raw);
+  }
+
+  @protected
+  Task dco_decode_box_autoadd_task(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_task(raw);
   }
 
   @protected
@@ -1483,6 +1610,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MediaKind? dco_decode_opt_box_autoadd_media_kind(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_media_kind(raw);
+  }
+
+  @protected
+  Task? dco_decode_opt_box_autoadd_task(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_task(raw);
   }
 
   @protected
@@ -1684,6 +1817,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Task sse_decode_box_autoadd_task(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_task(deserializer));
+  }
+
+  @protected
   Capture sse_decode_capture(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_id = sse_decode_String(deserializer);
@@ -1851,6 +1990,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_media_kind(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  Task? sse_decode_opt_box_autoadd_task(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_task(deserializer));
     } else {
       return null;
     }
@@ -2129,6 +2279,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_task(Task self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_task(self, serializer);
+  }
+
+  @protected
   void sse_encode_capture(Capture self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.id, serializer);
@@ -2267,6 +2423,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_media_kind(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_task(Task? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_task(self, serializer);
     }
   }
 

@@ -37,6 +37,10 @@ abstract class Strings {
   // --- Genel ---
   String get appTitle;
   String get handoffTitle;
+  String get downloadTitle;
+  String connectionsCount(int count);
+  String get downloadGone;
+  String get loading;
   String get settingsTitle;
   String get close;
   String get cancel;
@@ -211,6 +215,14 @@ class TrStrings extends Strings {
   String get appTitle => 'Serene';
   @override
   String get handoffTitle => 'İndirme Bilgileri';
+  @override
+  String get downloadTitle => 'İndiriliyor';
+  @override
+  String connectionsCount(int count) => '$count bağlantı';
+  @override
+  String get downloadGone => 'Bu indirme artık listede değil.';
+  @override
+  String get loading => 'Yükleniyor…';
   @override
   String get settingsTitle => 'Ayarlar';
   @override
@@ -565,6 +577,14 @@ class EnStrings extends Strings {
   String get appTitle => 'Serene';
   @override
   String get handoffTitle => 'Download Info';
+  @override
+  String get downloadTitle => 'Downloading';
+  @override
+  String connectionsCount(int count) => '$count connections';
+  @override
+  String get downloadGone => 'This download is no longer in the list.';
+  @override
+  String get loading => 'Loading…';
   @override
   String get settingsTitle => 'Settings';
   @override

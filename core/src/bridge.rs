@@ -395,6 +395,30 @@ pub fn handoff_confirm(
 
 /// Onay penceresinin "vazgec" karari: devralma listeden cikarilir.
 pub fn handoff_cancel(id: &str) -> Result<(), String> {
+    task_remove(id)
+}
+
+/// Indirme penceresinin gorunumu: tek gorevi (parcalariyla) calisan ornekten
+/// ceker. Ikincil pencere kendi motorunu kurmadigi icin koprudan okur.
+pub fn task_snapshot(id: &str) -> Result<Option<DownloadMeta>, String> {
+    let payload = request("list", &serde_json::Value::Null)?;
+    let tasks: Vec<DownloadMeta> =
+        serde_json::from_value(payload).map_err(|_| "Gorev listesi okunamadi".to_string())?;
+    Ok(tasks.into_iter().find(|task| task.id == id))
+}
+
+/// Indirme penceresinin "duraklat" karari.
+pub fn task_pause(id: &str) -> Result<(), String> {
+    request("pause", &serde_json::json!({ "id": id })).map(|_| ())
+}
+
+/// Indirme penceresinin "devam" karari.
+pub fn task_resume(id: &str) -> Result<(), String> {
+    request("resume", &serde_json::json!({ "id": id })).map(|_| ())
+}
+
+/// Indirme penceresinin "iptal" karari.
+pub fn task_remove(id: &str) -> Result<(), String> {
     request("remove", &serde_json::json!({ "id": id })).map(|_| ())
 }
 

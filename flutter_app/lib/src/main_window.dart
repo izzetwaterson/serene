@@ -99,6 +99,12 @@ class _MainWindowState extends State<MainWindow>
   final HandoffQueue _handoffs = HandoffQueue();
   Process? _handoffProc;
 
+  /// Acik canli indirme pencereleri (gorev kimligine gore).
+  final Set<String> _downloadWindows = {};
+
+  /// Onaydan gecmis (yakalanmis) ama henuz baslamamis indirmeler.
+  final Set<String> _armedDownloads = {};
+
   /// Yayindan dusmus olay sonrasi motorla ayni duruma donus kapisi.
   final ResyncGate _resync = ResyncGate();
 
@@ -315,12 +321,26 @@ class _MainWindowState extends State<MainWindow>
     // bir esitleme gereksizlesir.
     _resync.onFullList();
     if (!mounted) return;
+    final next = raw.map(Task.fromEngine).toList();
     setState(() {
-      _real = raw.map(Task.fromEngine).toList();
+      _real = next;
       _byId
         ..clear()
-        ..addAll({for (final task in _real) task.id: task});
+        ..addAll({for (final task in next) task.id: task});
     });
+    // Onaydan gecen (yakalanan) indirme basladiginda ayri canli pencere acilir.
+    // Onay kaldirilirken (set_dest) durum bir an `paused` kalir ve `resume`
+    // ayri bir olayda gelir; bu yuzden onayli kimlikler akilda tutulur.
+    for (final task in next) {
+      if (task.pending) {
+        _armedDownloads.add(task.id);
+        continue;
+      }
+      if (!_armedDownloads.contains(task.id)) continue;
+      if (task.status != 'queued' && task.status != 'downloading') continue;
+      _armedDownloads.remove(task.id);
+      unawaited(_spawnDownload(task.id));
+    }
   }
 
   void _applyCaptures(List<engine.Capture> raw) {
@@ -720,6 +740,29 @@ class _MainWindowState extends State<MainWindow>
     _handoffProc = null;
     _handoffs.close(id);
     if (mounted) _pumpHandoffs();
+  }
+
+  /// Onaylanip baslayan yakalanmis indirme icin ayri canli pencereyi acar.
+  ///
+  /// Pencere bagimsizdir: kapanmasi indirmeyi durdurmaz, bu yuzden sureci
+  /// beklemek ana pencereyi bloklamaz; yalnizca ayni gorev icin ikinci kez
+  /// acilmasini engeller.
+  Future<void> _spawnDownload(String id) async {
+    if (!_downloadWindows.add(id)) return;
+    try {
+      final process = await Process.start(Platform.resolvedExecutable, [
+        '--download=$id',
+        '--download-theme=${themeModeSetting(appThemeMode.value)}',
+        '--download-lang=${languageSetting(appLanguage.value)}',
+      ]);
+      unawaited(process.stdout.drain());
+      unawaited(process.stderr.drain());
+      await process.exitCode;
+    } catch (_) {
+      /* pencere acilamazsa da indirme calisan ornekte devam eder */
+    } finally {
+      _downloadWindows.remove(id);
+    }
   }
 
   Future<void> _submitUrl([String? override]) async {
@@ -1577,10 +1620,7 @@ ProgressBatch applyProgress(
     if (task == null) continue;
     task
       ..downloaded = tick.downloaded.toInt()
-      ..speed = tick.speed
-      ..segments = [
-        for (final part in tick.segments) UiSegment.fromEngine(part),
-      ];
+      ..speed = tick.speed;
     changed = true;
   }
   return ProgressBatch(lost: false, changed: changed);

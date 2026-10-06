@@ -7,6 +7,7 @@
 // ignore_for_file: argument_type_not_assignable
 
 import 'api/commands.dart';
+import 'api/download.dart';
 import 'api/dto.dart';
 import 'api/events.dart';
 import 'api/handoff.dart';
@@ -71,6 +72,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MediaKind dco_decode_box_autoadd_media_kind(dynamic raw);
 
   @protected
+  Task dco_decode_box_autoadd_task(dynamic raw);
+
+  @protected
   Capture dco_decode_capture(dynamic raw);
 
   @protected
@@ -117,6 +121,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MediaKind? dco_decode_opt_box_autoadd_media_kind(dynamic raw);
+
+  @protected
+  Task? dco_decode_opt_box_autoadd_task(dynamic raw);
 
   @protected
   Progress dco_decode_progress(dynamic raw);
@@ -191,6 +198,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MediaKind sse_decode_box_autoadd_media_kind(SseDeserializer deserializer);
 
   @protected
+  Task sse_decode_box_autoadd_task(SseDeserializer deserializer);
+
+  @protected
   Capture sse_decode_capture(SseDeserializer deserializer);
 
   @protected
@@ -239,6 +249,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MediaKind? sse_decode_opt_box_autoadd_media_kind(
     SseDeserializer deserializer,
   );
+
+  @protected
+  Task? sse_decode_opt_box_autoadd_task(SseDeserializer deserializer);
 
   @protected
   Progress sse_decode_progress(SseDeserializer deserializer);
@@ -331,6 +344,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_task(Task self, SseSerializer serializer);
+
+  @protected
   void sse_encode_capture(Capture self, SseSerializer serializer);
 
   @protected
@@ -386,6 +402,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     MediaKind? self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_box_autoadd_task(Task? self, SseSerializer serializer);
 
   @protected
   void sse_encode_progress(Progress self, SseSerializer serializer);

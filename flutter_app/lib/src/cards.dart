@@ -464,42 +464,14 @@ class TaskCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          _TaskBar(task: task),
+          _Bar(ratio: percentOf(task) / 100, tone: barTone(task)),
         ],
       ),
     );
   }
 }
 
-/// Gorev kartinin ilerleme alani.
-///
-/// Birden fazla baglanti parcasi varsa IDM gibi yan yana ince barlar cizilir;
-/// aksi halde tek toplam bar kalir.
-class _TaskBar extends StatelessWidget {
-  const _TaskBar({required this.task});
-
-  final Task task;
-
-  @override
-  Widget build(BuildContext context) {
-    final segments = task.segments;
-    if (segments.length <= 1) {
-      return _Bar(ratio: percentOf(task) / 100, tone: barTone(task));
-    }
-    return Row(
-      children: [
-        for (var i = 0; i < segments.length; i++) ...[
-          if (i > 0) const SizedBox(width: 2),
-          Expanded(
-            child: _Bar(ratio: segmentRatio(segments[i]), tone: barTone(task)),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// Tek bir ilerleme bari: parca ya da toplam.
+/// Kartin toplam ilerleme bari.
 class _Bar extends StatelessWidget {
   const _Bar({required this.ratio, required this.tone});
 
