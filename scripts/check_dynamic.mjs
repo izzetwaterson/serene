@@ -246,6 +246,32 @@ async function main() {
       problems.push(`beklenen bolme yok: ${report.segmentsAfterSplit} parca`);
     }
 
+    // Bolme "kalanin yarisi" olmali: kurban SLOW_START'ta kalir ve daralir,
+    // taze parca onun bitisiginden baslayip eski sona kadar gider. Kalanin
+    // tamamini devretmek (eski davranis) taze parcayi ~4 MiB yapardi.
+    const oldEnd = SLOW_START + SEGMENT - 1;
+    const victim = grown.segments.find((s) => s.start === SLOW_START);
+    const fresh = victim
+      ? grown.segments.find((s) => s.start === victim.end + 1)
+      : null;
+    if (!victim || !fresh) {
+      problems.push("bolunen parca cifti planda bulunamadi");
+    } else {
+      report.split = {
+        victim: [victim.start, victim.end],
+        fresh: [fresh.start, fresh.end],
+      };
+      if (victim.end >= oldEnd) problems.push("kurban daralmadi");
+      if (fresh.end !== oldEnd) problems.push("taze parca eski sona kadar gitmiyor");
+      const freshLength = fresh.end - fresh.start + 1;
+      report.freshLength = freshLength;
+      if (freshLength > SEGMENT * 0.75) {
+        problems.push(
+          `bolme yarilamiyor: taze parca ${freshLength} bayt (segment ${SEGMENT} bayt)`,
+        );
+      }
+    }
+
     // Indirme tamamlanana kadar bekle.
     const done = await until(
       "tamamlama",

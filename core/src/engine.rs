@@ -785,30 +785,33 @@ async fn run_inner(
         segments
     };
 
-    // Diskte zaten duran parcalari sayarak ilerleme tabanini kur.
-    let mut base: u64 = 0;
+    // Diskte zaten duran baytlar SAYACIN kendisine tohumlanir: boylece bir
+    // parcanin sayaci her zaman "bu parca icin inen toplam bayt" olur ve
+    // ilerleme tabani ayri bir skalere ihtiyac duymaz. Duraklat/devam sonrasi
+    // parca basina ilerleme sifirlanmaz ve bolme karari dogru `have` okur.
+    let mut downloaded: u64 = 0;
     let mut counters: Vec<Arc<AtomicU64>> = Vec::with_capacity(segments.len());
     for seg in &segments {
         let len = fs::metadata(part_path(&temp_dir, seg.index))
             .await
             .map(|m| m.len())
             .unwrap_or(0);
-        let want = if seg.end == u64::MAX {
-            u64::MAX
+        // Tek akis (`unknown_end`) devam edemez: dosya bastan iner, tohum yok.
+        let have = if seg.end == u64::MAX {
+            0
         } else {
-            seg.end - seg.start + 1
+            len.min(seg.end - seg.start + 1)
         };
-        let have = len.min(want);
-        base += have;
-        counters.push(Arc::new(AtomicU64::new(0)));
+        downloaded += have;
+        counters.push(Arc::new(AtomicU64::new(have)));
     }
 
-    entry.base_bytes.store(base, Ordering::Relaxed);
+    entry.base_bytes.store(0, Ordering::Relaxed);
     *entry.parts.lock().unwrap() = counters.clone();
 
     {
         let mut meta = entry.meta.lock().unwrap();
-        meta.downloaded = base;
+        meta.downloaded = downloaded;
     }
 
     let child = cancel.child_token();
@@ -843,8 +846,8 @@ async fn run_inner(
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     tick.tick().await; // ilk tick hemen tetiklenir; atla.
 
-    // Bolunmesi istenen parcanin isi; bitisi beklenip bolme uygulanir.
-    let mut splitting: Option<Id> = None;
+    // Bolunmesi istenen parcanin isi ve bolme noktasi; bitisi beklenip uygulanir.
+    let mut splitting: Option<(Id, u64)> = None;
 
     while !set.is_empty() {
         tokio::select! {
@@ -856,11 +859,22 @@ async fn run_inner(
             joined = set.join_next_with_id() => {
                 match joined {
                     Some(Ok((id, ()))) => {
-                        if Some(id) == splitting {
-                            apply_split(&mut set, &mut runs, &ctx, id, &mut next_index, entry);
-                            splitting = None;
-                        } else {
-                            runs.retain(|run| run.id != id);
+                        match splitting {
+                            Some((target, boundary)) if target == id => {
+                                apply_split(
+                                    &mut set,
+                                    &mut runs,
+                                    &ctx,
+                                    id,
+                                    boundary,
+                                    &mut next_index,
+                                    entry,
+                                );
+                                splitting = None;
+                            }
+                            _ => {
+                                runs.retain(|run| run.id != id);
+                            }
                         }
                     }
                     Some(Err(err)) => {
@@ -979,6 +993,9 @@ fn spawn_part(
     });
 
     let now = Instant::now();
+    // Sayac tohumlu olabilir (devam eden ya da bolunup yeniden kosan parca):
+    // hiz olcumu bu noktadan baslar, yoksa ilk turda sahte bir sicrama olur.
+    let seeded = counter.load(Ordering::Relaxed);
     PartRun {
         id: handle.id(),
         index: seg.index,
@@ -986,7 +1003,7 @@ fn spawn_part(
         end: seg.end,
         counter,
         cancel: seg_cancel,
-        last_bytes: 0,
+        last_bytes: seeded,
         last_at: now,
         last_change: now,
         rate: 0.0,
@@ -996,8 +1013,10 @@ fn spawn_part(
 /// Parca hizlarini ornekler ve bolunmesi gereken parcayi isaretler.
 ///
 /// Bir turda yalnizca en yavas parca secilir; boylece parca sayisi kontrollu
-/// artar ve ayni anda birden fazla bolme olmaz.
-fn supervise(runs: &mut [PartRun]) -> Option<Id> {
+/// artar ve ayni anda birden fazla bolme olmaz. Donen `u64`, `split_point`in
+/// hesapladigi bolme noktasidir: kurban oraya kadar iner, kalan yarisini yeni
+/// baglanti alir.
+fn supervise(runs: &mut [PartRun]) -> Option<(Id, u64)> {
     let now = Instant::now();
     for run in runs.iter_mut() {
         let bytes = run.counter.load(Ordering::Relaxed);
@@ -1029,7 +1048,7 @@ fn supervise(runs: &mut [PartRun]) -> Option<Id> {
     };
     let parts = runs.len();
 
-    let mut victim: Option<(usize, f64)> = None;
+    let mut victim: Option<(usize, f64, u64)> = None;
     for (i, run) in runs.iter().enumerate() {
         let have = run.counter.load(Ordering::Relaxed);
         let idle = now.duration_since(run.last_change).as_millis() as u64;
@@ -1039,27 +1058,30 @@ fn supervise(runs: &mut [PartRun]) -> Option<Id> {
             end: run.end,
             downloaded: have,
         };
-        if split_point(&seg, have, run.rate, peer, parts, idle).is_some()
-            && victim.map_or(true, |(_, best)| run.rate < best)
-        {
-            victim = Some((i, run.rate));
+        let Some(boundary) = split_point(&seg, have, run.rate, peer, parts, idle) else {
+            continue;
+        };
+        if victim.map_or(true, |(_, best, _)| run.rate < best) {
+            victim = Some((i, run.rate, boundary));
         }
     }
 
-    let (i, _) = victim?;
+    let (i, _, boundary) = victim?;
     runs[i].cancel.cancel();
-    Some(runs[i].id)
+    Some((runs[i].id, boundary))
 }
 
 /// Kurban parcayi ikiye ayirir: kalan yarisini yeni bir baglantiya verir.
 ///
 /// Kurbanin isi coktan bitmis olmali (denetleyici iptal etti, `join_next` ile
-/// bekledik); boylece sayaci sabittir ve diskle tutarlidir.
+/// bekledik); boylece sayaci sabittir. Kurban daraltilmis araligiyla ve ayni
+/// sayacla yeniden kosar, taze parca kalan yariyi alir.
 fn apply_split(
     set: &mut JoinSet<()>,
     runs: &mut Vec<PartRun>,
     ctx: &PartCtx,
     id: Id,
+    boundary: u64,
     next_index: &mut u32,
     entry: &Arc<DownloadEntry>,
 ) {
@@ -1068,16 +1090,22 @@ fn apply_split(
     };
     let run = runs.remove(pos);
     let have = run.counter.load(Ordering::Relaxed);
-    if have == 0 {
-        return;
-    }
-    let Some(boundary) = run.start.checked_add(have) else {
+    let Some(consumed) = run.start.checked_add(have) else {
         return;
     };
-    if boundary > run.end {
+    // Hic ilerlememis parca ya da anlamsiz bir nokta: bolme yok.
+    if have == 0 || boundary <= consumed || boundary > run.end {
         return;
     }
 
+    // Kurban `[start, boundary-1]` araligina daralir; kalan yarisini yeni
+    // parca alir. Ikisi de ayni anda iner.
+    let victim = SegmentInfo {
+        index: run.index,
+        start: run.start,
+        end: boundary - 1,
+        downloaded: have,
+    };
     let fresh = SegmentInfo {
         index: *next_index,
         start: boundary,
@@ -1085,13 +1113,13 @@ fn apply_split(
         downloaded: 0,
     };
     *next_index += 1;
-    let counter = Arc::new(AtomicU64::new(0));
+    let fresh_counter = Arc::new(AtomicU64::new(0));
 
     // Plan ve canli sayaclar konumsal hizali kalmali: ayni sirada guncelle.
     let insert_at = {
         let mut meta = entry.meta.lock().unwrap();
         if let Some(seg) = meta.segments.iter_mut().find(|s| s.index == run.index) {
-            seg.end = boundary - 1;
+            seg.end = victim.end;
             seg.downloaded = have;
         }
         let at = meta
@@ -1105,10 +1133,13 @@ fn apply_split(
     {
         let mut parts = entry.parts.lock().unwrap();
         let at = insert_at.min(parts.len());
-        parts.insert(at, Arc::clone(&counter));
+        parts.insert(at, Arc::clone(&fresh_counter));
     }
 
-    runs.push(spawn_part(set, ctx, fresh, counter));
+    // Kurban AYNI sayacla yeniden kosar: dosyasi `have` baytta duruyor ve
+    // `Range` oradan devam eder, boylece inen bayt bosa gitmez.
+    runs.push(spawn_part(set, ctx, victim, run.counter.clone()));
+    runs.push(spawn_part(set, ctx, fresh, fresh_counter));
 }
 
 fn header_str(headers: &HeaderMap, name: reqwest::header::HeaderName) -> Option<String> {
