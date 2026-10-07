@@ -215,7 +215,7 @@ class _Details extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        _Bar(ratio: percentOf(task) / 100, tone: barTone(task), height: 14),
+        ProgressBar(ratio: percentOf(task) / 100, tone: barTone(task), height: 14),
         const SizedBox(height: 10),
         Row(
           children: [
@@ -242,7 +242,7 @@ class _Details extends StatelessWidget {
               for (var i = 0; i < parts.length; i++) ...[
                 if (i > 0) const SizedBox(width: 3),
                 Expanded(
-                  child: _Bar(
+                  child: ProgressBar(
                     ratio: segmentRatio(parts[i]),
                     tone: barTone(task),
                     height: 22,
@@ -253,42 +253,6 @@ class _Details extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-/// Parca ya da toplam ilerleme cubugu.
-class _Bar extends StatelessWidget {
-  const _Bar({required this.ratio, required this.tone, required this.height});
-
-  final double ratio;
-  final Color tone;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        height: height,
-        decoration: BoxDecoration(
-          color: Serene.surfaceContainer,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: FractionallySizedBox(
-            widthFactor: ratio.clamp(0, 1),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              decoration: BoxDecoration(
-                color: tone,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

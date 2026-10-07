@@ -429,3 +429,49 @@ class CardHeader extends StatelessWidget {
     );
   }
 }
+
+/// Yuvarlak ilerleme bari: track + dolu kisim.
+///
+/// Hem gorev kartindaki tek toplam bar hem ayri indirme penceresindeki parca
+/// basina barlar ayni sekli kullanir; `height` ile pencere biraz daha kalin
+/// cizebilir.
+class ProgressBar extends StatelessWidget {
+  const ProgressBar({
+    super.key,
+    required this.ratio,
+    required this.tone,
+    this.height = 8,
+  });
+
+  /// 0..1 arasi doluluk; disindaki degerler kirpilir.
+  final double ratio;
+  final Color tone;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: Serene.surfaceContainer,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: FractionallySizedBox(
+            widthFactor: ratio.clamp(0, 1),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              decoration: BoxDecoration(
+                color: tone,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
