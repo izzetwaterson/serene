@@ -205,7 +205,7 @@ Future<void> _openDownload(String id, {required String theme}) async {
   applyThemeSetting(theme);
 
   final options = WindowOptions(
-    size: Size(520, 560),
+    size: Size(760, 400),
     center: true,
     backgroundColor: Serene.surfaceContainerLowest,
     title: T.downloadTitle,

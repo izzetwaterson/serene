@@ -217,18 +217,12 @@ class _Details extends StatelessWidget {
         const SizedBox(height: 20),
         ProgressBar(ratio: percentOf(task) / 100, tone: barTone(task), height: 14),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Text(
-              '${percentOf(task).round()}%',
-              style: mono(13, color: Serene.onBackground),
-            ),
-            const Spacer(),
-            Text(
-              _progress(task),
-              style: body(12, color: Serene.secondary),
-            ),
-          ],
+        // Yuzde solda; boyut/hiz/kalan sure satiri yukaridaki kartta zaten
+        // var (`metaLine`). Ayni sayilari 60 px arayla iki kez yazmak yalnizca
+        // gurultu uretiyordu.
+        Text(
+          '${percentOf(task).round()}%',
+          style: mono(13, color: Serene.onBackground),
         ),
         if (parts.length > 1) ...[
           const SizedBox(height: 24),
@@ -245,7 +239,10 @@ class _Details extends StatelessWidget {
                   child: ProgressBar(
                     ratio: segmentRatio(parts[i]),
                     tone: barTone(task),
-                    height: 22,
+                    // 22 px DEGIL: parca sayisi dinamik bolmeyle 16'ya ciktiginda
+                    // her bara ~41 px kaliyor ve 999 yaricap 41x22'yi daireye
+                    // ceviriyordu. 12 px'te 41x12 gercek bir bar gibi okunuyor.
+                    height: 12,
                   ),
                 ),
               ],
@@ -322,12 +319,4 @@ Widget _statusChip(Task task) {
     background: chip.bg,
     foreground: chip.fg,
   );
-}
-
-/// "1.2 MB / 3.4 MB • 2.4 MB/s" ozeti.
-String _progress(Task task) {
-  final done = fmtBytes(task.downloaded);
-  final total = task.total > 0 ? fmtBytes(task.total) : T.unknownSize;
-  final speed = task.status == 'downloading' ? ' • ${fmtSpeed(task.speed)}' : '';
-  return '$done / $total$speed';
 }
