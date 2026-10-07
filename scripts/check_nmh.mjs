@@ -21,7 +21,7 @@ import { join, resolve } from "node:path";
 
 // Baska bir derlemeyi denemek icin: SERENE_TARGET_DIR=...\target\release
 // Host, uygulamayi kendi klasorunde aradigi icin test ikilinin YAN YANA oldugu
-// yayin klasorunde kosar (deploy_flutter.mjs oraya kopyalar).
+// yayin klasorunde kosar (`flutter build windows` oraya kopyalar).
 const DIR =
   process.env.SERENE_TARGET_DIR ||
   join(resolve(import.meta.dirname, ".."), "flutter_app", "build", "windows", "x64", "runner", "Debug");
@@ -215,7 +215,7 @@ async function main() {
   let failed = false;
 
   if (!existsSync(NMH)) {
-    console.log(`BASARISIZ: ${NMH} yok; once \`node scripts/deploy_flutter.mjs --debug\` calistirin`);
+    console.log(`BASARISIZ: ${NMH} yok; once \`flutter build windows --debug\` calistirin`);
     process.exit(1);
   }
 

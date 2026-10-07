@@ -106,3 +106,38 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# === Tarayici koprusu (serene-nmh.exe) ===
+#
+# Eklenti uygulamaya HER ZAMAN `Serene.exe`'nin yanindaki `serene-nmh.exe`
+# uzerinden ulasir. Host ayri bir Rust paketinde (`native-host/`) derlendigi
+# icin `flutter build windows` onu kendiliginden uretmez; uretmezsek yayin
+# klasoru yarim kalir: pencere acilir, indirme calisir ama tarayicidan devralma
+# hic gelmez. Once bunu yalnizca `node scripts/deploy_flutter.mjs` yapiyordu.
+#
+# `deploy_flutter.mjs` yine de kalir: tarayici kaydini cevirmek (`--register`)
+# ve geri almak (`--restore`) orada. Buradaki is yalnizca "klasor tek basina
+# tarayiciyla konusabilsin".
+#
+# Kopya bilerek `install(CODE)` ile yapilir. Hedefe bagli `POST_BUILD` komutu,
+# proje guncel sayildiginda MSBuild tarafindan atlanir (olculdu: kural
+# `Serene.vcxproj`a isledi ama kopya kosmadi), oysa INSTALL adiminin
+# post-build olayi her derlemede kosar. Boylece `serene-nmh.exe` elle silinse
+# bile geri gelir.
+#
+# Profil: cargo'nun varsayilan profili `dev`, cikti klasoru `target/debug`.
+# `--profile=dev` acikca verilir; genex her durumda TEK bir token uretmeli,
+# yoksa bos genex `""` argumanina donusup cargo'yu kirardi.
+set(NMH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../native-host")
+set(NMH_CARGO_FLAG "$<IF:$<CONFIG:Debug>,--profile=dev,--release>")
+set(NMH_EXE "${NMH_DIR}/target/$<IF:$<CONFIG:Debug>,debug,release>/serene-nmh.exe")
+
+add_custom_target(serene_nmh ALL
+  COMMAND cargo build ${NMH_CARGO_FLAG} --bin serene-nmh
+  WORKING_DIRECTORY "${NMH_DIR}"
+  COMMENT "Tarayici koprusu derleniyor (cargo build --bin serene-nmh)"
+  VERBATIM)
+
+install(CODE "
+  file(COPY \"${NMH_EXE}\" DESTINATION \"${CMAKE_INSTALL_PREFIX}\")
+" COMPONENT Runtime)

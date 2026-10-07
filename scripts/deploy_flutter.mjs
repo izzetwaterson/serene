@@ -1,9 +1,11 @@
-// Flutter yayin klasorunu tarayici entegrasyonuna hazir hale getirir.
+// Tarayici koprusunu yayin klasorune koyar ve (istenirse) kaydini cevirir.
 //
 // Eklenti uygulamaya `serene-nmh.exe` uzerinden ulasir ve o ikili her zaman
-// uygulama ikilisinin yaninda aranir. Flutter derlemesi yalnizca kendi
-// arayuzunu urettigi icin bu adim olmadan yayin klasoru yarim kalir: pencere
-// acilir, indirme calisir ama tarayicidan devralma hic gelmez.
+// uygulama ikilisinin yaninda aranir. Kopyalamayi artik **derlemenin kendisi**
+// yapar (`flutter_app/windows/CMakeLists.txt`teki `install(CODE)` kurali), bu
+// betik ise asil olarak tarayici KAYDINI cevirmek ve geri almak icin kalir.
+// `--no-build` ile yalnizca kopyayi tazeleyebilirsiniz; `--register` ve
+// `--restore` hala buradadir.
 //
 // Kullanim:
 //   node scripts/deploy_flutter.mjs              # Release

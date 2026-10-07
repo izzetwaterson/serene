@@ -42,7 +42,7 @@ import { createContext, runInContext } from "node:vm";
 const ROOT = resolve(import.meta.dirname, "..");
 const EXT = join(ROOT, "extension");
 // Host, uygulamayi kendi klasorunde aradigi icin kosum ikilinin YAN YANA
-// oldugu yayin klasorunde calisir (deploy_flutter.mjs oraya kopyalar).
+// oldugu yayin klasorunde calisir (`flutter build windows` oraya kopyalar).
 const DIR =
   process.env.SERENE_TARGET_DIR ||
   join(ROOT, "flutter_app", "build", "windows", "x64", "runner", "Debug");

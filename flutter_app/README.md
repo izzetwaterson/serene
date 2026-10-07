@@ -40,14 +40,19 @@ flutter build windows --release    :: ...\Release\Serene.exe
 
 ## Yayın klasörü
 
-Derlenmiş klasör tek başına tarayıcıyla konuşamaz: eklenti uygulamaya
-`serene-nmh.exe` üzerinden ulaşır ve o ikili her zaman `Serene.exe`'nin
-yanında aranır. İkisini bir araya getiren adım:
+Eklenti uygulamaya `serene-nmh.exe` üzerinden ulaşır ve o ikili her zaman
+`Serene.exe`'nin yanında aranır. Bunu **derlemenin kendisi** yapar:
+`windows/CMakeLists.txt` host'u `native-host/` paketinden derler ve yayın
+klasörüne kopyalar. Yani `flutter build windows` sonrası klasör tek başına
+tarayıcıyla konuşabilir.
+
+Geriye yalnızca **tarayıcı kaydı** kalır — ve o, kullanıcının kayıt defterine
+yazmak demektir:
 
 ```cmd
-node ..\scripts\deploy_flutter.mjs            :: Release derle + host'u kopyala
-node ..\scripts\deploy_flutter.mjs --debug    :: Debug klasoru
-node ..\scripts\deploy_flutter.mjs --register :: bir de tarayici kaydini cevir
+node ..\scripts\deploy_flutter.mjs --register         :: kaydi bu klasore cevir
+node ..\scripts\deploy_flutter.mjs --restore <yedek>  :: geri al
+node ..\scripts\deploy_flutter.mjs --no-build         :: yalnizca host'u tazele
 ```
 
 Uygulama her açılışta kaydı kendi klasörüne çevirdiği için `--register`
