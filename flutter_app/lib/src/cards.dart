@@ -205,37 +205,23 @@ class Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(Serene.radiusCard),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Serene.primaryFixed.withValues(alpha: 0.2),
-            Serene.primaryFixed.withValues(alpha: 0),
-          ],
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         children: [
           // Bos durum once bos oldugu icin baslik yeterli bir sinyal; ayrica
           // bir rozet eklemek ayni mesaji ikinci kez soyleyip gorseli
           // gurultuluyordu. Kaldirildi.
+          //
+          // Alt satir ("Paste a link or quickly search for a file...") da
+          // kaldirildi: alanin ipucu metni zaten ayni seyi soyluyor ve iki
+          // satirlik marka cumlesi, gunluk kullanilan bir listede gercek isi
+          // asagi itiyordu. Panelin yesil gradyani da gitti; hicbir islevi
+          // yoktu, yalnizca leke gibi duruyordu.
           Text(
             T.heroTitle,
             textAlign: TextAlign.center,
             style: head(30, letterSpacing: -0.4, color: Serene.onBackground),
-          ),
-          const SizedBox(height: 8),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Text(
-              T.heroBody,
-              textAlign: TextAlign.center,
-              style: body(14, color: Serene.secondary, height: 1.5),
-            ),
           ),
           const SizedBox(height: 20),
           ConstrainedBox(

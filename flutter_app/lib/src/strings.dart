@@ -68,9 +68,7 @@ abstract class Strings {
   String get downloads;
   String get nothingHere;
   String get nothingHereHint;
-  String get heroKicker;
   String get heroTitle;
-  String get heroBody;
   String get urlPlaceholder;
   String get searchPlaceholder;
   String get chooseDifferentFolder;
@@ -278,13 +276,7 @@ class TrStrings extends Strings {
   @override
   String get nothingHereHint => 'Bu görünümde eşleşen bir indirme bulunamadı.';
   @override
-  String get heroKicker => 'Huzurlu İndirme Alanı';
-  @override
   String get heroTitle => 'Bugün ne indirmek istersiniz?';
-  @override
-  String get heroBody =>
-      'Bir bağlantı yapıştırın veya hızlıca dosya arayın. '
-      'Her şey sakin ve düzenli bir şekilde arka planda hallolur.';
   @override
   String get urlPlaceholder => 'https:// bağlantısını buraya bırakın...';
   @override
@@ -642,13 +634,7 @@ class EnStrings extends Strings {
   @override
   String get nothingHereHint => 'No downloads match this view.';
   @override
-  String get heroKicker => 'Peaceful Download Space';
-  @override
   String get heroTitle => 'What would you like to download today?';
-  @override
-  String get heroBody =>
-      'Paste a link or quickly search for a file. '
-      'Everything is handled quietly in the background, calm and tidy.';
   @override
   String get urlPlaceholder => 'Drop an https:// link here...';
   @override
