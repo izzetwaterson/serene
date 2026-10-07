@@ -1,9 +1,8 @@
 // `setup_logic.dart`in Windows'a dokunmayan saf yuzeyi.
 //
-// Kur/kaldir AKISI (registry yazimi, dosya kopyalama/silme sirasi) dogrudan
-// isletim sistemine bagli oldugu icin burada test edilmez; onun icin yan
-// etkilerin soyutlanmasi gerekir. Burada kaydirma/arguman gibi saf kararlar
-// sınanir.
+// Kur/kaldir AKISI `install_flow_test.dart`ta, `HostOps` sahtesiyle sinanir
+// (registry yazimi, dosya kopyalama/silme sirasi orada taklit edilir). Burada
+// yalnizca kaydirma/arguman gibi saf kararlar vardir.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:serene_setup/setup_logic.dart';

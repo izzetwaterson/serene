@@ -26,8 +26,9 @@
   --ok-border: #bcd2c9;
   --font-body: "Nunito Sans", "Segoe UI", system-ui, sans-serif;
   --font-head: "Fraunces", Georgia, "Times New Roman", serif;
-  --radius-card: 16px;
-  --radius-tile: 12px;
+  --radius-card: 24px;
+  --radius-tile: 16px;
+  --radius-field: 12px;
   --radius-pill: 999px;
 }
 
@@ -165,7 +166,7 @@ h2 {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 2px 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--outline);
   background: var(--bg);
   color: var(--secondary);
@@ -186,7 +187,7 @@ h2 {
 button.mini {
   flex: 0 0 auto;
   padding: 3px 9px;
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   font-size: 11px;
   background: var(--surface);
   border: 1px solid var(--outline);
@@ -302,7 +303,7 @@ footer {
 button {
   flex: 1;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-field);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;

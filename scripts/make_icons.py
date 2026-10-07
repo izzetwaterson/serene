@@ -1,11 +1,12 @@
 """Urun ve eklenti ikonlarini ana dosyalardan uretir.
 
 Iki ana dosya vardir:
-  * `ui/serene-icon.png` — karo + yaprak ("THE ICON"). Uygulama ikonu (.ico),
-    tepsi ve eklenti ikonlari buradan turetilir.
-  * `ui/serene-leaf-master.png` — yalniz yaprak. SADECE About sekmesindeki
-    marka buradan turetilir; kullanici karari (2026-10-01): "her yerde bu
-    ikon, yalnizca About'taki degismesin".
+  * `ui/serene-icon.png` — karo + yaprak ("THE ICON"). 32px'ten BUYUK kareler
+    (gorev cubugu, .ico buyukleri, eklenti buyukleri) buradan turetilir.
+  * `ui/serene-leaf-master.png` — yalniz yaprak. 32px ve ALTI kareler ile About
+    markasi buradan turetilir: kucuk boyutta karo icindeki yaprak siluetlesip
+    kayboluyordu, yaprak ise tuvali doldurdugu icin net kalir. Kullanici
+    karari (2026-10-01): About'taki logo degismesin.
 
 Bu betik PNG'lere DOKUNMAZ; yalnizca onlardan turetilen boyutlari uretir.
 Ciktilar depoda durur. Ikonlar degistiginde sira:
@@ -14,11 +15,11 @@ Ciktilar depoda durur. Ikonlar degistiginde sira:
                                        #              ui/serene-leaf-master.png
     python scripts/make_icons.py       # -> .ico + tepsi + eklenti + About
 
-Uretilenler:
-  * `flutter_app/windows/runner/resources/app_icon.ico` (8 boyut)   <- icon
-  * `flutter_app/assets/icons/serene_tray.png` (32px — tepsi)       <- leaf
-  * `extension/icons/{16,32,48,96,128}.png`                         <- icon
-  * `flutter_app/assets/icons/serene_logo.png` (256px — About)      <- leaf
+Uretilenler (kaynak secimi BOYUTA gore: <=32px yaprak, ustu karo+yaprak):
+  * `flutter_app/windows/runner/resources/app_icon.ico` (8 boyut)
+  * `flutter_app/assets/icons/serene_tray.png` (32px — tepsi)
+  * `extension/icons/{16,32,48,96,128}.png`
+  * `flutter_app/assets/icons/serene_logo.png` (256px — About, her zaman yaprak)
 
 Tepsi neden 32px, About logosu neden 256px: tepsi tam 32px olmali (Windows
 bildirim alani 16/20/24/32 ister), ama About sekmesi logoyu 56 mantiksal px'te

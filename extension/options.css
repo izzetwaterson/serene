@@ -20,7 +20,10 @@
   --outline: #dcd8ce;
   --font-body: "Nunito Sans", "Segoe UI", system-ui, sans-serif;
   --font-head: "Fraunces", Georgia, "Times New Roman", serif;
-  --radius-tile: 12px;
+  --radius-card: 24px;
+  --radius-tile: 16px;
+  --radius-field: 12px;
+  --radius-pill: 999px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -115,7 +118,7 @@ textarea {
   font-size: 12.5px;
   padding: 8px 10px;
   border: 1px solid var(--outline);
-  border-radius: 9px;
+  border-radius: var(--radius-field);
   background: var(--bg);
   color: var(--on-surface);
   width: 100%;
@@ -136,7 +139,7 @@ footer {
 
 button {
   padding: 9px 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-field);
   font-size: 12.5px;
   font-weight: 600;
   font-family: inherit;
