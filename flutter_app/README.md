@@ -71,7 +71,7 @@ bayrakları kullanır:
 | `Serene.exe --demo` | Ana pencere örnek görevlerle (motor listesi boşa çıkmaz) |
 | `Serene.exe --settings` | Ana pencere, ayarlar katmanı açık |
 | `Serene.exe --handoff=<base64url>` | "İndirme Bilgileri" onayı, **ayrı süreçte** pencere |
-| `Serene.exe --handoff-demo` | Aynı pencere örnek görevle; motora komut göndermez |
+| `Serene.exe --handoff=<base64url> --handoff-demo` | Onay penceresi örnek görevle; motora komut göndermez. `--handoff-demo` **tek başına** yük taşımadığı için ana pencereyi açar |
 | `Serene.exe --selfcheck` | Pencere açmadan köprü yoklaması; `KOPRU ...` satırı yazar |
 
 `SERENE_DATA_DIR` verilirse motor tüm durum dosyalarını (`tasks.json`,

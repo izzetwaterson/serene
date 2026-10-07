@@ -668,14 +668,7 @@ class ClipboardToast extends StatelessWidget {
         color: Serene.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(Serene.radiusCard),
         border: Border.all(color: Serene.borderSoft),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1232281E),
-            blurRadius: 30,
-            spreadRadius: -6,
-            offset: Offset(0, 10),
-          ),
-        ],
+        boxShadow: Serene.shadowFloat,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -689,7 +682,7 @@ class ClipboardToast extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   color: Serene.primaryFixed.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(Serene.radiusTile),
                 ),
                 child: Center(
                   child: SIcon(

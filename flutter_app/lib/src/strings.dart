@@ -146,6 +146,8 @@ abstract class Strings {
   String get categories;
   String get disk;
   String driveOf(String mount);
+  /// Yuzde isareti dilden dile yer degistirir (tr: "%94", en: "94%").
+  String percentLabel(int percent);
   String get calculating;
   String diskUsed(String used, String total);
   String get demoWithSampleData;
@@ -445,6 +447,8 @@ class TrStrings extends Strings {
   String get disk => 'Disk';
   @override
   String driveOf(String mount) => '$mount sürücüsü';
+  @override
+  String percentLabel(int percent) => '%$percent';
   @override
   String get calculating => 'Hesaplanıyor…';
   @override
@@ -807,6 +811,8 @@ class EnStrings extends Strings {
   String get disk => 'Disk';
   @override
   String driveOf(String mount) => '$mount drive';
+  @override
+  String percentLabel(int percent) => '$percent%';
   @override
   String get calculating => 'Calculating…';
   @override

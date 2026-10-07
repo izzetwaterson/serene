@@ -23,6 +23,28 @@ import 'strings.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
+/// Yerel profil rozetinin monogrami, Windows oturum adindan turetilir.
+///
+/// Rozet dekoratif ama uydurma olmamali: onceden burada sabit `'EF'` yaziyordu
+/// ve her kullaniciya ayni iki harfi gosteriyordu. Iki parcali adlarda bas
+/// harfler ("Ahmet Yilmaz" -> "AY"), tek parcali adlarda ilk iki harf
+/// ("izzet" -> "IZ") alinir. Ad hic yoksa rozet bos kalir; daire ve ipucu
+/// metni yerinde durur.
+final String _profileInitials = _initialsOf(Platform.environment['USERNAME'] ?? '');
+
+String _initialsOf(String raw) {
+  final parts = raw
+      .split(RegExp(r'[\s._-]+'))
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (parts.isEmpty) return '';
+  if (parts.length == 1) {
+    final single = parts.first;
+    return (single.length >= 2 ? single.substring(0, 2) : single).toUpperCase();
+  }
+  return (parts.first[0] + parts.last[0]).toUpperCase();
+}
+
 /// Ana pencere: Tauri arayuzunun Flutter karsiligi.
 class MainWindow extends StatefulWidget {
   const MainWindow({super.key, this.demoOn = false, this.settingsOn = false});
@@ -1051,7 +1073,7 @@ class Header extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    'EF',
+                    _profileInitials,
                     style: body(
                       12,
                       weight: FontWeight.w600,
@@ -1473,7 +1495,7 @@ class _DiskCard extends StatelessWidget {
                 ),
               ),
               Text(
-                usage == null ? '—' : '%${percent.round()}',
+                usage == null ? '—' : T.percentLabel(percent.round()),
                 style: mono(12, color: Serene.onSecondaryContainer),
               ),
             ],
