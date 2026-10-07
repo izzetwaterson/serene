@@ -542,15 +542,22 @@ class _SettingsPanelState extends State<SettingsPanel> {
                                 shrinkWrap: true,
                                 padding: const EdgeInsets.fromLTRB(0, 0, 8, 4),
                                 children: [
-                                  IndexedStack(
-                                    index: _tab,
-                                    children: [
-                                      _generalTab(),
-                                      _downloadsTab(),
-                                      _behaviourTab(),
-                                      _aboutTab(),
-                                    ],
-                                  ),
+                                  // Aktif sekme dogrudan kurulur; burada
+                                  // `IndexedStack` KULLANILMAZ. O widget tum
+                                  // sekmeleri ayakta tutar ve en UZUN kardesine
+                                  // gore boyutlanir: About'un lisans metni en
+                                  // uzun oldugu icin kisa bir sekmede (Genel)
+                                  // panelin alt yarisi bos kaliyordu ve
+                                  // yukaridaki `maxHeight` yorumu yalan
+                                  // soyluyordu. Sekme durumu zaten
+                                  // `_SettingsPanelState`te tutulur; burada
+                                  // kaybolan tek sey About'un kaydirma konumu.
+                                  switch (_tab) {
+                                    0 => _generalTab(),
+                                    1 => _downloadsTab(),
+                                    2 => _behaviourTab(),
+                                    _ => _aboutTab(),
+                                  },
                                 ],
                               ),
                             ),
