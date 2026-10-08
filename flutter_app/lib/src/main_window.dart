@@ -1177,7 +1177,7 @@ class _SearchField extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: Serene.surfaceContainer,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(Serene.radiusControl),
               border: Border.all(color: Serene.borderInput),
             ),
             child: Text('Ctrl K', style: mono(10, color: Serene.outline)),
@@ -1554,7 +1554,7 @@ class _DemoSwitch extends StatelessWidget {
             height: 14,
             decoration: BoxDecoration(
               color: value ? Serene.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(Serene.radiusControl),
               border: Border.all(
                 color: value ? Serene.primary : Serene.outline,
               ),

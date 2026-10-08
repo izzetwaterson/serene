@@ -5,9 +5,12 @@
 > document describes what the product actually is today; when code and this file
 > disagree, the code is right and this file is the bug.
 >
-> **Verified against:** `Serene.exe` 1.0.0, Debug build, 1280×880 window,
-> 2026-09-28. Token values were read out of `theme.dart` line by line and tab
-> contents out of `settings_view.dart`, not from memory.
+> **Verified against:** `Serene.exe` 1.0.0, Debug build, windows captured at
+> 1280×880 (main), 760×400 (live download) and 460×600 (handoff),
+> **2026-10-07**. Token values were read out of `theme.dart` line by line and
+> tab contents out of `settings_view.dart`, not from memory. Where this file
+> gives a size or a colour it was measured in a captured window on that date,
+> not estimated.
 >
 > **Icon revision 2026-10-06 (size-based source):** the product mark is the
 > user's own artwork — the glass leaf on its dark rounded tile ("THE ICON") —
@@ -141,18 +144,49 @@ light mode.
 | `radiusCard` | **24** | Task cards, panels, settings sheet |
 | `radiusTile` | **16** | Category tiles, completed grid |
 | `radiusField` | **12** | Inputs, buttons, chips |
+| `radiusControl` | **4** | Micro controls smaller than a field: the `Ctrl K` badge, checkbox boxes |
+
+The first three are surface tiers. `radiusControl` exists because 12 px on a
+14 px box is more than half its side and rounds the square into a circle —
+the tier below `radiusField` is a different size class, not a smaller field.
 
 Nothing is sharp. Avoid hard contrasts anywhere.
 
 ## Window geometry
 
-| Window | Size | Minimum |
-|---|---|---|
-| Main | 1280×880 | 940×620 |
-| Handoff ("İndirme Bilgileri") | 460×600, vertical | — |
+| Window | Size | Orientation | Minimum |
+|---|---|---|---|
+| Main | 1280×880 | landscape | 940×620 |
+| Handoff ("İndirme Bilgileri") | 460×600 | portrait | — |
+| Live download (`--download=<id>`) | **760×400** | **landscape** | — |
 
-The handoff window is a **second process** (Flutter has no multi-window). It
-carries size, category, target folder (editable) and filename (editable).
+All three are frameless where they are secondary; both secondary windows are
+**separate processes** (Flutter has no multi-window). The handoff window carries
+size, category, target folder (editable) and filename (editable), and pins
+Cancel / Download Later / Start Download to the bottom while the middle scrolls,
+so the gap under short content is the pinning and not a defect.
+
+The live download window was 520×560 portrait until 2026-10-07. At that width a
+16-segment row left each bar ~26 px, and the pill radius turned 26×22 into a
+circle — the one view that exists to explain dynamic segmentation showed sixteen
+dots, at exactly the segment count the engine reaches after splitting. Landscape
+plus 12 px-tall bars fixed both, and the card's meta line stopped being clipped
+to "Time left: 14 m …".
+
+**Capturing any of them.** When two Serene processes are alive (main + download,
+or main + handoff) capture by id, or you will silently get the main window:
+
+```cmd
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\capture_window.ps1 -ProcessName Serene -Out artifacts\window.png
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\capture_window.ps1 -ProcessId 12345 -Out artifacts\download.png
+```
+
+The script refuses to save when the target window is not in the foreground and
+rejects a flat image, because both had produced wrong screenshots before. Two
+consequences: the desktop has to be free for the second the capture takes, and
+**Flutter ignores PostMessage clicks**, so a capture only ever shows a window's
+default state. Tab contents other than the active one, hover states and open
+menus have to be verified through `flutter test` instead.
 
 ## Components
 
@@ -178,14 +212,30 @@ carries size, category, target folder (editable) and filename (editable).
   fill. `barTone()` dims rather than re-hues: failed → `error` @ 0.7, completed
   → `primary` @ 0.6, paused → `primary` @ 0.45. Status is carried by the chip
   and the label, not by fighting over the bar color.
+- **Segment bars — live download window only.** One bar per connection, in a
+  single row, **12 px tall** and ~41 px wide at 760 px. The height is the whole
+  point: at 22 px the pill radius turns a ~41 px cell into an oval, and at the
+  16 segments dynamic splitting actually reaches it turns ~26 px into a circle.
+  The window carries **one** summary line, not two — the card's `metaLine`
+  already holds size, speed and ETA, so repeating it under the total bar only
+  added noise 60 px below itself.
+- **Empty state** — a soft `surfaceContainerLow` panel at 24 px radius: a 48 px
+  circle holding a 24 px icon, an 18 px Fraunces line, and a 13 px hint capped
+  at 384 px. Vertical padding is **32 px, not 56**: at 56 the panel stood ~234 px
+  tall to say two lines; it is ~175 px now.
 - **Sidebar** — persistent left column: queue filters with live counts
   (including a `fromBrowser` badge for browser captures), category filters,
   disk card.
-- **Hero** — when the list is empty, a full-width welcome block: a kicker
-  ("Peaceful Download Space"), the Fraunces question, and the URL field. **This
+- **Hero** — one line of Fraunces above the URL field, and nothing else. **This
   field is the product's primary action** — there is no separate "start a
   download" button anywhere in the main window (`9c98836` removed it as
-  redundant).
+  redundant). Two things were removed on 2026-10-07: a two-line brand sentence
+  under the title, and the green gradient wash behind the block. Both pushed the
+  list down ~77 px — one fewer download row fit on screen — and the field's own
+  hint already says what to do. A kicker ("Peaceful Download Space") was
+  described here until then but had **never been rendered**: the string existed
+  and no widget referenced it, which is exactly the drift the "dead strings"
+  rule below forbids.
 - **Settings** — a scrimmed sheet over the main window, not a separate window.
   It is **four tabs**, not one list:
 
@@ -196,12 +246,18 @@ carries size, category, target folder (editable) and filename (editable).
   | Behaviour | watch clipboard, close to tray, confirm browser downloads, start with Windows | 4 |
   | About | logo, version, engine version, repository link, licence text | — |
 
-  The panel **sizes to its content** (`mainAxisSize.min`) — 2 controls in
-  General, 4 toggles in Behaviour — so switching tabs does not leave a sheet
-  stretched to the tallest one, and a long tab scrolls internally rather than
-  pushing content off the sheet. The About tab shows the app version read from
-  `pubspec.yaml` via `build.rs` (never `CARGO_PKG_VERSION`, which is the engine
-  and reads 0.1.0), the engine version separately, a link to the repository, and
+  The panel **sizes to the active tab**: only that tab is built, via a `switch`
+  on the tab index. This is load-bearing, not a style choice. Until 2026-10-07
+  the tabs lived in an `IndexedStack`, which keeps every tab mounted and takes
+  the height of its **tallest** sibling — About, with the licence text — so the
+  two-row General tab sat in a ~580 px sheet with ~270 px of dead space under
+  APPEARANCE, and the sentence you just read was false. It is ~332 px now. A
+  long tab scrolls inside the sheet (capped at `height - 32`) rather than
+  pushing content off it, and tab state lives in `_SettingsPanelState`, so a
+  direct `switch` gives up only About's scroll offset. The About tab shows the
+  app version read from `pubspec.yaml` via `build.rs` (never `CARGO_PKG_VERSION`,
+  which is the engine and reads 0.1.0), the engine version separately, a link to
+  the repository, and
   the root `LICENSE` embedded at build time by `scripts/embed_license.py`.
 - **Tray** — 32×32 RGBA product icon (`assets/icons/serene_tray.png`), the
   **leaf** (32 px sits at the small-surface threshold), tooltip "Serene",
@@ -275,13 +331,27 @@ notification area wants 16/20/24/32.
   was declared and translated in both languages while no widget referenced it,
   because the hero field replaced that button. It was deleted on 2026-10-01 —
   an abstract getter with two implementations reads like a live label in
-  review.
+  review. `heroKicker` and `heroBody` followed on 2026-10-07: `heroBody` when
+  the hero lost its sentence, `heroKicker` after sitting unreferenced since it
+  was written — it had even been documented in this file as if it rendered.
 - Imagery should feel natural and warm; avoid clinical or tech-stock photos.
   The product ships no photography, which is consistent.
 
 ## Known drift
 
-No open items (2026-10-05). The two entries that lived here are resolved:
+**Open (2026-10-07):**
+
+- **Two checkbox implementations coexist.** A hand-drawn 14×14 box in the main
+  window's settings-row helper, and a scaled Material `Checkbox` in
+  `settings_view.dart`. They can drift apart, and merging them needs a visual
+  check of the Behaviour tab — which **cannot be captured**, because Flutter
+  ignores PostMessage clicks, so it has not been done blind.
+- **The handoff payload's `dest` is a full file path**, and the window renders
+  `File(dest).parent` as the download folder. Handing it a folder therefore
+  shows that folder's parent: silently, and looking entirely correct. Worth
+  knowing before building a payload by hand.
+
+**Closed:**
 
 - The extension icon set and version (2026-10-01): icons are generated from the
   project masters (leaf at 32 px and below, THE ICON above) and `manifest.json`

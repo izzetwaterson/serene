@@ -1029,7 +1029,7 @@ class _Toggle extends StatelessWidget {
                 checkColor: Serene.onPrimary,
                 side: BorderSide(color: Serene.outline),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(Serene.radiusControl),
                 ),
               ),
             ),

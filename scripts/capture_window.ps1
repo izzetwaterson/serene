@@ -1,7 +1,17 @@
 param(
-    [Parameter(Mandatory = $true)][string]$ProcessName,
+    [string]$ProcessName,
+    [int]$ProcessId = 0,
     [string]$Out = "artifacts\window.png"
 )
+
+# Iki hedefleme bicimi: isimle (ilk penceresi olan surec) ya da kimlikle.
+# Kimlik gerekli cunku ayni anda birden fazla Serene penceresi olabiliyor
+# (ana pencere + onay penceresi + canli indirme penceresi); isimle arama her
+# zaman ana pencereye duser ve yanlis ekrani kaydeder.
+if ($ProcessId -eq 0 -and -not $ProcessName) {
+    Write-Output "BASARISIZ: -ProcessName ya da -ProcessId verin"
+    exit 1
+}
 
 # Emekli raise_window.ps1 + screenshot.ps1'in yerine gecen tek yardimci:
 # pencereyi one alir ve yalnizca o pencerenin kapladigi bolgeyi yakalar.
@@ -21,9 +31,16 @@ public class Win32Cap {
 }
 "@
 
-$proc = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue |
-    Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
-if (-not $proc) { Write-Output "BASARISIZ: pencere bulunamadi ($ProcessName)"; exit 1 }
+if ($ProcessId -ne 0) {
+    $proc = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue |
+        Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
+    $label = "pid=$ProcessId"
+} else {
+    $proc = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue |
+        Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
+    $label = $ProcessName
+}
+if (-not $proc) { Write-Output "BASARISIZ: pencere bulunamadi ($label)"; exit 1 }
 
 $h = $proc.MainWindowHandle
 [void][Win32Cap]::ShowWindow($h, 9)   # SW_RESTORE

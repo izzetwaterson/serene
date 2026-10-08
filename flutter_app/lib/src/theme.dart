@@ -320,6 +320,12 @@ class Serene {
   static const double radiusCard = 24;
   static const double radiusTile = 16;
   static const double radiusField = 12;
+
+  /// Kontrol yuzeyleri: kucuk onay kutulari ve klavye kisayolu rozeti.
+  ///
+  /// Ucuncu kademenin altinda ayri bir basamak gerekli: 14 px'lik bir kutuda
+  /// 12 px yaricap kutunun yarisini asar ve kareyi daireye cevirirdi.
+  static const double radiusControl = 4;
 }
 
 /// Basliklar icin Fraunces.

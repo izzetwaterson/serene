@@ -264,7 +264,7 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 56),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       decoration: BoxDecoration(
         color: Serene.surfaceContainerLow.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(Serene.radiusCard),
@@ -273,13 +273,13 @@ class EmptyState extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: Serene.surfaceContainer,
               shape: BoxShape.circle,
             ),
-            child: Center(child: SIcon(icon, size: 26, color: Serene.outline)),
+            child: Center(child: SIcon(icon, size: 24, color: Serene.outline)),
           ),
           const SizedBox(height: 16),
           Text(title, style: head(18, color: Serene.onBackground)),
