@@ -513,7 +513,24 @@ class _CardList extends StatelessWidget {
     return Column(
       children: [
         for (final task in tasks) ...[
-          TaskCard(task: task, onAction: onAction),
+          // Yeni kart yumusak belirir. Anahtar sart: yeni gorev listenin
+          // BASINA ekleniyor, anahtarsiz eslesme yuzunden tum kartlar yeniden
+          // animasyona girerdi. Yalniz opaklik + kaydirma; layout'a dokunmaz
+          // ve 180 ms'de biter, kendini tekrarlamaz.
+          TweenAnimationBuilder<double>(
+            key: ValueKey(task.id),
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            child: TaskCard(task: task, onAction: onAction),
+            builder: (context, t, child) => Opacity(
+              opacity: t,
+              child: Transform.translate(
+                offset: Offset(0, (1 - t) * 8),
+                child: child,
+              ),
+            ),
+          ),
           if (task != tasks.last) const SizedBox(height: 16),
         ],
       ],

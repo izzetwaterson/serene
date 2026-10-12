@@ -308,6 +308,26 @@ different colour from the artwork as supplied, so on 2026-10-12 the user chose
 the raw tone for every generated file and accepted Δ25 on a dark taskbar. Every
 surface now shows the same leaf, at the same tone as the README header.
 
+## Motion
+
+Animation marks a state change; it is never decoration, and it is always
+bounded. The app lives in the tray for hours, so anything that repeats forever
+keeps waking the renderer while nothing is happening.
+
+| Rule | Why |
+|---|---|
+| Animate state changes only | The interface is driven by engine events at 2–5 Hz — a 400 ms supervisor tick, a 400 ms window poll, a 500 ms floor on bridge resync, plus 200 ms clocks. At 60 Hz that leaves the frame budget almost untouched between updates, so a short animation is free; an idle loop costs a wake-up per frame. |
+| 120–200 ms, once | Long enough to read as motion, short enough to stay out of the way. Past ~250 ms it starts to feel like waiting. |
+| Transform and opacity, not layout | Width, height and padding animate through layout on every frame; `Opacity` and `Transform` stay on the compositor. |
+| Key inserted rows | New downloads are prepended. An unkeyed insertion makes Flutter re-match by position, so every row below re-animates; `ValueKey(task.id)` keeps the motion on the row that actually appeared. |
+
+Two animations predate these rules and keep their own shape: the per-segment
+bars in the live download window (`AnimatedContainer`, 300–400 ms) and the live
+pulse dot (`_PulseDot`, `repeat(reverse: true)`, 1400 ms). The pulse is the only
+unbounded animation in the app. It stays because it is on screen only while a
+download is running — when the engine is doing I/O anyway — and because turning
+it into a fixed number of repeats would read as a flicker rather than a pulse.
+
 ## Rules
 
 - Large touch targets, generous spacing. The design should feel breathable.

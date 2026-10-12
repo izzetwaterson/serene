@@ -1204,7 +1204,10 @@ class _Pill extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
+          // Durum degisiminde renk yumusak gecer: 200 ms, yalniz 8 px'lik
+          // noktanin rengi; layout'a dokunmaz ve bos dururken hic calismaz.
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
             width: 8,
             height: 8,
             decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
