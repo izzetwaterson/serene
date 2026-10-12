@@ -4,6 +4,11 @@
 > `ui/code.html` (original mockup, still the origin of the layout; `ui/screen.png`
 > is its render, and that sketch carries a working name — FlowFetch v2.4 — and
 > macOS-style window dots, while the product is Windows-only and called Serene).
+> The talking mockup is `ui/serene-screens.html` with its light and dark renders
+> beside it: the real tokens out of `theme.dart`, the real TTFs out of
+> `flutter_app/assets/fonts`, and the motion playable (entrance, chip morph,
+> press) with a reduced-motion switch. A state can be linked, e.g.
+> `#theme=dark&empty=1&reduced=1`.
 > This
 > document describes what the product actually is today; when code and this file
 > disagree, the code is right and this file is the bug.

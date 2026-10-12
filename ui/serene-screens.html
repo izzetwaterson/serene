@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serene — screen mockup</title>
+<!--
+  Serene arayuz mockup'i. Amac: gercek tokenlar ve gercek yazi tipleriyle
+  ekranlari gostermek, ve HAREKETI tekrar tekrar izlenebilir kilmak.
+
+  Kaynaklar:
+  - Renkler ve yariçap: flutter_app/lib/src/theme.dart (bu dosyadaki degerler
+    oradan okundu).
+  - Yazilar: flutter_app/assets/fonts (gercek TTF'ler).
+  - Yaprak: ui/serene-leaf.png
+
+  Kurallar (ui/DESIGN.md, Motion): yalniz opaklik/transform; tek seferlik;
+  boşta calısmaz; sistem "animasyonlari kapat" derse kaydirma ve olcek duser.
+-->
+<style>
+@font-face{font-family:Fraunces;src:url("../flutter_app/assets/fonts/Fraunces-Regular.ttf") format("truetype");font-weight:400}
+@font-face{font-family:Fraunces;src:url("../flutter_app/assets/fonts/Fraunces-Medium.ttf") format("truetype");font-weight:500}
+@font-face{font-family:"Nunito Sans";src:url("../flutter_app/assets/fonts/NunitoSans-Regular.ttf") format("truetype");font-weight:400}
+@font-face{font-family:"Nunito Sans";src:url("../flutter_app/assets/fonts/NunitoSans-SemiBold.ttf") format("truetype");font-weight:600}
+@font-face{font-family:"JetBrains Mono";src:url("../flutter_app/assets/fonts/JetBrainsMono-Regular.ttf") format("truetype");font-weight:400}
+
+:root{
+  --radiusCard:24px; --radiusTile:16px; --radiusField:12px; --radiusControl:4px;
+  --background:#F7F4ED; --onBackground:#2A2E2B; --onSurface:#2E3230;
+  --surfaceVariant:#E9E4DB; --surfaceContainerLowest:#FFFFFF;
+  --surfaceContainerLow:#FAF7F1; --surfaceContainer:#F2EEE6;
+  --surfaceContainerHigh:#EBE5DC; --onSurfaceVariant:#5F6660;
+  --outlineVariant:#DCD8CE; --outline:#8A9088;
+  --primary:#3D6A4B; --onPrimary:#FFFFFF; --primaryFixed:#D3EBD8;
+  --secondary:#6B6358; --secondaryContainer:#F0E8DB; --onSecondaryContainer:#5E5548;
+  --secondaryFixedDim:#D4CCBF; --tertiary:#A86B32; --tertiaryFixed:#F8E0A8;
+  --onTertiaryContainer:#554020; --error:#B83230; --errorContainer:#FCE4E2;
+  --onErrorContainer:#7A1A18; --borderSoft:#DCD8CE80; --borderInput:#DCD8CE99;
+  --tintPrimary:#D3EBD866; --shadowSoft:0 1px 2px #3C342A0A, 0 8px 24px #32281E12;
+  --shadowFloat:0 2px 6px #3C342A08, 0 18px 40px #32281E12;
+}
+html[data-theme="dark"]{
+  --background:#161815; --onBackground:#E8E7DE; --onSurface:#E5E4DB;
+  --surfaceVariant:#2E312B; --surfaceContainerLowest:#1D1F1B;
+  --surfaceContainerLow:#212420; --surfaceContainer:#272A25;
+  --surfaceContainerHigh:#31342E; --onSurfaceVariant:#B7BBB0;
+  --outlineVariant:#3F433B; --outline:#8E9389;
+  --primary:#5A8F68; --onPrimary:#0B2013; --primaryFixed:#2F4A35;
+  --secondary:#A8A294; --secondaryContainer:#3A3830; --onSecondaryContainer:#E2DACB;
+  --secondaryFixedDim:#4C483E; --tertiary:#D8A468; --tertiaryFixed:#4A3520;
+  --onTertiaryContainer:#EFD7B0; --error:#E8928E; --errorContainer:#5A2422;
+  --onErrorContainer:#F5C9C6; --borderSoft:#3F433B80; --borderInput:#3F433B99;
+  --tintPrimary:#2C4233; --shadowSoft:0 1px 2px #00000026, 0 8px 24px #00000040;
+  --shadowFloat:0 2px 6px #00000026, 0 18px 40px #00000059;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#EDEAE3;font-family:"Nunito Sans",system-ui,sans-serif;color:var(--onBackground)}
+html[data-theme="dark"] body{background:#0F100E}
+.wrap{max-width:1280px;margin:0 auto;padding:28px 24px 64px}
+[hidden]{display:none!important}
+.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;
+     font:400 13px/1 "JetBrains Mono",monospace;color:#5F6660}
+.bar b{font-family:"Nunito Sans";font-weight:600;color:#2E3230;margin-right:4px}
+button{font:600 12px/1 "Nunito Sans";padding:9px 14px;border-radius:999px;
+  border:1px solid #DCD8CE99;background:#FAF7F1;color:#2E3230;cursor:pointer;
+  transition:transform 150ms cubic-bezier(.22,1,.36,1),background 120ms,box-shadow 120ms}
+button:hover{background:#F2EEE6;box-shadow:0 2px 6px #3C342A08}
+button:active{transform:scale(.97)}
+button[aria-pressed="true"]{background:#3D6A4B;color:#fff;border-color:#3D6A4B}
+:focus-visible{outline:2px solid #3D6A4B;outline-offset:2px}
+
+/* Pencere */
+.window{background:var(--background);border-radius:var(--radiusCard);overflow:hidden;
+        box-shadow:0 24px 60px #32281E1a, 0 2px 6px #3C342A0f;
+        width:1280px;height:880px;display:flex;flex-direction:column;margin:0 auto}
+.titlebar{display:flex;align-items:center;gap:16px;padding:10px 24px;
+          border-bottom:1px solid var(--borderSoft);flex:0 0 auto}
+.brand{display:flex;align-items:center;gap:12px;width:240px;flex:0 0 auto}
+.brand img{width:24px;height:24px;display:block}
+.brand span{font-family:Fraunces;font-size:15px;font-weight:500;letter-spacing:-.3px}
+.search{margin:0 auto;display:flex;align-items:center;gap:10px;height:36px;width:100%;
+        max-width:448px;padding:0 12px 0 14px;border-radius:999px;border:1px solid var(--borderSoft);
+        background:var(--surfaceContainerLow);color:var(--outline);font-size:13px}
+.search .kbd{margin-left:auto;font:400 11px/1 "JetBrains Mono";padding:3px 6px;
+             border-radius:var(--radiusControl);background:var(--surfaceContainerHigh);color:var(--onSurfaceVariant)}
+.right{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.pill{display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;border-radius:999px;
+      border:1px solid var(--borderInput);background:var(--surfaceContainerLow);
+      font-size:12px;color:var(--secondary)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--outline);
+     transition:background 180ms cubic-bezier(.22,1,.36,1)}
+html[data-connected="1"] .dot{background:var(--primary)}
+.chrome{display:flex;gap:6px}
+.chrome i{width:28px;height:28px;border-radius:8px;background:var(--surfaceContainerHigh);
+          transition:background 150ms}
+.chrome i:hover{background:var(--surfaceContainerHighest,#E2DED5)}
+.monogram{width:32px;height:32px;border-radius:50%;background:var(--secondaryFixedDim);
+          color:var(--primary);display:grid;place-items:center;font:700 11px/1 "Nunito Sans"}
+
+.body{display:flex;gap:24px;padding:32px 36px 0 32px;min-height:0;flex:1}
+aside{width:240px;flex:0 0 auto;display:flex;flex-direction:column;gap:24px}
+.nav{border:1px solid var(--borderSoft);background:var(--surfaceContainerLow);
+     border-radius:var(--radiusCard);padding:12px}
+.nav .cap{display:block;padding:8px 12px 4px;font:600 11px/1 "Nunito Sans";
+          letter-spacing:.09em;text-transform:uppercase;color:var(--onSurfaceVariant)}
+.item{display:flex;align-items:center;gap:12px;height:36px;padding:0 12px;
+      border-radius:var(--radiusField);color:var(--onSurfaceVariant);font-size:13px}
+.item.sel{background:var(--surfaceContainerHigh);color:var(--primary);font-weight:600}
+.item .n{margin-left:auto;font:400 12px/1 "JetBrains Mono";color:var(--onSurfaceVariant)}
+.rule{height:1px;background:var(--outlineVariant);margin:8px 12px}
+.disk{border:1px solid var(--borderSoft);background:var(--secondaryContainer);
+      border-radius:var(--radiusCard);padding:16px;color:var(--onSecondaryContainer)}
+.disk .row{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px}
+.disk .row .n{margin-left:auto;font:400 12px/1 "JetBrains Mono"}
+.disk .sub{font:400 11px/1 "JetBrains Mono";color:var(--onSurfaceVariant);margin-top:8px}
+
+main{min-width:0;flex:1;display:flex;flex-direction:column;gap:24px;overflow:hidden}
+.hero{display:flex;flex-direction:column;align-items:center;gap:20px;padding:0 24px}
+.hero h1{margin:0;font-family:Fraunces;font-weight:400;font-size:36px;line-height:1.15;
+         text-align:center;color:var(--onBackground)}
+.drop{display:flex;align-items:center;gap:10px;height:60px;width:100%;max-width:672px;
+      padding:0 10px 0 28px;border-radius:999px;background:var(--surfaceContainerLowest);
+      box-shadow:var(--shadowSoft);transition:box-shadow 150ms,transform 150ms}
+.drop:focus-within{box-shadow:var(--shadowFloat)}
+.drop .ph{flex:1;color:var(--outline);font-size:14px}
+.go{display:flex;align-items:center;gap:8px;height:40px;padding:0 24px;border-radius:999px;
+    background:var(--primary);color:var(--onPrimary);font-weight:600;font-size:14px}
+.rowpath{display:flex;align-items:center;gap:8px;color:var(--onSurfaceVariant);font-size:12px}
+
+.head{display:flex;align-items:center;gap:12px;padding-top:8px}
+.head h2{margin:0;font-family:Fraunces;font-weight:500;font-size:19px}
+.head .live{width:10px;height:10px;border-radius:50%;background:var(--primary)}
+.head .count{margin-left:auto;padding:4px 12px;border-radius:999px;
+             background:var(--surfaceContainerHigh);color:var(--onSurfaceVariant);
+             font:400 12px/1 "JetBrains Mono"}
+.list{display:flex;flex-direction:column;gap:16px;padding-bottom:32px;min-height:0}
+
+.card{background:var(--surfaceContainerLowest);border-radius:var(--radiusCard);
+      padding:20px;box-shadow:var(--shadowSoft);
+      transition:box-shadow 180ms cubic-bezier(.22,1,.36,1)}
+.card:hover{box-shadow:var(--shadowFloat)}
+.card .top{display:flex;align-items:flex-start;gap:16px}
+.tile{width:48px;height:48px;flex:0 0 auto;border-radius:var(--radiusTile);
+      background:var(--tintPrimary);display:grid;place-items:center;font-size:20px}
+.meta{min-width:0;flex:1;display:flex;flex-direction:column;gap:6px;padding-top:2px}
+.name{font-size:15px;font-weight:600;color:var(--onSurface);white-space:nowrap;
+      overflow:hidden;text-overflow:ellipsis}
+.name .ext{font-weight:400;color:var(--onSurfaceVariant)}
+.sub{display:flex;align-items:center;gap:10px;font:400 12px/1 "JetBrains Mono";color:var(--onSurfaceVariant)}
+.chip{padding:2px 8px;border-radius:999px;font:600 10px/1.6 "Nunito Sans";white-space:nowrap;
+      transition:background 180ms cubic-bezier(.22,1,.36,1),color 180ms}
+.chip.down{background:var(--primaryFixed);color:var(--primary)}
+.chip.paused{background:var(--surfaceContainerHigh);color:var(--onSurfaceVariant)}
+.chip.await{background:var(--tertiaryFixed);color:var(--onTertiaryContainer)}
+.chip.done{background:var(--primaryFixed);color:var(--primary)}
+.acts{display:flex;gap:6px;flex:0 0 auto}
+.cbtn{width:34px;height:34px;border-radius:50%;border:0;background:var(--surfaceContainer);
+      color:var(--secondary);display:grid;place-items:center;font-size:14px;
+      transition:transform 150ms cubic-bezier(.22,1,.36,1),background 120ms}
+.cbtn:hover{background:var(--surfaceContainerHigh)}
+.cbtn:active{transform:scale(.97)}
+.cbtn.danger{background:var(--errorContainer);color:var(--onErrorContainer)}
+.bar-track{height:8px;border-radius:999px;background:var(--surfaceContainerHigh);
+           margin-top:16px;overflow:hidden}
+.bar-fill{height:100%;border-radius:999px;background:var(--primary);
+          transition:width 400ms cubic-bezier(.22,1,.36,1)}
+.bar-fill.paused{background:var(--outline)}
+.bar-fill.await{background:var(--tertiary)}
+
+.empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:36px 32px;
+       border:1px solid var(--borderSoft);border-radius:var(--radiusCard);
+       background:var(--surfaceContainerLow);text-align:center}
+.empty .ring{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;
+             background:var(--surfaceContainerHigh);color:var(--onSurfaceVariant);margin-bottom:8px}
+
+/* Giris: opaklik + 6px kaydirma, 30 ms arayla (kucuk sapmayla). Sistem
+   azaltilmis hareket isterse kaydirma duser (asagidaki blok). */
+.enter{opacity:0}
+.enter.on{animation:appear var(--dur,250ms) cubic-bezier(.22,1,.36,1) var(--delay,0ms) forwards}
+@keyframes appear{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+html[data-reduced="1"] .enter.on{animation:appearFlat 150ms linear var(--delay,0ms) forwards}
+@keyframes appearFlat{from{opacity:0}to{opacity:1}}
+html[data-reduced="1"] .cbtn:active,html[data-reduced="1"] button:active{transform:none}
+@media (prefers-reduced-motion:reduce){button,.card,.chip,.bar-fill{transition-duration:120ms}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="bar">
+    <b>Hareket</b>
+    <button id="replay">Girişi oynat</button>
+    <button id="toggle-motion" aria-pressed="false">Azaltılmış hareket</button>
+    <button id="toggle-theme">Koyu tema</button>
+    <button id="toggle-connect">Eklenti bağlandı</button>
+    <button id="toggle-empty">Boş durum</button>
+    <span style="opacity:.75">solma + 6px · 30 ms arayla · basışta .97</span>
+  </div>
+
+  <div class="window" id="win">
+    <div class="titlebar">
+      <div class="brand">
+        <img src="serene-leaf.png" alt="">
+        <span>Serene</span>
+      </div>
+      <div class="search">
+        <span>Ara: 'Nature'…</span>
+        <span class="kbd">Ctrl K</span>
+      </div>
+      <div class="right">
+        <span class="pill"><span class="dot"></span><span id="bridge">Tarayıcı yok</span></span>
+        <span class="chrome"><i></i><i></i></span>
+        <span class="monogram">OR</span>
+        <span class="chrome"><i></i><i></i><i></i></span>
+      </div>
+    </div>
+
+    <div class="body">
+      <aside>
+        <nav class="nav">
+          <span class="cap">Kuyruklar</span>
+          <div class="item sel">Tüm indirmeler<span class="n">6</span></div>
+          <div class="item">Devam edenler<span class="n">3</span></div>
+          <div class="item">Tamamlananlar<span class="n">2</span></div>
+          <div class="item">Kuyrukta<span class="n">1</span></div>
+          <div class="item">Hatalı<span class="n">1</span></div>
+          <div class="item">Tarayıcıdan<span class="n">0</span></div>
+          <div class="rule"></div>
+          <span class="cap">Kategoriler</span>
+          <div class="item">Videolar<span class="n">2</span></div>
+          <div class="item">Ses<span class="n">1</span></div>
+          <div class="item">Belgeler<span class="n">1</span></div>
+          <div class="item">Yazılımlar<span class="n">1</span></div>
+          <div class="item">Arşivler<span class="n">1</span></div>
+        </nav>
+        <div class="disk">
+          <div class="row">C: sürücü<span class="n">96%</span></div>
+          <div class="bar-track" style="margin:0"><div class="bar-fill" style="width:96%"></div></div>
+          <div class="sub">228 GB kullanıldı / 237 GB</div>
+        </div>
+      </aside>
+
+      <main>
+        <section class="hero">
+          <h1>Bugün ne indirmek istersiniz?</h1>
+          <div class="drop">
+            <span class="ph">Bir bağlantı bırakın…</span>
+            <span class="cbtn" title="Klasör seç">▤</span>
+            <span class="go">İndir</span>
+          </div>
+          <div class="rowpath">▣ C:\Users\ornek\Downloads ▸</div>
+        </section>
+
+        <div class="head">
+          <span class="live"></span>
+          <h2>Aktif indirmeler</h2>
+          <span class="count">5 öğe</span>
+        </div>
+
+        <div class="list" id="list">
+          <article class="card">
+            <div class="top">
+              <span class="tile">▤</span>
+              <span class="meta">
+                <span class="name">Bahar Manzarası 4K — Doğa Belgeseli<span class="ext">.mp4</span></span>
+                <span class="sub">639 MB / 1,4 GB · 2,4 MB/s <span class="chip down">İndiriliyor</span> · kalan 4 dk 12 sn</span>
+              </span>
+              <span class="acts">
+                <button class="cbtn" title="Duraklat">❚❚</button>
+                <button class="cbtn danger" title="İptal">✕</button>
+              </span>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width:46%"></div></div>
+          </article>
+
+          <article class="card">
+            <div class="top">
+              <span class="tile">♪</span>
+              <span class="meta">
+                <span class="name">Nightingale — Florence<span class="ext">.mp3</span></span>
+                <span class="sub">2,2 MB / 10 MB <span class="chip paused">Duraklatıldı</span></span>
+              </span>
+              <span class="acts">
+                <button class="cbtn" title="Sürdür">▶</button>
+                <button class="cbtn danger" title="İptal">✕</button>
+              </span>
+            </div>
+            <div class="bar-track"><div class="bar-fill paused" style="width:22%"></div></div>
+          </article>
+
+          <article class="card">
+            <div class="top">
+              <span class="tile">▤</span>
+              <span class="meta">
+                <!-- Gercekci uc: cok uzun ad, kırpılır ama uzantı hep görünür. -->
+                <span class="name">Kayıp Arşivler — Sezon 2 Bölüm 4 — Restore Edilmiş Baskı — 2160p HDR<span class="ext">.mkv</span></span>
+                <span class="sub">890 MB <span class="chip await">Onay bekliyor</span></span>
+              </span>
+              <span class="acts">
+                <button class="cbtn" title="Onayla">✓</button>
+                <button class="cbtn danger" title="İptal">✕</button>
+              </span>
+            </div>
+            <div class="bar-track"><div class="bar-fill await" style="width:0%"></div></div>
+          </article>
+
+          <article class="card">
+            <div class="top">
+              <span class="tile">▤</span>
+              <span class="meta">
+                <span class="name">Tasarım Rehberi 2026<span class="ext">.pdf</span></span>
+                <span class="sub">14,0 MB <span class="chip paused">Kuyrukta</span></span>
+              </span>
+              <span class="acts"><button class="cbtn danger" title="İptal">✕</button></span>
+            </div>
+            <div class="bar-track"><div class="bar-fill paused" style="width:0%"></div></div>
+          </article>
+        </div>
+
+        <div class="empty" id="empty" hidden>
+          <span class="ring">⇣</span>
+          <strong style="font-family:Fraunces;font-size:17px">Şu anda indirilen bir şey yok</strong>
+          <span style="color:var(--onSurfaceVariant);font-size:13px">Yukarıdaki alana bir bağlantı yapıştırın; gerisini Serene halleder.</span>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<script>
+// Giris animasyonu: her kart 30 ms arayla, kucuk bir sapmayla baslar.
+// Sapma kasitli: duzgun gecikmeler "makine" gibi okunuyor.
+function play(){
+  const cards=[...document.querySelectorAll('#list .card')];
+  cards.forEach((el,i)=>{
+    const step=Math.min(i,6);
+    const delay=30*step+(((step*13)%3)-1)*5;
+    el.classList.remove('enter','on');
+    el.style.setProperty('--delay',delay+'ms');
+    el.style.setProperty('--dur',(220+delay)+'ms');
+    void el.offsetWidth;                 // yeniden baslat
+    el.classList.add('enter','on');
+  });
+}
+document.getElementById('replay').onclick=play;
+
+const html=document.documentElement;
+const motionBtn=document.getElementById('toggle-motion');
+motionBtn.onclick=()=>{
+  const on=html.dataset.reduced!=='1';
+  html.dataset.reduced=on?'1':'0';
+  motionBtn.setAttribute('aria-pressed',String(on));
+};
+
+const themeBtn=document.getElementById('toggle-theme');
+themeBtn.onclick=()=>{
+  const dark=html.dataset.theme!=='dark';
+  html.dataset.theme=dark?'dark':'light';
+  themeBtn.textContent=dark?'Açık tema':'Koyu tema';
+};
+
+const connBtn=document.getElementById('toggle-connect');
+connBtn.onclick=()=>{
+  const on=html.dataset.connected!=='1';
+  html.dataset.connected=on?'1':'0';
+  document.getElementById('bridge').textContent=on?'Eklenti bağlandı':'Tarayıcı yok';
+  connBtn.setAttribute('aria-pressed',String(on));
+};
+
+const emptyBtn=document.getElementById('toggle-empty');
+emptyBtn.onclick=()=>{
+  const showEmpty=document.getElementById('empty').hidden;
+  document.getElementById('empty').hidden=!showEmpty;
+  document.getElementById('list').hidden=showEmpty;
+  emptyBtn.setAttribute('aria-pressed',String(showEmpty));
+};
+
+// Durumu adresten de al: bir durumun linki verilebilsin
+// (or. #theme=dark&reduced=1&empty=1&connected=1).
+const q=new URLSearchParams(location.hash.replace(/^#/,''));
+if(q.get('theme')==='dark'){html.dataset.theme='dark';themeBtn.textContent='Açık tema'}
+if(q.get('reduced')==='1'){html.dataset.reduced='1';motionBtn.setAttribute('aria-pressed','true')}
+if(q.get('connected')==='1') connBtn.click();
+if(q.get('empty')==='1') emptyBtn.click();
+
+play();
+</script>
+</body>
+</html>
