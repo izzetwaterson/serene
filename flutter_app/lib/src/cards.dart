@@ -502,13 +502,20 @@ class CompletedCard extends StatelessWidget {
   }
 }
 
-/// Listeye giren karti yumusakca belirir. `order`, sirali giris icin gecikme
-/// verir; yalniz ilk 6 kart gecikir, yoksa uzun listede toplam gecikme buyur.
+/// Listeye giren karti yumusakca belirir.
 ///
-/// Yalniz opaklik + dikey kaydirma: layout'a dokunmaz, 200-470 ms arasinda
-/// biter ve kendini tekrarlamaz. Cagiran taraf anahtari vermeli (bkz.
-/// `_CardList`), yoksa yeni gorev listenin basina eklendiginde alttaki
-/// kartlar da yeniden animasyona girer.
+/// `order` sirali giris icin gecikme verir: taban 30 ms, "mekanik" hissini
+/// kirsin diye gorevin sirasina bagli kucuk bir sapma eklenir. Gecikme ilk 6
+/// kartla sinirli, yoksa uzun listede beklemeye donusur; toplam ~370 ms'yi
+/// gecmez. Sirali giris yalnizca listenin ilk dolumunda isler: yeni gelen
+/// kart anahtari sayesinde tek basina ve gecikmesiz belirir.
+///
+/// Yalniz opaklik + kucuk bir dikey kaydirma; layout'a dokunmaz, kendini
+/// tekrarlamaz. Sistemde "animasyonlari kapat" secenegi acikken kaydirma
+/// duser, geriye kisa bir solma kalir: hareket azalir, anlam kaybolmaz.
+///
+/// Cagiran taraf anahtari vermeli (bkz. `_CardList`), yoksa yeni gorev
+/// listenin basina eklendiginde alttaki kartlar da yeniden animasyona girer.
 class _Appear extends StatelessWidget {
   const _Appear({super.key, required this.order, required this.child});
 
@@ -517,19 +524,27 @@ class _Appear extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final delay = 45 * (order < 6 ? order : 6);
-    final total = 200 + delay;
+    final reduced = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final step = order < 6 ? order : 6;
+    final delay = 30 * step + ((step * 13) % 3 - 1) * 5;
+    final total = (reduced ? 150 : 220) + (reduced ? 0 : delay);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: total),
-      curve: Interval(delay / total, 1, curve: Curves.easeOutCubic),
+      duration: Duration(milliseconds: total < 150 ? 150 : total),
+      curve: Interval(
+        reduced ? 0 : delay / total,
+        1,
+        curve: Curves.easeOutQuart,
+      ),
       child: child,
       builder: (context, t, child) => Opacity(
         opacity: t,
-        child: Transform.translate(
-          offset: Offset(0, (1 - t) * 8),
-          child: child,
-        ),
+        child: reduced
+            ? child
+            : Transform.translate(
+                offset: Offset(0, (1 - t) * 6),
+                child: child,
+              ),
       ),
     );
   }

@@ -99,26 +99,38 @@ class HoverSurface extends StatefulWidget {
 
 class _HoverSurfaceState extends State<HoverSurface> {
   bool _hover = false;
+  bool _down = false;
 
   @override
   Widget build(BuildContext context) {
+    // Basış geri bildirimi (scale 0.97) sistemde "animasyonlari kapat"
+    // secenegi acikken duser; renk gecisi kalir, yani tik yine de onaylanir.
+    final reduced = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return MouseRegion(
       cursor: widget.onTap == null ? MouseCursor.defer : widget.cursor,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          padding: widget.padding,
-          decoration: BoxDecoration(
-            color: _hover && widget.hoverBackground != null
-                ? widget.hoverBackground
-                : widget.background,
-            borderRadius: BorderRadius.circular(widget.radius),
-            border: widget.border,
+        onTapDown: (_) => setState(() => _down = true),
+        onTapUp: (_) => setState(() => _down = false),
+        onTapCancel: () => setState(() => _down = false),
+        child: AnimatedScale(
+          scale: _down && !reduced ? 0.97 : 1,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOutQuart,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            padding: widget.padding,
+            decoration: BoxDecoration(
+              color: _hover && widget.hoverBackground != null
+                  ? widget.hoverBackground
+                  : widget.background,
+              borderRadius: BorderRadius.circular(widget.radius),
+              border: widget.border,
+            ),
+            child: widget.child,
           ),
-          child: widget.child,
         ),
       ),
     );

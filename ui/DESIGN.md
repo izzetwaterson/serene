@@ -323,7 +323,12 @@ keeps waking the renderer while nothing is happening.
 | 120–200 ms, once | Long enough to read as motion, short enough to stay out of the way. Past ~250 ms it starts to feel like waiting. |
 | Transform and opacity, not layout | Width, height and padding animate through layout on every frame; `Opacity` and `Transform` stay on the compositor. |
 | Key inserted rows | New downloads are prepended. An unkeyed insertion makes Flutter re-match by position, so every row below re-animates; `ValueKey(task.id)` keeps the motion on the row that actually appeared. |
-| Stagger the first few rows | Rows start 45 ms apart, flat after the sixth, so a list reads as a sequence instead of one block. Past six the delay stops reading as rhythm and starts reading as waiting. |
+| Stagger the first few rows | Rows start 30 ms apart with a small variation so the rhythm does not read as mechanical, flat after the sixth, total under 400 ms. Staggering happens only on the first fill: a new download arrives alone, because a delay repeated on every trigger is an attention cost, not an explanation. |
+| Press, do not just hover | A press scales the surface to 0.97 over 150 ms — the baseline for anything the pointer touches. Hover keeps its 120 ms colour shift. |
+
+When the system asks for reduced motion (`MediaQuery.disableAnimations`), the
+entrance keeps the fade and drops the translation, and press feedback drops the
+scale: the interface still answers, it just stops travelling.
 
 The status chip morphs its background in 180 ms and cross-fades its label in
 140 ms, so "Downloading → Paused" reads as a change rather than a swap. The chip
