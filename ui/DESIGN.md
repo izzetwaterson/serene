@@ -1,12 +1,8 @@
 # Serene — Organic Design
 
-> **Source of truth:** `flutter_app/lib/src/theme.dart` (implementation) and
-> `ui/code.html` (original mockup, still the origin of the layout; `ui/screen.png`
-> is its render, and that sketch carries a working name — FlowFetch v2.4 — and
-> macOS-style window dots, while the product is Windows-only and called Serene).
-> This
-> document describes what the product actually is today; when code and this file
-> disagree, the code is right and this file is the bug.
+> **Source of truth:** `flutter_app/lib/src/theme.dart`. This document describes
+> what the product actually is today; when code and this file disagree, the code
+> is right and this file is the bug.
 >
 > **Verified against:** `Serene.exe` 1.0.0, Debug build, windows captured at
 > 1280×880 (main), 760×400 (live download) and 460×600 (handoff),
