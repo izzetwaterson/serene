@@ -7,6 +7,15 @@ import 'package:flutter/material.dart';
 import 'strings.dart';
 import 'theme.dart';
 import 'widgets.dart';
+import 'rust/api/lifecycle.dart' as ffi;
+
+/// Eklentinin Firefox Add-ons (AMO) sayfasi.
+///
+/// 2026-10-10'da onaylanip yayina girdi ("Listed"); artik imzali oldugu icin
+/// kalici kurulum buradan yapilir. Dil onekini tasimayan adres kullanilir, ki
+/// tarayici kendi diline yonlensin.
+const extensionStoreUrl =
+    'https://addons.mozilla.org/firefox/addon/serene-download-manager/';
 
 /// Kurulum paketiyle gelen eklenti klasoru; exe'nin yaninda durur.
 ///
@@ -21,7 +30,8 @@ Directory? extensionFolder() {
   return folder;
 }
 
-/// Ilk acilis tanitimi: eklenti klasorunu acar, kurulum adimlarini gosterir.
+/// Ilk acilis tanitimi: eklentiyi Firefox Add-ons'tan kurmaya yonlendirir,
+/// gerekiyorsa klasorunu acar.
 ///
 /// `browserUp` köprü durumunu tasir; eklenti pencere acikken baglanirsa
 /// rozet "Baglandi" durumuna gecer ve pencere kisa bir sure sonra kapanir.
@@ -81,6 +91,14 @@ class _ExtensionOfferDialogState extends State<ExtensionOfferDialog> {
     } catch (_) {
       /* gezgin acilamazsa pencere acik kalir; adimlar hala gorunur */
     }
+  }
+
+  /// Eklentiyi Firefox Add-ons sayfasindan kurmaya goturur.
+  ///
+  /// Acma isi Rust tarafinda (`ffi.openExternal`), boylece yeni bir paket
+  /// bagimliligi gelmiyor; orasi zaten yalnizca http(s) kabul ediyor.
+  void _openStore() {
+    ffi.openExternal(url: extensionStoreUrl);
   }
 
   @override
@@ -191,6 +209,36 @@ class _ExtensionOfferDialogState extends State<ExtensionOfferDialog> {
                   ),
                   HoverSurface(
                     onTap: _openFolder,
+                    background: Serene.surfaceContainer,
+                    hoverBackground: Serene.surfaceContainerHigh,
+                    radius: Serene.radiusField,
+                    border: Border.all(color: Serene.borderInput),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SIcon(
+                          'folder_open',
+                          size: 16,
+                          color: Serene.secondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          T.extensionOfferOpen,
+                          style: body(
+                            13,
+                            weight: FontWeight.w600,
+                            color: Serene.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  HoverSurface(
+                    onTap: _openStore,
                     background: Serene.primary,
                     hoverBackground: Serene.primaryHover,
                     radius: Serene.radiusField,
@@ -201,10 +249,14 @@ class _ExtensionOfferDialogState extends State<ExtensionOfferDialog> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        SIcon('folder_open', size: 16, color: Serene.onPrimary),
+                        SIcon(
+                          'open_in_new',
+                          size: 16,
+                          color: Serene.onPrimary,
+                        ),
                         const SizedBox(width: 8),
                         Text(
-                          T.extensionOfferOpen,
+                          T.extensionOfferInstall,
                           style: body(
                             13,
                             weight: FontWeight.w600,

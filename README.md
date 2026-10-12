@@ -61,19 +61,17 @@ To uninstall: `Settings → Apps → Serene`. Your **download list in
 
 ### Browser extension (optional)
 
-The extension ships inside the installer. On first launch the app offers it
-once and can open the `extension\` folder next to `Serene.exe` for you.
-The installer doesn't touch the browser bridge — the app refreshes that
-registration silently on every launch. The extension itself is unsigned,
-so it is not on the add-on store — load it manually:
+The extension is published on Firefox Add-ons:
 
-1. Open `about:debugging#/runtime/this-firefox` in Firefox or Zen
-2. **Load Temporary Add-on** → choose `extension/manifest.json` in the
-   install folder
-3. Click the toolbar icon; the status should read **connected**
+**https://addons.mozilla.org/firefox/addon/serene-download-manager/**
 
-> Temporary add-ons are dropped when the browser closes; repeat step 2 next
-> time. A permanent install requires a signed `.xpi`.
+On first launch the app offers it once; the **Install from Firefox** button
+opens that page. The installer doesn't touch the browser bridge — the app
+refreshes that registration silently on every launch.
+
+The installer also ships the `extension\` folder next to `Serene.exe`, so you
+can still load it by hand from `about:debugging#/runtime/this-firefox` if you
+prefer — the app's **Open extension folder** button takes you there.
 
 ---
 
@@ -182,7 +180,8 @@ Being straightforward about these:
 - **Categories are a UI filter only.** No folders are created.
 - **Many parallel connections** to one server can hit rate limits; lower the
   connection count in settings if that happens.
-- **The extension is not on the Firefox add-on store** (it is unsigned).
+- **The extension is Firefox-only** (Firefox and Zen). It is on the Firefox
+  add-on store; there is no Chromium build.
 
 ---
 
@@ -301,9 +300,9 @@ Symbols (Apache 2.0).
 olmaya çalışmaz; sakin olmaya çalışır: tek ekran, sırasız, kesintisiz.
 
 **Kurulum:** `Serene-Setup-1.0.0.exe` dosyasını çalıştırın; yönetici şifresi
-sorulmaz. Tarayıcı eklentisi isteğe bağlıdır; kurulum paketiyle birlikte gelir,
-uygulama ilk açılışta klasörünü gösterip yüklemeyi önerir (imzasız olduğu için
-mağazada yoktur; `about:debugging` üzerinden yüklenir).
+sorulmaz. Tarayıcı eklentisi isteğe bağlıdır; Firefox Add-ons'ta yayındadır ve
+uygulama ilk açılışta "Firefox'tan kur" ile sayfasını açar (paketteki
+`extension` klasöründen `about:debugging` ile elle de yüklenebilir).
 
 **Varsayılanlar:** dil İngilizce, tema aydınlık. Ayarlar penceresinden
 Türkçe'ye ve karanlık temaya geçebilirsiniz.

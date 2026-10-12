@@ -134,6 +134,7 @@ abstract class Strings {
   String get extensionOfferStep2;
   String get extensionOfferNote;
   String get extensionOfferOpen;
+  String get extensionOfferInstall;
   String get extensionOfferLater;
   String get extensionOfferConnected;
   String get extensionPillHint;
@@ -408,17 +409,21 @@ class TrStrings extends Strings {
   String get extensionOfferBadge => 'Önerilir';
   @override
   String get extensionOfferBody =>
-      'İndirmeleri tarayıcıdan devralmak için Serene eklentisini yükle:';
+      'İndirmeleri tarayıcıdan devralmak için Serene eklentisini Firefox\'a kur:';
   @override
-  String get extensionOfferStep1 => '«Eklenti klasörünü aç» düğmesine bas.';
+  String get extensionOfferStep1 =>
+      '«Firefox\'tan kur» düğmesine bas; Add-ons sayfası açılır.';
   @override
   String get extensionOfferStep2 =>
-      'Tarayıcıda about:debugging → «Geçici eklenti yükle» → manifest.json seç.';
+      'Sayfada «Add to Firefox» ile onayla; eklenti kurulur.';
   @override
   String get extensionOfferNote =>
-      'Eklenti imzasız; tarayıcı kapanınca yükleme adımı tekrarlanır.';
+      'Kurulum kalıcıdır. Elle yüklemek istersen «Eklenti klasörünü aç» ile '
+      'about:debugging üzerinden geçici olarak da yükleyebilirsin.';
   @override
   String get extensionOfferOpen => 'Eklenti klasörünü aç';
+  @override
+  String get extensionOfferInstall => 'Firefox\'tan kur';
   @override
   String get extensionOfferLater => 'Şimdi değil';
   @override
@@ -766,17 +771,21 @@ class EnStrings extends Strings {
   String get extensionOfferBadge => 'Recommended';
   @override
   String get extensionOfferBody =>
-      'Install the Serene extension to take over downloads from your browser:';
+      'Install the Serene extension in Firefox to take over downloads from your browser:';
   @override
-  String get extensionOfferStep1 => 'Press "Open extension folder".';
+  String get extensionOfferStep1 =>
+      'Press "Install from Firefox"; the Add-ons page opens.';
   @override
   String get extensionOfferStep2 =>
-      'In the browser: about:debugging → "Load Temporary Add-on" → pick manifest.json.';
+      'Click "Add to Firefox" on the page to install it.';
   @override
   String get extensionOfferNote =>
-      'The extension is unsigned; when the browser closes, load it again.';
+      'The install is permanent. To load it by hand instead, press '
+      '"Open extension folder" and use about:debugging.';
   @override
   String get extensionOfferOpen => 'Open extension folder';
+  @override
+  String get extensionOfferInstall => 'Install from Firefox';
   @override
   String get extensionOfferLater => 'Not now';
   @override

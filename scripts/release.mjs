@@ -320,17 +320,18 @@ eklenebilir.
 - Kod imzasi yok: Windows SmartScreen "bilinmeyen yayinci" uyarisi verir.
   Kurulumdan once bu uyariyi gorursunuz, "Daha fazla bilgi" > "Yine de
   calistir" demek gerekebilir.
-- Tarayici eklentisi Manifest V3 (Firefox). Uygulama ilk acilista \`extension\`
-  klasorunu gosterir; eklenti oradan gecici olarak yuklenebilir. AMO paketi
-  \`dist\\serene-<surum>.zip\`.
+- Tarayici eklentisi Manifest V3 (Firefox). AMO'da yayinda:
+  addons.mozilla.org/firefox/addon/serene-download-manager. Uygulama ilk
+  acilista "Firefox'tan kur" ile bu sayfayi acar; paketteki \`extension\`
+  klasorunden elle de yuklenebilir. AMO paketi \`dist\\serene-<surum>.zip\`.
 
 ## Yukleme
 
 - Kurulum paketi: \`Serene-Setup-${version}.exe\` (kullanici bazli, yonetici
   hakki istemez)
 - Tasinabilir surum: \`Serene-${version}-portable.zip\`
-- Tarayici eklentisi pakete dahildir (\`extension\` klasoru); kurulumdan
-  sonra uygulama ilk acilista kurulum adimlarini gosterir
+- Tarayici eklentisi pakete dahildir (\`extension\` klasoru) ve AMO'da yayinda;
+  uygulama ilk acilista "Firefox'tan kur" baglantisini gosterir
 
 ## Geri Bildirim
 
