@@ -502,6 +502,39 @@ class CompletedCard extends StatelessWidget {
   }
 }
 
+/// Listeye giren karti yumusakca belirir. `order`, sirali giris icin gecikme
+/// verir; yalniz ilk 6 kart gecikir, yoksa uzun listede toplam gecikme buyur.
+///
+/// Yalniz opaklik + dikey kaydirma: layout'a dokunmaz, 200-470 ms arasinda
+/// biter ve kendini tekrarlamaz. Cagiran taraf anahtari vermeli (bkz.
+/// `_CardList`), yoksa yeni gorev listenin basina eklendiginde alttaki
+/// kartlar da yeniden animasyona girer.
+class _Appear extends StatelessWidget {
+  const _Appear({super.key, required this.order, required this.child});
+
+  final int order;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final delay = 45 * (order < 6 ? order : 6);
+    final total = 200 + delay;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: total),
+      curve: Interval(delay / total, 1, curve: Curves.easeOutCubic),
+      child: child,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, (1 - t) * 8),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
 class _CardList extends StatelessWidget {
   const _CardList({required this.tasks, required this.onAction});
 
@@ -512,26 +545,13 @@ class _CardList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        for (final task in tasks) ...[
-          // Yeni kart yumusak belirir. Anahtar sart: yeni gorev listenin
-          // BASINA ekleniyor, anahtarsiz eslesme yuzunden tum kartlar yeniden
-          // animasyona girerdi. Yalniz opaklik + kaydirma; layout'a dokunmaz
-          // ve 180 ms'de biter, kendini tekrarlamaz.
-          TweenAnimationBuilder<double>(
-            key: ValueKey(task.id),
-            tween: Tween(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            child: TaskCard(task: task, onAction: onAction),
-            builder: (context, t, child) => Opacity(
-              opacity: t,
-              child: Transform.translate(
-                offset: Offset(0, (1 - t) * 8),
-                child: child,
-              ),
-            ),
+        for (var i = 0; i < tasks.length; i++) ...[
+          _Appear(
+            key: ValueKey(tasks[i].id),
+            order: i,
+            child: TaskCard(task: tasks[i], onAction: onAction),
           ),
-          if (task != tasks.last) const SizedBox(height: 16),
+          if (i != tasks.length - 1) const SizedBox(height: 16),
         ],
       ],
     );
