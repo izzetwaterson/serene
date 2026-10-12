@@ -248,7 +248,7 @@ node scripts/check_extension.mjs   # extension logic (under a browser mock)
 ```
 
 > **The scripts must run sequentially** and refuse to start while another
-> instance is open. See `docs/planning/STATUS.md` for the details.
+> instance is open.
 </details>
 
 <details>
@@ -264,21 +264,15 @@ node scripts/check_extension.mjs   # extension logic (under a browser mock)
 | `installer_app/` | Custom installer / uninstaller UI (Flutter) |
 | `installer/` | Single-file carrier (`bootstrap.nsi`, no UI of its own) |
 | `scripts/` | Verification scripts, icon generation, release pipeline |
-| `ui/` | Design source and mockups |
-
-The `docs/planning/` folder is the project's internal log — phase plans,
-decisions, and the pitfalls hit along the way. It is not needed to *use*
-Serene; it exists for anyone continuing the work.
+| `ui/` | Design source and icon master |
 </details>
 
 ---
 
 ## Contributing
 
-Use the **Issues** and **Pull requests** sections on the repository page.
-For the current state and architecture, see `docs/MASTER.md`; the development
-log in `docs/planning/STATUS.md` collects the decisions and pitfalls hit along
-the way.
+Use the **Issues** and **Pull requests** sections on the repository page. The
+build, test, and verification commands are in the sections above.
 
 ---
 

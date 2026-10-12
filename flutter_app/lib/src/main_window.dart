@@ -28,7 +28,7 @@ import 'widgets.dart';
 /// Rozet dekoratif ama uydurma olmamali: onceden burada sabit `'EF'` yaziyordu
 /// ve her kullaniciya ayni iki harfi gosteriyordu. Iki parcali adlarda bas
 /// harfler ("Ahmet Yilmaz" -> "AY"), tek parcali adlarda ilk iki harf
-/// ("izzet" -> "IZ") alinir. Ad hic yoksa rozet bos kalir; daire ve ipucu
+/// ("ahmet" -> "AH") alinir. Ad hic yoksa rozet bos kalir; daire ve ipucu
 /// metni yerinde durur.
 final String _profileInitials = _initialsOf(Platform.environment['USERNAME'] ?? '');
 

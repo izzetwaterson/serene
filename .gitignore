@@ -16,6 +16,15 @@ lastsession.md
 session-*.md
 .zcodeignore
 diger ai.md
+.commandcode/
+.workbuddy-ai/
+
+# Tek seferlik, mutlak yol tasiyan kisisel betikler
+_t_*.ps1
+
+# Ic calisma belgeleri: diskte kalir, depoda gorunmez
+docs/
+AGENTS.md
 
 # Python onbellegi
 __pycache__/

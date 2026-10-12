@@ -285,8 +285,8 @@ The product mark is the user's own artwork: a 3D glass maple leaf on a dark
 rounded tile — "THE ICON" (`ui/serene-icon-source.png`, 2048×2048, real alpha:
 the tile edge resolves within 4–5 px, corners fully transparent). It replaced
 every earlier mark (photograph-derived tile, code-drawn `#D3EBD8` tile,
-leaf-alone) on 2026-10-01; earlier candidates and their measurements remain in
-`artifacts/icon-candidates/` and `docs/planning/STATUS.md` §3.9.
+leaf-alone) on 2026-10-01; the earlier candidates and their measurements were
+kept during development and are not part of the shipped repository.
 
 Usage follows the user's request ("her yerde bu ikon") with one measured
 refinement: THE ICON at 48px and above (large `.ico` frames, 48/96/128
@@ -357,10 +357,9 @@ notification area wants 16/20/24/32.
   project masters (leaf at 32 px and below, THE ICON above) and `manifest.json`
   reads `1.0.0`. The extension UI is now
   bilingual too — `_locales/en` + `_locales/tr`, following the browser's
-  language with `en` as default (`STATUS.md` §3.15), so the "Turkish-only"
-  note that stood here is closed.
+  language with `en` as default, so the "Turkish-only" note that stood here is
+  closed.
 - The installer (2026-10-01 → 10-04/05): the Modern UI 2 bitmaps were replaced
   outright — the installer is a custom Flutter app carried by a silent NSIS
   stub, and `installer/serene.nsi` / `scripts/make_installer_art.py` were
-  **deleted on 2026-10-06** (`STATUS.md` §3.10–§3.12). The `MUI_BANNER`
-  correction is kept there too (§3.10.1).
+  **deleted on 2026-10-06**; the `MUI_BANNER` correction went with them.
