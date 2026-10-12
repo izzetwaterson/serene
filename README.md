@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="ui/serene-leaf.png" width="110" alt="Serene">
+  <img src="ui/serene-leaf.png" width="130" alt="Serene">
   <h3>Serene</h3>
   <p><b>A calm, tidy download manager for Windows.</b></p>
   <p>
