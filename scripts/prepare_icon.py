@@ -2,19 +2,19 @@
 
 Girdi 1: `ui/serene-icon-source.png` — **karo + yaprak, temiz alfa kanalli**
          (2048x2048 RGBA). Kullanicinin "THE ICON" olarak verdigi dosya.
-Cikti 1: `ui/serene-icon.png` (1024x1024, RGBA) — uygulama ikonu, tepsi ve
-         eklenti ikonlarinin tek ana dosyasi.
+Cikti 1: `ui/serene-icon.png` (1024x1024, RGBA) — karonun tasindigi dosya;
+         artik hicbir ikonun kaynagi degil (bkz. 2026-10-12 karari).
 Girdi 2: `ui/serene-leaf.png` — arka plani kaldirilmis yaprak (1024x1024,
          palet + tRNS). Kullanicinin temiz alfa kesimi.
-Cikti 2: `ui/serene-leaf-master.png` (1024x1024, RGBA) — SADECE About
-         sekmesindeki marka; `make_icons.py` About logosunu buradan uretir.
+Cikti 2: `ui/serene-leaf-master.png` (1024x1024, RGBA) — urunun tek markasi;
+         `make_icons.py` butun boyutlari (ikon, tepsi, baslik cubugu, eklenti,
+         About) buradan uretir.
 
-**Kullanici karari (2026-10-01): her yerde BU simge.** Karonun kodla cizilen
-surumu, fotograftan gelen koyu karo ve karosuz "yalniz yaprak" surumu
-birakildi; simge artik kullanicinin verdigi karo+yaprak gorselinin kendisidir.
-Tek istisna About sekmesindeki marka: orada, kullanicinin acik istegiyle
-("sadece About'taki degismesin"), yaprak kalir — About logosu yukaridaki
-yaprak master'indan uretilir.
+**Kullanici karari (2026-10-12): her yerde yaprak, ham tonuyla.** Onceki iki
+revizyon — kodla cizilen karo, sonra kullanicinin karo+yaprak gorseli
+(2026-10-01) — birakildi. Urunun tek markasi yapraktir ve `make_icons.py` her
+boyutu `ui/serene-leaf-master.png`'den uretir. `ui/serene-icon.png` yine
+uretilir (karonun tasindigi dosya) ama artik hicbir ikonun kaynagi degildir.
 
 **Neden bu kaynak onceki denemelerden iyi:** onceki koyu karo JPEG'di ve
 karonun sag/alt kenari goruntude YOKTU (isik sol-ustten; olculen `y=1024`
@@ -29,14 +29,16 @@ Yani karo kenari artik olculebilir bir sir degil, dosyanin kendisi. Maskeyle
 taklit etmeye de gerek yok: olculen kose egrisi dairesel degil (squircle), yani
 `rounded_rectangle` ile birebir tutmazdi.
 
-**Olculen kontrast.** Ortalama parlaklik 40,5:
+**Olculen kontrast (2026-10-12, ham yaprak).** Alfa agirlikli ortalama
+parlaklik 57:
 
-    acik zemin (L=247) -> Δ206   cok iyi
-    koyu zemin (L=32)  -> Δ9     zayif
+    acik zemin (L=247) -> Δ190   cok iyi
+    koyu zemin (L=32)  -> Δ25    zayif
 
-Koyu zemin degeri zayiftir cunku karo koyu ve Windows 11 koyu gorev cubugu da
-koyudur. Bu bilinen ve kabul edilen bedeldir; karsilastirma icin: karosuz yaprak
-Δ66, acik yesil karo Δ144 veriyordu. Karar kullanicinin.
+Koyu deger zayiftir cunku yaprak koyu zumrut, Windows 11 koyu gorev cubugu da
+koyudur. Onceki zincir bunu gamma 0.60 ile Δ66'ya cikariyordu; kullanici ham
+tonu secti ve bedeli kabul etti. Karsilastirma icin: karo+yaprak Δ9. Ayrinti
+`ui/DESIGN.md`.
 
 Bu dosya deterministiktir: ayni girdiden ayni ciktiyi uretir. Simgeyi yeniden
 uretmek icin once bu, sonra `scripts/make_icons.py` calistirilir.
@@ -56,15 +58,16 @@ MASTER = ROOT / "ui" / "serene-icon.png"
 MASTER_SIZE = 1024
 MARGIN = 0.045      # tuvalin her kenarinda birakilan bosluk (oran)
 
-# About yapragi: 2026-10-01'de dondurulan eski yaprak zinciri (git gecmisi:
-# leaf-era prepare_icon.py). Degerler o gununkuyle birebir ayni; cikti,
-# yayinlanan About logosuyla bit duzeyinde eslesir (dogrulandi). Amac:
-# kullanici "About'taki degismesin" dedigi icin gorunum sabit kalsin.
+# Yaprak master'i: kaynak yaprak alfa kutusuna kirpilir, %5 kenar bosluguyla
+# 1024px tuvale oturtulur. **Gama ve doygunluk notrdur (2026-10-12 kullanici
+# karari: "ham ton"), yani master kaynagin rengini birebir tasir.** Onceki
+# zincir koyu yuzeyler icin gamma 0.60 uyguluyordu (koyu zeminde Δ66);
+# ham ton ayni zeminde Δ25 verir. Kullanici bu bedeli kabul etti.
 LEAF_SRC = ROOT / "ui" / "serene-leaf.png"
 LEAF_MASTER = ROOT / "ui" / "serene-leaf-master.png"
-LEAF_GAMMA = 0.60        # <1 aydinlatir: koyu zeminde Δ26 -> Δ66 (eski olcum)
-LEAF_SATURATION = 1.04
-LEAF_MARGIN = 0.05       # eski zincirde yaprak kenarda %5 boslukla durur
+LEAF_GAMMA = 1.0         # 1.0 = ham ton (aydinlatma yok)
+LEAF_SATURATION = 1.0
+LEAF_MARGIN = 0.05       # yaprak kenarda %5 boslukla durur
 
 # Kontrast raporlamasi: eski kayitlarla karsilastirilabilsin diye ayni taban.
 DARK_BG_LUM = 32
@@ -121,11 +124,11 @@ def main() -> None:
 
 
 def build_leaf_master() -> None:
-    """About yapragini eski zincirden birebir uretir (bkz. LEAF_* sabitleri).
+    """Yaprak master'ini uretir (bkz. LEAF_* sabitleri).
 
-    Sirasi eski leaf-era `prepare_icon.py` ile aynidir: ham yaprak -> RGBA ->
-    alfa kutusuna kirp -> gamma/doygunluk -> %5 kenar boslugu -> 1024px.
-    Cikti, 2026-10-01'de yayinda olan About logosuyla bit duzeyinde eslesir.
+    Ham yaprak -> RGBA -> alfa kutusuna kirp -> ton ayari -> %5 kenar boslugu
+    -> 1024px. Ton ayari su an notr (LEAF_GAMMA/SATURATION = 1.0), yani cikti
+    kaynagin rengidir; sabitler eski aydinlatilmis zincire donmek icin durur.
     """
     if not LEAF_SRC.exists():
         raise SystemExit(f"yaprak kaynagi yok: {LEAF_SRC}")

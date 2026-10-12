@@ -12,12 +12,13 @@
 > gives a size or a colour it was measured in a captured window on that date,
 > not estimated.
 >
-> **Icon revision 2026-10-12 (leaf everywhere):** the product mark is the
-> user's own leaf artwork, with no tile, in every size — window and `.exe` icon,
-> tray, taskbar, the extension icons, the title bar and Settings → About. Before
-> this, the 48 px-and-up frames came from THE ICON (the glass leaf on its dark
-> tile). The tile scores Δ9 against a dark taskbar where the leaf scores Δ66, and
-> inside a small tile the leaf silhouette collapses anyway. "The icon" below
+> **Icon revision 2026-10-12 (leaf everywhere, raw tone):** the product mark is
+> the user's own leaf artwork, with no tile and with no tone adjustment, in every
+> size — window and `.exe` icon, tray, taskbar, the extension icons, the title
+> bar and Settings → About. Before this, the 48 px-and-up frames came from
+> THE ICON (the glass leaf on its dark tile), and the leaf used at small sizes
+> was gamma-lifted. The tile scores Δ9 against a dark taskbar where the raw leaf
+> scores Δ25; the user chose the raw tone and accepted that. "The icon" below
 > carries the measurements and the pipeline.
 >
 > The previous revision of this file was written 46 commits earlier, under the
@@ -286,7 +287,7 @@ leaf on its dark rounded tile, kept as the artwork it arrived as) and
 `ui/serene-leaf.png` (1024×1024, palette + `tRNS` transparency, the leaf alone).
 
 `scripts/prepare_icon.py` turns the leaf into one master,
-`ui/serene-leaf-master.png` (1024×1024 RGBA, gamma 0.60, 5 % margin), and
+`ui/serene-leaf-master.png` (1024×1024 RGBA, raw tone, 5 % margin), and
 `scripts/make_icons.py` derives **every** size from it: the `.ico`, the tray, the
 title-bar mark, the extension set and the About logo. There is no size-based
 split any more; the tile left the pipeline on 2026-10-12 at the user's request
@@ -299,13 +300,13 @@ the icon scripts report:
 |---|---|---|---|
 | Tile + leaf (THE ICON) | 40.5 | Δ206 | **Δ9** |
 | Leaf, raw | 57 | Δ190 | Δ25 |
-| Leaf, gamma 0.60 | 98 | Δ149 | **Δ66** |
+| Leaf, gamma 0.60 (retired) | 98 | Δ149 | Δ66 |
 
-The tile is the best of the three on a light surface and the worst on a dark
-one; the leaf inverts that. The gamma-lifted leaf — the master every generated
-file comes from — is the only variant that holds up on both, which is why the
-raw leaf is used only where the background is known: the README header, on
-white, where Δ190 is ample.
+The tile is the best of the three on a light surface and the worst on a dark one;
+the leaf inverts that. The gamma-lifted variant held up on both, but it is also a
+different colour from the artwork as supplied, so on 2026-10-12 the user chose
+the raw tone for every generated file and accepted Δ25 on a dark taskbar. Every
+surface now shows the same leaf, at the same tone as the README header.
 
 ## Rules
 

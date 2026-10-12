@@ -9,14 +9,13 @@ Neden yaprak, olculdu: ayni hesap (alfa agirlikli ortalama parlaklik) ile
 
     kaynak                 ort. L   acik zemin   koyu zemin
     karo + yaprak           40,5     Δ206         Δ9      <- koyu zeminde kayboluyor
-    yaprak (ham)            57       Δ190         Δ25
-    yaprak (aydinlatilmis)  98       Δ149         Δ66     <- bu dosya
+    yaprak                  57       Δ190         Δ25     <- bu dosya
 
-Windows 11'in koyu gorev cubugu ile aydinlatilmis yaprak Δ66 verir; karo+yaprak
-Δ9. Yani yaprak hem "karonun icinde siluetlesme" sorununu cozer hem koyu zeminde
-daha okunur. Ham yaprak yerine aydinlatilmis master kullanilir cunku ayni
-cizimdir, yalnizca koyu yuzeyler icin gama ile acilmistir (bkz.
-`scripts/prepare_icon.py`, LEAF_GAMMA = 0.60).
+Karo koyu zeminde Δ9 ile kayboluyor; yaprak Δ25 verir ve "karonun icinde
+siluetlesme" sorununu da cozer, cunku tuvali doldurur. 2026-10-12 kullanici
+karari: ham ton (bkz. `scripts/prepare_icon.py`, LEAF_GAMMA = 1.0). Onceki
+zincir koyu yuzeyler icin gamma 0.60 uygulayip Δ66'ya cikariyordu; ham ton bu
+bedeli kabul ediyor.
 
 Bu betik PNG'lere DOKUNMAZ; yalnizca onlardan turetilen boyutlari uretir.
 Ciktilar depoda durur. Ikonlar degistiginde sira:
