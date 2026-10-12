@@ -1003,17 +1003,8 @@ class Header extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: Serene.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: SIcon('spa', size: 15, color: Serene.primary),
-              ),
-            ),
+            // Marka kullanicinin kendi cizimi: glif degil, yaprak gorseli.
+            Image.asset('assets/icons/serene_leaf.png', width: 24, height: 24),
             const SizedBox(width: 12),
             Text(
               T.appTitle,

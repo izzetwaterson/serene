@@ -63,10 +63,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Tepsi simgesi (32px) + uygulama ici marka (256px, About sekmesi).
-  # Tepsi scripts/make_icons.py ile ui/serene-icon.png'den; About logosu
-  # ui/serene-leaf-master.png'den (bilincli istisna). Bu klasore dosya eklemek
-  # yeter, pubspec degismez.
+  # Uygulama ici markalar: tepsi (32px), baslik cubugu (128px) ve About
+  # (256px). Ucu de scripts/make_icons.py ile ui/serene-leaf-master.png'den
+  # uretilir. Bu klasore dosya eklemek yeter, pubspec degismez.
   assets:
     - assets/icons/
 

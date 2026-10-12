@@ -1,35 +1,40 @@
-"""Urun ve eklenti ikonlarini ana dosyalardan uretir.
+"""Urun ve eklenti ikonlarini ana dosyadan uretir.
 
-Iki ana dosya vardir:
-  * `ui/serene-icon.png` — karo + yaprak ("THE ICON"). 32px'ten BUYUK kareler
-    (gorev cubugu, .ico buyukleri, eklenti buyukleri) buradan turetilir.
-  * `ui/serene-leaf-master.png` — yalniz yaprak. 32px ve ALTI kareler ile About
-    markasi buradan turetilir: kucuk boyutta karo icindeki yaprak siluetlesip
-    kayboluyordu, yaprak ise tuvali doldurdugu icin net kalir. Kullanici
-    karari (2026-10-01): About'taki logo degismesin.
+Tek ana dosya vardir:
+  * `ui/serene-leaf-master.png` — yalniz yaprak (1024px, RGBA). 2026-10-12
+    kullanici karari: **her yerde yaprak.** Eskiden 32px ustu kareler
+    karo+yaprak'tan ("THE ICON") turetilirdi; artik hepsi yapraktan.
+
+Neden yaprak, olculdu: ayni hesap (alfa agirlikli ortalama parlaklik) ile
+
+    kaynak                 ort. L   acik zemin   koyu zemin
+    karo + yaprak           40,5     Δ206         Δ9      <- koyu zeminde kayboluyor
+    yaprak (ham)            57       Δ190         Δ25
+    yaprak (aydinlatilmis)  98       Δ149         Δ66     <- bu dosya
+
+Windows 11'in koyu gorev cubugu ile aydinlatilmis yaprak Δ66 verir; karo+yaprak
+Δ9. Yani yaprak hem "karonun icinde siluetlesme" sorununu cozer hem koyu zeminde
+daha okunur. Ham yaprak yerine aydinlatilmis master kullanilir cunku ayni
+cizimdir, yalnizca koyu yuzeyler icin gama ile acilmistir (bkz.
+`scripts/prepare_icon.py`, LEAF_GAMMA = 0.60).
 
 Bu betik PNG'lere DOKUNMAZ; yalnizca onlardan turetilen boyutlari uretir.
 Ciktilar depoda durur. Ikonlar degistiginde sira:
 
-    python scripts/prepare_icon.py     # kaynaklar -> ui/serene-icon.png,
-                                       #              ui/serene-leaf-master.png
+    python scripts/prepare_icon.py     # kaynaklar -> ui/serene-leaf-master.png
     python scripts/make_icons.py       # -> .ico + tepsi + eklenti + About
 
-Uretilenler (kaynak secimi BOYUTA gore: <=32px yaprak, ustu karo+yaprak):
+Uretilenler (hepsi yapraktan):
   * `flutter_app/windows/runner/resources/app_icon.ico` (8 boyut)
   * `flutter_app/assets/icons/serene_tray.png` (32px — tepsi)
+  * `flutter_app/assets/icons/serene_leaf.png` (128px — baslik cubugu markasi)
   * `extension/icons/{16,32,48,96,128}.png`
-  * `flutter_app/assets/icons/serene_logo.png` (256px — About, her zaman yaprak)
+  * `flutter_app/assets/icons/serene_logo.png` (256px — About)
 
 Tepsi neden 32px, About logosu neden 256px: tepsi tam 32px olmali (Windows
 bildirim alani 16/20/24/32 ister), ama About sekmesi logoyu 56 mantiksal px'te
-ciziyor — 2x DPI'da 112 fiziksel px. 32px'lik dosyayi 56'ya buyutmek
-bulaniklastirirdi; logo bu yuzden 256px uretilir (2x icin 2 kattan fazla pay).
-
-Kaynak secimi BOYUTA gore: <=32px kareler `serene-leaf-master.png` yapragindan,
-ustundekiler `serene-icon.png` karo+yapragindan. Kucuk boyutta karo icindeki
-yaprak siluetlesip kayboluyordu; yaprak tuvali doldurdugu icin gorev cubugu ve
-tepside net kalir. About logosu da her zaman yapraktan gelir (bilincli istisna).
+ciziyor — 2x DPI'da 112 fiziksel px. Baslik cubugu markasi 20 mantiksal px
+(2x'te 40 fiziksel); 128px kaynak fazlasiyla yeter.
 
 **ICO neden elle yaziliyor.** Pillow'un ICO kaydedicisi tek bir kaynagi
 kucultur; `append_images` parametresini kabul ediyor ama ICO icin
@@ -45,10 +50,10 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-MASTER = ROOT / "ui" / "serene-icon.png"
 LEAF = ROOT / "ui" / "serene-leaf-master.png"
 ICO = ROOT / "flutter_app" / "windows" / "runner" / "resources" / "app_icon.ico"
 TRAY = ROOT / "flutter_app" / "assets" / "icons" / "serene_tray.png"
+MARK = ROOT / "flutter_app" / "assets" / "icons" / "serene_leaf.png"
 LOGO = ROOT / "flutter_app" / "assets" / "icons" / "serene_logo.png"
 EXT_ICONS = ROOT / "extension" / "icons"
 
@@ -58,17 +63,13 @@ ICO_SIZES = [(16, 16), (20, 20), (24, 24), (32, 32), (48, 48), (64, 64),
 # kareler olmadan Windows 32'den kucultup bulaniklastiriyordu.
 
 TRAY_SIZE = 32
+MARK_SIZE = 128      # baslik cubugu markasi 20 mantiksal px (2x'te 40 fiziksel)
 LOGO_SIZE = 256      # About sekmesi 56 mantiksal px; 2x DPI'da 112 fiziksel
 EXT_SIZES = [16, 32, 48, 96, 128]
 
-# Kucuk karelerde karo+yaprak siluetlesip kaybolur; bu esik ve altindaki
-# boyutlar YAPRAKTAN uretilir (tuvali doldurur, gorev cubugu/tepsi'de net).
-# Ustundekiler karo+yaprak (kimlik). Windows her boyutu kendi secer.
-SMALL_FROM_LEAF = 32
 
-
-def frame(size: int, master: Image.Image) -> Image.Image:
-    return master.resize((size, size), Image.LANCZOS)
+def frame(size: int, leaf: Image.Image) -> Image.Image:
+    return leaf.resize((size, size), Image.LANCZOS)
 
 
 def _load(path: Path) -> Image.Image:
@@ -120,58 +121,48 @@ def _ico_frame_bytes(path: Path, size: int) -> bytes:
 
 
 def main() -> None:
-    master = _load(MASTER)
     leaf = _load(LEAF)
 
-    write_ico(ICO, [(w, frame(w, leaf if w <= SMALL_FROM_LEAF else master)) for w, _ in ICO_SIZES])
+    write_ico(ICO, [(w, frame(w, leaf)) for w, _ in ICO_SIZES])
     TRAY.parent.mkdir(parents=True, exist_ok=True)
-    frame(TRAY_SIZE, leaf).save(TRAY)  # tepsi kucuk: yaprak (karo siluetlesirdi)
-    # About bilincli istisna: karo degil yaprak. 56 mantiksal px / 2x DPI icin
-    # 256px kaynak pay birakiyor.
+    frame(TRAY_SIZE, leaf).save(TRAY)
+    frame(MARK_SIZE, leaf).save(MARK)
     frame(LOGO_SIZE, leaf).save(LOGO)
 
-    # Eklenti ikonlari: bu dosyalar onceden ELLE yapilmisti ve marka disiydi
-    # (yesil kutu + beyaz asagi ok). Artik ayni kaynaktan uretiliyor.
     EXT_ICONS.mkdir(parents=True, exist_ok=True)
     for size in EXT_SIZES:
-        source = leaf if size <= SMALL_FROM_LEAF else master
-        frame(size, source).save(EXT_ICONS / f"{size}x{size}.png")
+        frame(size, leaf).save(EXT_ICONS / f"{size}x{size}.png")
 
     # Yanlis ada yazan bir betik sessizce gecmesin: ciktilar burada dogrulanir.
     sizes = sorted(Image.open(ICO).info["sizes"])
     if sizes != ICO_SIZES:
         raise SystemExit(f"{ICO} boyutlari eksik: {sizes}")
-    tray = Image.open(TRAY)
-    if tray.size != (TRAY_SIZE, TRAY_SIZE) or tray.mode != "RGBA":
-        raise SystemExit(f"{TRAY}: {tray.size} {tray.mode}")
-    logo = Image.open(LOGO)
-    if logo.size != (LOGO_SIZE, LOGO_SIZE) or logo.mode != "RGBA":
-        raise SystemExit(f"{LOGO}: {logo.size} {logo.mode}")
+    for path, size in ((TRAY, TRAY_SIZE), (MARK, MARK_SIZE), (LOGO, LOGO_SIZE)):
+        img = Image.open(path)
+        if img.size != (size, size) or img.mode != "RGBA":
+            raise SystemExit(f"{path}: {img.size} {img.mode}")
 
     def same(img: Image.Image, expect: Image.Image) -> bool:
         return img.convert("RGBA").tobytes() == expect.tobytes()
 
-    for size in (16, 20, 24, 32, 48, 64, 128):
+    for size, _ in ICO_SIZES:
         got = Image.open(io.BytesIO(_ico_frame_bytes(ICO, size)))
-        expect = frame(size, leaf if size <= SMALL_FROM_LEAF else master)
-        if not same(got, expect):
-            raise SystemExit(f"{size}px ICO karesi dogru ana dosyadan gelmemis")
-    if not same(Image.open(TRAY), frame(TRAY_SIZE, leaf)):
-        raise SystemExit(f"{TRAY_SIZE}px tepsi yaprak ana dosyadan gelmemis")
-    if not same(Image.open(LOGO), frame(LOGO_SIZE, leaf)):
-        raise SystemExit(f"{LOGO_SIZE}px About logosu yaprak ana dosyadan gelmemis")
+        if not same(got, frame(size, leaf)):
+            raise SystemExit(f"{size}px ICO karesi yaprak ana dosyadan gelmemis")
+    for path, size in ((TRAY, TRAY_SIZE), (MARK, MARK_SIZE), (LOGO, LOGO_SIZE)):
+        if not same(Image.open(path), frame(size, leaf)):
+            raise SystemExit(f"{path} yaprak ana dosyadan gelmemis")
     for size in EXT_SIZES:
         got = Image.open(EXT_ICONS / f"{size}x{size}.png")
-        expect = frame(size, leaf if size <= SMALL_FROM_LEAF else master)
-        if not same(got, expect):
-            raise SystemExit(f"eklenti {size}px karesi dogru ana dosyadan gelmemis")
+        if not same(got, frame(size, leaf)):
+            raise SystemExit(f"eklenti {size}px karesi yaprak ana dosyadan gelmemis")
 
-    print(f"ikonlar ok: {ICO.name} {sizes}")
+    print(f"ikonlar ok: {ICO.name} {sizes} (hepsi yaprak)")
     print(f"           {TRAY.name} {TRAY_SIZE}x{TRAY_SIZE} (tepsi)")
-    print(f"           {LOGO.name} {LOGO_SIZE}x{LOGO_SIZE} (About — yaprak)")
+    print(f"           {MARK.name} {MARK_SIZE}x{MARK_SIZE} (baslik cubugu markasi)")
+    print(f"           {LOGO.name} {LOGO_SIZE}x{LOGO_SIZE} (About)")
     print(f"           extension/icons: {', '.join(f'{s}x{s}.png' for s in EXT_SIZES)}")
-    print(f"           iki ana dosya: {MASTER.name} (uygulama+tepsi+eklenti) + "
-          f"{LEAF.name} (About)")
+    print(f"           ana dosya: {LEAF.name}")
 
 
 if __name__ == "__main__":
