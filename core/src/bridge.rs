@@ -404,6 +404,23 @@ fn pid_alive(_pid: u32) -> bool {
     true
 }
 
+#[cfg(all(test, windows))]
+mod pid_tests {
+    use super::pid_alive;
+
+    /// Kendi pid'imiz yasiyor olmali: tek ornek yoklamasi buna dayanir.
+    #[test]
+    fn pid_alive_sees_the_current_process() {
+        assert!(pid_alive(std::process::id()), "kendi pid gorumuyor");
+    }
+
+    #[test]
+    fn pid_alive_rejects_a_bogus_pid() {
+        assert!(!pid_alive(0));
+        assert!(!pid_alive(0xFFFF_FFFE), "var olmayan pid yasiyor sayildi");
+    }
+}
+
 /// Calisan ornek tek bir komut isledi mi? Pencereyi one getirmek gibi
 /// yaniti umursamayan cagrilar icin.
 pub fn notify_running(op: &str) -> bool {
