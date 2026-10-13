@@ -142,6 +142,7 @@ class HostOps {
   Future<ProcessResult> powershell(String script) => _powershell(script);
   Future<bool> isSereneRunning() => _isSereneRunning();
   Future<void> killSerene() => _killSerene();
+  Future<void> killHelper() => _killHelper();
   String dataDir() => _dataDir();
 }
 
@@ -189,6 +190,15 @@ Future<void> _killSerene() async {
     if (!await _isSereneRunning()) return;
     await Future<void>.delayed(const Duration(milliseconds: 150));
   }
+}
+
+/// Tarayici koprusunu (`serene-nmh.exe`) durdurur.
+///
+/// Firefox bu yardimci sureci neredeyse aninda yeniden dogurabilir, bu yuzden
+/// kalici bir "kapat" degil: kopyalama dongusu kilitli dosyaya carptikca
+/// tekrar cagrilir.
+Future<void> _killHelper() async {
+  await Process.run('taskkill', ['/IM', nmhExe, '/F']);
 }
 
 String _startMenuShortcutPath() {
@@ -258,7 +268,7 @@ class Installer {
       final rel = _relative(file.path, payloadDir);
       final target = File('$dir\\$rel');
       await target.parent.create(recursive: true);
-      await file.copy(target.path);
+      await _copyInto(file, target);
       installed.add(rel);
       done += await file.length();
       report(total == 0 ? 0.8 : 0.8 * done / total, SetupStep.files, rel);
@@ -293,6 +303,28 @@ class Installer {
     }
 
     report(1, SetupStep.done, '');
+  }
+
+  /// Bir dosyayi hedefe kopyalar; kilitliyse yardimci sureci durdurup tekrar
+  /// dener.
+  ///
+  /// Windows'ta calisan `serene-nmh.exe` kendi dosyasini kilitler ve Firefox
+  /// onu neredeyse aninda yeniden dogurabilir; tek denemeli kopya yarida kalir
+  /// (olculdu: "Cannot create a file when that file already exists"). Bu yuzden
+  /// kisa araliklarla yeniden denenir.
+  Future<void> _copyInto(File source, File target) async {
+    Object? last;
+    for (var attempt = 0; attempt < 12; attempt++) {
+      try {
+        await source.copy(target.path);
+        return;
+      } catch (error) {
+        last = error;
+        await host.killHelper();
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+    }
+    throw SetupFailure('Dosya kopyalanamadi: ${target.path} ($last)');
   }
 
   Future<void> _removeOldFiles(String dir) async {

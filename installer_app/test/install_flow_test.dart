@@ -37,6 +37,11 @@ class FakeHost extends HostOps {
   Future<bool> isSereneRunning() async => running;
 
   @override
+  Future<void> killHelper() async {
+    // Testte OS'a dokunma; kopyalama yeniden denemesi sahte surecte calisir.
+  }
+
+  @override
   String dataDir() => dataDirPath;
 }
 
