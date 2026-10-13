@@ -14,6 +14,7 @@ import 'extension_offer.dart';
 import 'folder_picker.dart';
 import 'format.dart';
 import 'handoff.dart';
+import 'perf.dart';
 import 'rust/api/commands.dart' as ffi;
 import 'rust/api/dto.dart' as engine;
 import 'rust/api/events.dart' as ffi;
@@ -150,11 +151,14 @@ class _MainWindowState extends State<MainWindow>
     // Motor bu noktada ayaaga kalkmis olur: main() RustLib.init ve bootEngine
     // icin bekletilmis bir Future'i bitirmeden pencereyi boyamaz.
     _settings = Settings.fromEngine(ffi.getSettings());
+    bootMark('init-settings');
     _applyTasks(ffi.listTasks());
+    bootMark('init-tasks');
     _applyCaptures(ffi.listCaptures());
     // Motor surumu motor kurulduktan sonra okunabilir; ayarlar panelinde
     // uygulama surumunun yaninda gosterilir.
     _engineVersion = ffi.engineVersion();
+    bootMark('init-rest');
 
     _streams.add(
       ffi.watchTasks().listen((raw) {
@@ -202,6 +206,7 @@ class _MainWindowState extends State<MainWindow>
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _maybeOfferExtension(),
     );
+    bootMark('init-end');
   }
 
   Timer? _bridgeClock;

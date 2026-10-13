@@ -38,13 +38,19 @@ import 'src/update_check.dart';
 /// yalnizca ana pencerenin motorunda durur; onay penceresi tema ve dili komut
 /// satirindan alir.
 Future<void> main(List<String> args) async {
+  // `SERENE_FPS` verilmisse acilis saniyesi buradan isler; bayrak yoksa hicbir
+  // maliyeti yoktur.
+  startBootProbe();
+
   if (args.contains('--selfcheck')) {
     await _selfcheck();
     return;
   }
 
   WidgetsFlutterBinding.ensureInitialized();
+  bootMark('binding');
   await windowManager.ensureInitialized();
+  bootMark('window-manager');
 
   final payload = _arg(args, 'handoff');
   if (payload != null) {
@@ -122,14 +128,17 @@ Future<void> _openMain({
 }) async {
   // Motor pencereden once kurulur: ilk kare bos listeyle boyanmasın.
   await RustLib.init();
+  bootMark('rustlib');
 
   // Tek ornek: calisan bir Serene varsa onun penceresi one gelir ve bu surec
   // hic motor kurmadan cikar; iki motor ayni gorev listesine yazamaz.
   // Cikis `exit` ile: Windows kosucusu Dart main'den once pencereyi acar,
   // yalnizca donmek bos bir pencere birakirdi.
   if (ffi.handOffToRunning()) exit(0);
+  bootMark('handoff');
 
   await ffi.bootEngine();
+  bootMark('engine-boot');
 
   // Palet ve metinler pencereden once kurulur: `backgroundColor` ve ilk kare,
   // kayitli temayi ve dili gormeli. Ayarlar okunamazsa varsayilanlar kalir.
@@ -140,6 +149,7 @@ Future<void> _openMain({
   } catch (_) {
     /* ayar okunamadi: varsayilanlarla devam */
   }
+  bootMark('settings');
 
   final options = WindowOptions(
     size: Size(1280, 880),
@@ -156,12 +166,19 @@ Future<void> _openMain({
     await windowManager.show();
     await windowManager.focus();
   });
+  bootMark('shown');
 
   if (Platform.environment['SERENE_FPS'] != null) {
     startFrameLogging();
   }
 
+  if (Platform.environment['SERENE_PERF_FLOOR'] != null) {
+    runApp(const MaterialApp(home: SizedBox.shrink(), debugShowCheckedModeBanner: false));
+    return;
+  }
+
   runApp(SereneApp(demo: demo, settings: settings, settingsTab: settingsTab));
+  bootMark('run-app');
 
   // Firefox native messaging kaydi ikilinin yolunu gosterir; surum
   // yukseltmesinde degistigi icin her acilista tazele. Gelistirme derlemesinin
