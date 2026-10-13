@@ -133,6 +133,9 @@
   "notifyHandOffFailed": {
     "message": "Could not hand off to Serene"
   },
+  "notifyHandOffFallback": {
+    "message": "Download stays in Firefox"
+  },
   "errorUnknown": {
     "message": "unknown error"
   },

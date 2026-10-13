@@ -17,7 +17,9 @@ const HOST_NAME = "com.serene.nmh";
 
 const DEFAULT_SETTINGS = {
   takeover: true,
-  minSizeKb: 256,
+  // Kucuk dosyalar da devralsin: 64 KB altindakiler atlanir. Kullanicinin
+  // storage'daki kayitli degeri varsa o gecerli kalir; bu yalnizca varsayilan.
+  minSizeKb: 64,
   excludedHosts: [],
   notify: true,
 };
@@ -241,6 +243,30 @@ async function updateBadge(tabId = activeTabId) {
   browser.action.setBadgeBackgroundColor({ color: "#3D6A4B" });
 }
 
+/**
+ * Gorev listesini tazeler. Popup her saniye yokladigi icin cevap gelmeden
+ * yeni bir `list` komutu gonderilmez; boylece yavas baglantida komutlar
+ * birikip gereksiz is yapmaz. Sonuc `lastTasks`e yazilir ve rozet tazelenir.
+ */
+let listRefreshPending = false;
+function refreshTasks() {
+  if (listRefreshPending) return;
+  listRefreshPending = true;
+  sendCommand({ type: "list" }, 8000)
+    .then((list) => {
+      if (Array.isArray(list)) {
+        lastTasks = list;
+        updateBadge();
+      }
+    })
+    .catch(() => {
+      // Baglanti yoksa son bilinen liste gecerli kalir.
+    })
+    .finally(() => {
+      listRefreshPending = false;
+    });
+}
+
 /* ------------------------------------------------------------------ */
 /* Istek basligi ipuclari (Referer / Cookie / User-Agent)              */
 /* ------------------------------------------------------------------ */
@@ -259,15 +285,17 @@ function rememberRequestHeaders(details) {
   const pick = (name) =>
     headers.find((header) => String(header?.name || "").toLowerCase() === name)?.value || null;
   const referer = pick("referer");
-  const userAgent = pick("user-agent");
   // Range istegi oynaticinin kendi parca cekmesidir; taramada gurultu sayilir.
   const range = pick("range") !== null;
-  if (!referer && !userAgent && !range) return;
+  // User-Agent saklanmaz: aktarimda zaten `navigator.userAgent` kullanilir.
+  // Yalnizca bize gereken alanlar tutulur; boylece tarayicinin gonderdigi her
+  // istekte onbellek yazimi yapilmaz (UA hemen her istekte vardir).
+  if (!referer && !range) return;
 
   if (!headerHints.has(details.url) && headerHints.size >= HEADER_HINTS_MAX) {
     headerHints.delete(headerHints.keys().next().value);
   }
-  headerHints.set(details.url, { referer, userAgent, range });
+  headerHints.set(details.url, { referer, range });
 }
 
 if (browser.webRequest?.onBeforeSendHeaders) {
@@ -686,8 +714,12 @@ browser.downloads.onCreated.addListener(async (item) => {
 
   try {
     await browser.downloads.cancel(item.id);
-  } catch {
-    // Iptal edilemediyse Firefox indirmeye devam eder; karismayalim.
+  } catch (error) {
+    // Iptal edilemediyse indirme Firefox'ta kalir. Yeniden devralmaya
+    // kalkismayiz: cift indirme riski. Tarayici konsolunda teshis icin
+    // nedeni gorunur birakiriz; kullaniciyi bildirimle de bilgilendirmeyiz,
+    // cunku indirme yine de Firefox'ta tamamlanir.
+    console.debug(`[Serene] indirme iptal edilemedi (id=${item.id}):`, error?.message || error);
     return;
   }
   try {
@@ -698,7 +730,15 @@ browser.downloads.onCreated.addListener(async (item) => {
 
   const result = await handOffToSerene(item, "download");
   if (result !== true) {
-    // Serene almadıysa kullaniciyi indirmesiz birakma.
+    // Serene almadıysa kullaniciyi indirmesiz birakma. Ayrica sessiz de
+    // kalma: kullanici neden uygulamaya gelmedigini iki dilli bir bildirimle
+    // gormeli. Bu bir tani mesajidir; `notify` ayarindan bagimsiz gosterilir.
+    browser.notifications.create({
+      type: "basic",
+      iconUrl: browser.runtime.getURL("icons/96x96.png"),
+      title: t("notifyHandOffFailed"),
+      message: `${t("notifyHandOffFallback")} — ${String(result.error || t("errorUnknown"))}`,
+    });
     await fallbackToFirefox(item);
   }
 });
@@ -751,25 +791,20 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "popup:state") {
     wantConnection();
     (async () => {
-      let tasks = lastTasks;
-      try {
-        const list = await sendCommand({ type: "list" }, 8000);
-        if (Array.isArray(list)) {
-          lastTasks = list;
-          tasks = list;
-          updateBadge();
-        }
-      } catch {
-        // Baglanti yoksa son bilinen liste gosterilir.
-      }
+      // Popup bekletilmez: eldeki port ve bilinen durumla HEMEN yanit verilir.
+      // `list` komutunun 8 sn'ye kadar suren cevabi bu yaniti geciktirmemeli;
+      // yoksa popup "baglaniyor…" metninde takili kalir.
       const tabId = await resolveActiveTab();
       const candidates = tabId === null ? [] : await readCandidates(tabId);
       sendResponse({
         connected: Boolean(port),
-        tasks,
+        tasks: lastTasks,
         candidates,
         settings: await getSettings(),
       });
+      // Taze liste arka planda istenir; sonuc `lastTasks`e yazilir ve popup'in
+      // bir sonraki yoklamasi guncel gorevleri gorur.
+      refreshTasks();
     })();
     return true;
   }

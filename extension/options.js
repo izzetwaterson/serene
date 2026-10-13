@@ -4,7 +4,7 @@
 
 const DEFAULTS = {
   takeover: true,
-  minSizeKb: 256,
+  minSizeKb: 64,
   excludedHosts: [],
   notify: true,
 };

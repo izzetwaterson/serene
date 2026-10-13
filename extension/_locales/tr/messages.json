@@ -133,6 +133,9 @@
   "notifyHandOffFailed": {
     "message": "Serene'ye aktarılamadı"
   },
+  "notifyHandOffFallback": {
+    "message": "İndirme Firefox'ta kalıyor"
+  },
   "errorUnknown": {
     "message": "bilinmeyen hata"
   },
