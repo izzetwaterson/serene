@@ -77,3 +77,23 @@ async fn mux_combines_video_and_audio_into_one_file() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// `SERENE_FFMPEG` verildiginde `locate` onu secer: kurulum paketiyle gelen
+/// ffmpeg yolunun motorda gercekten bulundugunu gosterir.
+#[test]
+fn env_override_points_at_a_real_ffmpeg() {
+    let exe = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("tools")
+        .join("ffmpeg")
+        .join("ffmpeg.exe");
+    let exe = exe.canonicalize().unwrap_or(exe);
+    if !exe.is_file() {
+        eprintln!("paket ffmpeg yok (tools/ffmpeg/ffmpeg.exe); test atlandi");
+        return;
+    }
+
+    std::env::set_var(ffmpeg::ENV_OVERRIDE, &exe);
+    assert_eq!(ffmpeg::locate().as_deref(), Some(exe.as_path()));
+    std::env::remove_var(ffmpeg::ENV_OVERRIDE);
+}

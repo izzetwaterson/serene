@@ -28,8 +28,8 @@ else to install. Everything stays on your machine: no account, no telemetry.
 - **Resumable** — every chunk is written to its own file. Close the app, and it
   picks up where it left off.
 - **Streams** — HLS (`m3u8`) and DASH (`mpd`) manifests are fetched, decrypted
-  (AES-128) and merged; separate audio tracks are muxed with `ffmpeg` when it is
-  on `PATH`.
+  (AES-128) and merged; separate audio tracks are muxed with the bundled
+  `ffmpeg` (an external one on `PATH` is used as a fallback).
 - **Browser takeover** — start a download in Firefox or Zen and Serene takes it
   over, carrying the page's `Referer`, `Cookie` and `User-Agent` so gated CDNs
   keep working.

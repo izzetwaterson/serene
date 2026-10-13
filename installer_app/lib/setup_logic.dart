@@ -313,6 +313,8 @@ class Installer {
   Future<List<String>> _knownNames() async => [
         appExe,
         nmhExe,
+        'tools\\ffmpeg\\ffmpeg.exe',
+        'tools\\ffmpeg\\ffmpeg-LICENSE.txt',
         'rust_lib_serene.dll',
         'flutter_windows.dll',
         'cnativeapi.dll',

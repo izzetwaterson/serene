@@ -13,3 +13,7 @@ build/
 # Python onbellegi
 __pycache__/
 *.pyc
+
+# Indirilen ffmpeg (LGPL): `scripts/fetch_ffmpeg.mjs` uretir, depoda tutulmaz
+# (sabit surum + SHA-256 ile derleme zamaninda iner, kurulum paketine girer).
+tools/ffmpeg/

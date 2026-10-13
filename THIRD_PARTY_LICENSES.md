@@ -10,6 +10,7 @@ Dağıtım paketi hangi bileşenleri içerir?
 | `Serene.exe` | evet | Ürün |
 | `rust_lib_serene.dll` | evet | Gömülü Rust motoru |
 | `serene-nmh.exe` | evet | Tarayıcı köprüsü |
+| `tools\ffmpeg\ffmpeg.exe` | evet | DASH ayrı ses kanalını mux'lamak (LGPL; aşağıda) |
 | `flutter_windows.dll`, `data\` | evet | Flutter çalıma zamanı |
 | Eklenti paketi (`.xpi`) | ayrı | Kullanıcı tarayıcıya kurar |
 
@@ -109,6 +110,27 @@ Paket sürümleri `flutter_app/pubspec.lock` içinde kilitlidir.
 `extension/` içindeki eklenti Serene ile birlikte dağıtılır. Kendi kodu
 Serene'nin parçasıdır (MIT) ve harici bir bağımlılığı yoktur; yalnızca
 Firefox'in WebExtensions API'sini kullanır.
+
+## FFmpeg (LGPL)
+
+`ffmpeg.exe` kurulum paketiyle **değiştirilmeden** dağıtılır ve yalnızca DASH'ta
+ayrı inen video ile sesi **yeniden kodlamadan** (`-c copy`) tek `.mp4`'e
+mux'lamak için `core/src/ffmpeg.rs` tarafından çağrılır. Kurulumda uygulamanın
+yanındaki **`tools\ffmpeg\` alt klasörüne** konur (ana klasörde dağınık durmasın
+diye); bulunamazsa exe yanındaki ya da `PATH`'teki bir ffmpeg'e düşer.
+
+| Alan | Değer |
+|---|---|
+| Sürüm | FFmpeg n8.1.3 (BtbN FFmpeg-Builds, `autobuild-2026-10-12-13-12`) |
+| Build | `ffmpeg-n8.1.3-18-g46d899d7a0-win64-lgpl-8.1.zip` (static, win64) |
+| Arşiv SHA-256 | `fa6c5563a794a4dc98cb521e7aad1526004149d308f99ff0ca30159b1451c522` |
+| Lisans | **GNU Lesser General Public License v3** (GPL bileşen yok) |
+| Kaynak | `https://ffmpeg.org/download.html` · `https://github.com/BtbN/FFmpeg-Builds` |
+| Üretim | `node scripts/fetch_ffmpeg.mjs` — indirir, SHA-256 doğrular, yalnız `ffmpeg.exe` çıkarır |
+
+Lisans metni pakete `ffmpeg-LICENSE.txt` olarak dahildir. LGPL yükümlülükleri
+karşılanır: ikili değiştirilmez, kaynak adresi verilir, hata ayıklama amaçlı
+tersine mühendislik yasaklanmaz.
 
 ---
 

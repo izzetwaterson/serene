@@ -44,6 +44,8 @@ const SETUP_APP = join(DIR, "installer_app");
 const SETUP_UI = join(SETUP_APP, "build", "windows", "x64", "runner", "Release");
 const APP = "Serene.exe";
 const NMH = "serene-nmh.exe";
+const FFMPEG = join(DIR, "tools", "ffmpeg", "ffmpeg.exe");
+const FFMPEG_LICENSE = join(DIR, "tools", "ffmpeg", "ffmpeg-LICENSE.txt");
 const MAKENSIS_DEFAULT = "C:\\Program Files (x86)\\NSIS\\makensis.exe";
 
 /* ---------- yardimcilar ---------- */
@@ -77,6 +79,16 @@ function run(command, commandArgs, cwd) {
 function mb(path) {
   const bytes = statSync(path).size;
   return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+// ffmpeg kurulum paketiyle gelir: DASH'ta ayri inen ses kanalini video ile tek
+// dosyaya mux'lar. Kaynak agacina girmez (80 MB); yoksa `fetch_ffmpeg.mjs`
+// sabit surumu indirir ve SHA-256 dogrular.
+function ensureFfmpeg() {
+  if (existsSync(FFMPEG)) return;
+  step("ffmpeg indiriliyor (LGPL, kurulum paketine gomulur)");
+  run("node", [join("scripts", "fetch_ffmpeg.mjs")], DIR);
+  if (!existsSync(FFMPEG)) fail(`ffmpeg indirilemedi: ${FFMPEG}`);
 }
 
 /* ---------- surum ---------- */
@@ -196,6 +208,14 @@ function stageRelease(version, bundle, hostExe) {
   copyFileSync(join(DIR, "LICENSE"), join(stage, "LICENSE.txt"));
   copyFileSync(join(DIR, "THIRD_PARTY_LICENSES.md"), join(stage, "THIRD_PARTY_LICENSES.md"));
 
+  // DASH ayri ses kanalini mux'layan ffmpeg (LGPL). Kurulum klasorunde dagilmis
+  // tek dosya gorunmesin diye `tools\ffmpeg\` alt klasorune konur (JDownloader
+  // deseni); `core/src/ffmpeg.rs` exe yanindaki bu yola bakar.
+  const ffDir = join(stage, "tools", "ffmpeg");
+  mkdirSync(ffDir, { recursive: true });
+  copyFileSync(FFMPEG, join(ffDir, "ffmpeg.exe"));
+  if (existsSync(FFMPEG_LICENSE)) copyFileSync(FFMPEG_LICENSE, join(ffDir, "ffmpeg-LICENSE.txt"));
+
   // Guvenlik agi: gelistirme artiklari hicbir kosulda paketlenmemeli.
   const strays = readdirSync(stage).filter((name) => isJunk(name));
   if (strays.length) fail(`yayin klasorunde gelistirme artigi var: ${strays.join(", ")}`);
@@ -309,7 +329,8 @@ eklenebilir.
 
 ## Yeni
 
--
+- DASH akislarinda ayri inen ses kanali artik video ile **tek dosyaya**
+  birlestirilir; gereken \`ffmpeg\` (LGPL) kurulum paketine dahildir.
 
 ## Duzeltilen
 
@@ -445,6 +466,7 @@ function main() {
   run("cargo", ["build", "--release", "--bin", "serene-nmh"], join(DIR, "native-host"));
 
   step("5/8 yayin klasoru hazirlaniyor");
+  ensureFfmpeg();
   if (!existsSync(join(bundle, APP))) fail(`${APP} yok; onceki adimda derlenmemis`);
   const stage = stageRelease(version, bundle, hostExe);
   const staged = filesUnder(stage);
