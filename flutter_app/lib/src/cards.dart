@@ -602,7 +602,11 @@ class _CompletedGrid extends StatelessWidget {
   }
 }
 
-/// Kart yuzeyi; hover'da golge buyur.
+/// Kart yuzeyi. Hover yalnizca zemini biraz koyulastirir.
+///
+/// Onceden her kart hover'da golgesini buyutuyordu: her karede yeniden
+/// bulaniklastirma maliyeti + "her kart ayni" hissi. Goze batmayan ayrimi
+/// cizgi ve zemin verir; hareket bilerek az tutulur.
 class _HoverCard extends StatefulWidget {
   const _HoverCard({
     required this.child,
@@ -629,12 +633,14 @@ class _HoverCardState extends State<_HoverCard> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: const Duration(milliseconds: 120),
         padding: widget.padding,
         decoration: BoxDecoration(
-          color: widget.background ?? Serene.surfaceContainerLowest,
+          color: _hover
+              ? Serene.surfaceContainer
+              : (widget.background ?? Serene.surfaceContainerLowest),
           borderRadius: BorderRadius.circular(Serene.radiusCard),
-          boxShadow: _hover ? Serene.shadowFloat : Serene.shadowSoft,
+          border: Border.all(color: Serene.borderFaint),
         ),
         child: widget.child,
       ),

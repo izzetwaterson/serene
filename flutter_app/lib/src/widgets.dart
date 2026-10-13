@@ -315,7 +315,10 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-/// Etiket + alan: buyuk harfli baslik satiri ve altindaki girdi.
+/// Etiket + alan: etiket satiri ve altindaki girdi.
+///
+/// Etiket duz cumle halinde yazilir. Onceden buyuk harfe cevriliyordu; bu,
+/// arayuzun her yerinde tekrar eden ve urune ozgu olmayan bir kalipti.
 class Field extends StatelessWidget {
   const Field({super.key, required this.label, required this.child});
 
@@ -330,12 +333,11 @@ class Field extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 2, bottom: 8),
           child: Text(
-            label.toUpperCase(),
+            label,
             style: body(
               12,
               weight: FontWeight.w600,
               color: Serene.outline,
-              letterSpacing: 0.6,
             ),
           ),
         ),

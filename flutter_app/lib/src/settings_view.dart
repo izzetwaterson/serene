@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -49,11 +48,8 @@ class SettingsLayer extends StatelessWidget {
         Positioned.fill(
           child: GestureDetector(
             onTap: onClose,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-              child: ColoredBox(
-                color: Serene.onSurface.withValues(alpha: 0.25),
-              ),
+            child: ColoredBox(
+              color: Serene.onSurface.withValues(alpha: 0.32),
             ),
           ),
         ),

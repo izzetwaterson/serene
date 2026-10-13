@@ -19,10 +19,9 @@ import 'package:serene_app/src/strings.dart';
 import 'package:serene_app/src/theme.dart';
 import 'package:serene_app/src/update_check.dart';
 
-/// `Field` etiketi arayuzde buyuk harfe cevrilerek gosterilir; testte de
-/// ayni metni aramak icin burada cevriliyor. Elle yazilan metin, gun
-/// cevrimi degistiginde sessizce tutmaz.
-String _field(String label) => label.toUpperCase();
+/// `Field` etiketi duz cumle halinde gosterilir; testte ayni metni aramak icin
+/// etiket oldugu gibi kullanilir.
+String _field(String label) => label;
 
 /// Ayar panelinde istenen sekmeye gecer.
 ///
@@ -454,8 +453,8 @@ void main() {
 
     expect(T.settingsTitle, 'Settings');
     expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('GÖRÜNÜM'), findsNothing);
-    expect(find.text('APPEARANCE'), findsOneWidget);
+    expect(find.text('Görünüm'), findsNothing);
+    expect(find.text('Appearance'), findsOneWidget);
     // Dilin kendi adi her iki dilde de ayni yazilir.
     expect(find.text('Türkçe'), findsOneWidget);
   });

@@ -23,28 +23,6 @@ import 'strings.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
-/// Yerel profil rozetinin monogrami, Windows oturum adindan turetilir.
-///
-/// Rozet dekoratif ama uydurma olmamali: onceden burada sabit `'EF'` yaziyordu
-/// ve her kullaniciya ayni iki harfi gosteriyordu. Iki parcali adlarda bas
-/// harfler ("Ahmet Yilmaz" -> "AY"), tek parcali adlarda ilk iki harf
-/// ("ahmet" -> "AH") alinir. Ad hic yoksa rozet bos kalir; daire ve ipucu
-/// metni yerinde durur.
-final String _profileInitials = _initialsOf(Platform.environment['USERNAME'] ?? '');
-
-String _initialsOf(String raw) {
-  final parts = raw
-      .split(RegExp(r'[\s._-]+'))
-      .where((part) => part.isNotEmpty)
-      .toList();
-  if (parts.isEmpty) return '';
-  if (parts.length == 1) {
-    final single = parts.first;
-    return (single.length >= 2 ? single.substring(0, 2) : single).toUpperCase();
-  }
-  return (parts.first[0] + parts.last[0]).toUpperCase();
-}
-
 /// Ana pencere: Tauri arayuzunun Flutter karsiligi.
 class MainWindow extends StatefulWidget {
   const MainWindow({
@@ -1048,36 +1026,6 @@ class Header extends StatelessWidget {
               border: Serene.borderInput,
               onTap: onSettings,
             ),
-            const SizedBox(width: 12),
-            Tooltip(
-              message: T.localProfile,
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomLeft,
-                    end: Alignment.topRight,
-                    colors: [
-                      Serene.primary.withValues(alpha: 0.3),
-                      Serene.tertiary.withValues(alpha: 0.3),
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Serene.borderPrimary),
-                ),
-                child: Center(
-                  child: Text(
-                    _profileInitials,
-                    style: body(
-                      12,
-                      weight: FontWeight.w600,
-                      color: Serene.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
             const SizedBox(width: 20),
             Container(
               padding: const EdgeInsets.only(left: 8),
@@ -1372,12 +1320,11 @@ class _GroupLabel extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
-          text.toUpperCase(),
+          text,
           style: body(
             11,
             weight: FontWeight.w600,
             color: Serene.outline,
-            letterSpacing: 0.6,
           ),
         ),
       ),
@@ -1460,13 +1407,8 @@ class _DiskCard extends StatelessWidget {
         ? 0.0
         : (usage.used / usage.total * 100).clamp(0, 100).toDouble();
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Serene.secondaryContainer.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(Serene.radiusCard),
-        border: Border.all(color: Serene.borderFaint),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
