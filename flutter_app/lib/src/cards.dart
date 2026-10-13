@@ -7,6 +7,9 @@ import 'theme.dart';
 import 'widgets.dart';
 
 /// Orta alan: kahraman bolumu + gorev listesi.
+///
+/// Liste sanallastirilir: kartlar yalnizca gorunur oldukca kurulur. Tema
+/// geregi kaydirma, bolum basliklari ve bos durum yerlesimi degismez.
 class TaskPane extends StatelessWidget {
   const TaskPane({
     super.key,
@@ -24,6 +27,7 @@ class TaskPane extends StatelessWidget {
     required this.onPickFolder,
     required this.onClearOverride,
     required this.onOpenSettings,
+    this.progress,
   });
 
   final List<Task> tasks;
@@ -42,6 +46,11 @@ class TaskPane extends StatelessWidget {
   final VoidCallback onPickFolder;
   final VoidCallback onClearOverride;
   final VoidCallback onOpenSettings;
+
+  /// Ilerleme bildirimi; kartlara gecirilir ki tikte yalnizca kart parcalari
+  /// tazelensin. `null` iken kart ust agactan gelen tazelemeyi bekler
+  /// (yalnizca testler).
+  final ValueNotifier<int>? progress;
 
   List<Task> get _filtered {
     var list = tasks;
@@ -64,7 +73,29 @@ class TaskPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDefault = filter == 'all' && category == null && query.isEmpty;
-    final sections = <Widget>[];
+    final slivers = <Widget>[
+      SliverToBoxAdapter(
+        child: Hero(
+          settings: settings,
+          notice: notice,
+          url: url,
+          onSubmitUrl: onSubmitUrl,
+          destOverride: destOverride,
+          onPickFolder: onPickFolder,
+          onClearOverride: onClearOverride,
+          onOpenSettings: onOpenSettings,
+        ),
+      ),
+    ];
+
+    // Bolum yerlesimi tek yerde kalsin: basligin ustunde 32, altinda 16 bosluk.
+    void section(Widget header, Widget body) {
+      slivers
+        ..add(const SliverToBoxAdapter(child: SizedBox(height: 32)))
+        ..add(SliverToBoxAdapter(child: header))
+        ..add(const SliverToBoxAdapter(child: SizedBox(height: 16)))
+        ..add(body);
+    }
 
     if (isDefault) {
       final inFlight = tasks
@@ -72,42 +103,42 @@ class TaskPane extends StatelessWidget {
           .toList();
       final done = tasks.where((task) => task.status == 'completed').toList();
 
-      sections.add(
-        _Section(
-          header: SectionHeader(
-            title: T.activeDownloads,
-            badge: inFlight.isEmpty ? null : T.taskCount(inFlight.length),
-            pulse: inFlight.isNotEmpty,
-          ),
-          child: inFlight.isEmpty
-              ? EmptyState(
+      section(
+        SectionHeader(
+          title: T.activeDownloads,
+          badge: inFlight.isEmpty ? null : T.taskCount(inFlight.length),
+          pulse: inFlight.isNotEmpty,
+        ),
+        inFlight.isEmpty
+            ? SliverToBoxAdapter(
+                child: EmptyState(
                   icon: 'downloading',
                   title: T.nothingDownloading,
                   hint: T.nothingDownloadingHint,
-                )
-              : _CardList(tasks: inFlight, onAction: onAction),
-        ),
+                ),
+              )
+            : _CardList(
+                tasks: inFlight,
+                onAction: onAction,
+                progress: progress,
+              ),
       );
 
       if (done.isNotEmpty) {
-        sections.add(
-          _Section(
-            header: SectionHeader(
-              title: T.recentCompleted,
-              action: HoverSurface(
-                onTap: () => onQueryJump('completed'),
-                background: Colors.transparent,
-                padding: EdgeInsets.zero,
-                child: Text(
-                  T.seeAll,
-                  style: body(
-                    12,
-                    weight: FontWeight.w600,
-                    color: Serene.primary,
-                  ),
-                ),
+        section(
+          SectionHeader(
+            title: T.recentCompleted,
+            action: HoverSurface(
+              onTap: () => onQueryJump('completed'),
+              background: Colors.transparent,
+              padding: EdgeInsets.zero,
+              child: Text(
+                T.seeAll,
+                style: body(12, weight: FontWeight.w600, color: Serene.primary),
               ),
             ),
+          ),
+          SliverToBoxAdapter(
             child: _CompletedGrid(
               tasks: done.take(8).toList(),
               onAction: onAction,
@@ -121,59 +152,27 @@ class TaskPane extends StatelessWidget {
           ? (categoryTitles[category] ?? T.categoryFallback)
           : (filterTitles[filter] ?? T.downloads);
 
-      sections.add(
-        _Section(
-          header: SectionHeader(
-            title: title,
-            badge: T.taskCount(list.length),
-          ),
-          child: list.isEmpty
-              ? EmptyState(
+      section(
+        SectionHeader(title: title, badge: T.taskCount(list.length)),
+        list.isEmpty
+            ? SliverToBoxAdapter(
+                child: EmptyState(
                   icon: 'search_off',
                   title: T.nothingHere,
                   hint: T.nothingHereHint,
-                )
-              : _CardList(tasks: list, onAction: onAction),
-        ),
+                ),
+              )
+            : _CardList(tasks: list, onAction: onAction, progress: progress),
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(right: 4, bottom: 64),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Hero(
-            settings: settings,
-            notice: notice,
-            url: url,
-            onSubmitUrl: onSubmitUrl,
-            destOverride: destOverride,
-            onPickFolder: onPickFolder,
-            onClearOverride: onClearOverride,
-            onOpenSettings: onOpenSettings,
-          ),
-          for (final section in sections) ...[
-            const SizedBox(height: 32),
-            section,
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  const _Section({required this.header, required this.child});
-
-  final Widget header;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [header, const SizedBox(height: 16), child],
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.only(right: 4, bottom: 64),
+          sliver: SliverMainAxisGroup(slivers: slivers),
+        ),
+      ],
     );
   }
 }
@@ -408,14 +407,34 @@ class Hero extends StatelessWidget {
 }
 
 /// Aktif gorev karti.
+///
+/// `progress` verilirse kart bu bildirime abone olur: ilerleme tikinde ust
+/// agac kurulmaz, yalnizca kartin kendi govdesi yeniden cizilir.
 class TaskCard extends StatelessWidget {
-  const TaskCard({super.key, required this.task, required this.onAction});
+  const TaskCard({
+    super.key,
+    required this.task,
+    required this.onAction,
+    this.progress,
+  });
 
   final Task task;
   final void Function(Task task, String action) onAction;
 
+  /// Ilerleme bildirimi; `null` ise kart ust agactan gelen tazeleme bekler.
+  final ValueNotifier<int>? progress;
+
   @override
   Widget build(BuildContext context) {
+    final tick = progress;
+    if (tick == null) return _body(context);
+    return ValueListenableBuilder<int>(
+      valueListenable: tick,
+      builder: (context, _, _) => _body(context),
+    );
+  }
+
+  Widget _body(BuildContext context) {
     final chip = statusChip(task);
     return _HoverCard(
       child: Column(
@@ -514,28 +533,38 @@ class CompletedCard extends StatelessWidget {
 /// tekrarlamaz. Sistemde "animasyonlari kapat" secenegi acikken kaydirma
 /// duser, geriye kisa bir solma kalir: hareket azalir, anlam kaybolmaz.
 ///
-/// Cagiran taraf anahtari vermeli (bkz. `_CardList`), yoksa yeni gorev
-/// listenin basina eklendiginde alttaki kartlar da yeniden animasyona girer.
+/// Sirali giris yalnizca listenin ilk dolumunda isler; bir kez oynayan kart
+/// `_CardList` icindeki `_appeared` kumesine yazilir. Boylece sanallastirma
+/// icin kaydirip geri gelen kart yeniden belirmez. Kartin anahtari liste
+/// degisimlerinde eleman kimligini sabit tutar.
 class _Appear extends StatelessWidget {
-  const _Appear({super.key, required this.order, required this.child});
+  const _Appear({
+    super.key,
+    required this.order,
+    required this.child,
+    this.animate = true,
+  });
 
   final int order;
   final Widget child;
 
+  /// `false` ise animasyon atlanir ve cocuk dogrudan cizilir.
+  final bool animate;
+
   @override
   Widget build(BuildContext context) {
+    if (!animate) return child;
     final reduced = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final step = order < 6 ? order : 6;
     final delay = 30 * step + ((step * 13) % 3 - 1) * 5;
     final total = (reduced ? 150 : 220) + (reduced ? 0 : delay);
+    // Sapma ilk adimda (-5 ms) negatife dusebilir; `Interval` araligi ters
+    // donmesin diye tabana kirpilir - gorsel olarak gecikmesiz kalir.
+    final begin = reduced ? 0.0 : (delay / total).clamp(0.0, 1.0).toDouble();
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: Duration(milliseconds: total < 150 ? 150 : total),
-      curve: Interval(
-        reduced ? 0 : delay / total,
-        1,
-        curve: Curves.easeOutQuart,
-      ),
+      curve: Interval(begin, 1, curve: Curves.easeOutQuart),
       child: child,
       builder: (context, t, child) => Opacity(
         opacity: t,
@@ -550,25 +579,48 @@ class _Appear extends StatelessWidget {
   }
 }
 
-class _CardList extends StatelessWidget {
-  const _CardList({required this.tasks, required this.onAction});
+/// Sanallastirilmis gorev listesi: yalnizca gorunen kartlar kurulur.
+class _CardList extends StatefulWidget {
+  const _CardList({
+    required this.tasks,
+    required this.onAction,
+    this.progress,
+  });
 
   final List<Task> tasks;
   final void Function(Task task, String action) onAction;
+  final ValueNotifier<int>? progress;
+
+  @override
+  State<_CardList> createState() => _CardListState();
+}
+
+class _CardListState extends State<_CardList> {
+  /// Sirali giris bir kez oynar: kaydirip geri gelen kart yeniden belirmez.
+  final Set<String> _appeared = {};
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (var i = 0; i < tasks.length; i++) ...[
-          _Appear(
-            key: ValueKey(tasks[i].id),
-            order: i,
-            child: TaskCard(task: tasks[i], onAction: onAction),
+    return SliverList.builder(
+      itemCount: widget.tasks.length,
+      itemBuilder: (context, i) {
+        final task = widget.tasks[i];
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: i == widget.tasks.length - 1 ? 0 : 16,
           ),
-          if (i != tasks.length - 1) const SizedBox(height: 16),
-        ],
-      ],
+          child: _Appear(
+            key: ValueKey(task.id),
+            order: i,
+            animate: _appeared.add(task.id),
+            child: TaskCard(
+              task: task,
+              onAction: widget.onAction,
+              progress: widget.progress,
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -960,6 +1012,8 @@ class CaptureCard extends StatelessWidget {
 }
 
 /// "Tarayıcıdan" kok gorunumu.
+///
+/// Liste sanallastirilir; baslik, uyari ve bos durum yerlesimi degismez.
 class CapturesPane extends StatelessWidget {
   const CapturesPane({
     super.key,
@@ -976,68 +1030,78 @@ class CapturesPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(right: 4, bottom: 64),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SectionHeader(
-            title: T.fromBrowser,
-            badge: items.isEmpty ? null : T.mediaCount(items.length),
-            trailing: items.isEmpty
-                ? null
-                : HoverSurface(
-                    onTap: onClear,
-                    background: Colors.transparent,
-                    padding: EdgeInsets.zero,
-                    child: Text(
-                      T.clearAll,
-                      style: body(
-                        12,
-                        weight: FontWeight.w600,
-                        color: Serene.secondary,
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.only(right: 4, bottom: 64),
+          sliver: SliverMainAxisGroup(
+            slivers: [
+              SliverToBoxAdapter(
+                child: SectionHeader(
+                  title: T.fromBrowser,
+                  badge: items.isEmpty ? null : T.mediaCount(items.length),
+                  trailing: items.isEmpty
+                      ? null
+                      : HoverSurface(
+                          onTap: onClear,
+                          background: Colors.transparent,
+                          padding: EdgeInsets.zero,
+                          child: Text(
+                            T.clearAll,
+                            style: body(
+                              12,
+                              weight: FontWeight.w600,
+                              color: Serene.secondary,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              if (notice != null) ...[
+                SliverToBoxAdapter(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Serene.errorContainer.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        notice!,
+                        style: body(12, color: Serene.onErrorContainer),
                       ),
                     ),
                   ),
-          ),
-          const SizedBox(height: 16),
-          if (notice != null) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
                 ),
-                decoration: BoxDecoration(
-                  color: Serene.errorContainer.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  notice!,
-                  style: body(12, color: Serene.onErrorContainer),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (items.isEmpty)
-            EmptyState(
-              icon: 'travel_explore',
-              title: T.noCapturedMedia,
-              hint: T.noCapturedMediaHint,
-            )
-          else
-            Column(
-              children: [
-                for (final item in items) ...[
-                  CaptureCard(item: item, onAction: onAction),
-                  if (item != items.last) const SizedBox(height: 16),
-                ],
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
               ],
-            ),
-        ],
-      ),
+              if (items.isEmpty)
+                SliverToBoxAdapter(
+                  child: EmptyState(
+                    icon: 'travel_explore',
+                    title: T.noCapturedMedia,
+                    hint: T.noCapturedMediaHint,
+                  ),
+                )
+              else
+                SliverList.builder(
+                  itemCount: items.length,
+                  itemBuilder: (context, i) => Padding(
+                    padding: EdgeInsets.only(
+                      bottom: i == items.length - 1 ? 0 : 16,
+                    ),
+                    child: CaptureCard(item: items[i], onAction: onAction),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

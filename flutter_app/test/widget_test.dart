@@ -642,6 +642,109 @@ void main() {
     expect(text.maxLines, 1);
     expect(text.overflow, TextOverflow.ellipsis);
   });
+
+  testWidgets('gorev listesi sanallastirilir', (tester) async {
+    await setRealWindow();
+    final tasks = _manyTasks(50);
+    await tester.pumpWidget(_taskPaneHost(tasks));
+    await tester.pump();
+
+    // Gorunmeyen kartlar kurulmaz: 50 gorevin tamami agacta degildir.
+    final built = tester.widgetList(find.byType(TaskCard)).length;
+    expect(built, greaterThan(0));
+    expect(built, lessThan(50));
+    expect(find.text('dosya-0.bin'), findsOneWidget);
+    expect(find.text('dosya-49.bin'), findsNothing);
+
+    // Kaydirma son karti gorunur kilar; sanallastirma yerlesimi bozmaz.
+    await tester.scrollUntilVisible(
+      find.text('dosya-49.bin'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('dosya-49.bin'), findsOneWidget);
+  });
+
+  testWidgets('yakalananlar listesi sanallastirilir', (tester) async {
+    await setRealWindow();
+    final items = [
+      for (var i = 0; i < 50; i++)
+        CaptureItem(
+          id: 'cap-$i',
+          url: 'https://cdn.ornek.test/dosya-$i.bin',
+          filename: 'dosya-$i.bin',
+          size: 1024,
+          contentType: 'application/octet-stream',
+          kind: 'file',
+          site: 'ornek.test',
+          createdAt: 1790000000,
+        ),
+    ];
+    await tester.pumpWidget(
+      _settingsHost(
+        CapturesPane(
+          items: items,
+          notice: null,
+          onAction: (_, _) {},
+          onClear: () {},
+        ),
+      ),
+    );
+
+    final built = tester.widgetList(find.byType(CaptureCard)).length;
+    expect(built, greaterThan(0));
+    expect(built, lessThan(50));
+  });
+
+  testWidgets('ilerleme tiki yalnizca karti kurar', (tester) async {
+    await setRealWindow();
+    final task = _manyTasks(1).first;
+    final tick = ValueNotifier<int>(0);
+    addTearDown(tick.dispose);
+    final key = GlobalKey<_CardHostState>();
+
+    await tester.pumpWidget(
+      _settingsHost(
+        Center(
+          child: SizedBox(
+            width: 700,
+            child: _CardHost(key: key, task: task, tick: tick),
+          ),
+        ),
+      ),
+    );
+    final before = key.currentState!.builds;
+
+    task.downloaded = 400;
+    tick.value++;
+    await tester.pump();
+
+    // Ust agac kurulmadi: yalnizca ilerlemeyi dinleyen kart tazelendi.
+    expect(key.currentState!.builds, before);
+    expect(find.textContaining('400 B'), findsOneWidget);
+  });
+
+  testWidgets('bos durum ve uyari sliver yerlesimde gorunur', (tester) async {
+    await setRealWindow();
+
+    // Gorev yok: "Aktif indirme yok" kutusu ana bolumde cizilir.
+    await tester.pumpWidget(_taskPaneHost(const []));
+    expect(find.text(T.nothingDownloading), findsOneWidget);
+
+    // Yakalama yok ama uyari var: ikisi de listeyle birlikte kayar.
+    await tester.pumpWidget(
+      _settingsHost(
+        CapturesPane(
+          items: const [],
+          notice: 'uyari',
+          onAction: (_, _) {},
+          onClear: () {},
+        ),
+      ),
+    );
+    expect(find.text(T.noCapturedMedia), findsOneWidget);
+    expect(find.text('uyari'), findsOneWidget);
+  });
 }
 
 List<CaptureItem> _captureFixtures() => [
@@ -667,6 +770,73 @@ List<CaptureItem> _captureFixtures() => [
       ),
     ];
 
+/// Sanallastirma testleri icin uzun gorev listesi.
+List<Task> _manyTasks(int count) => [
+      for (var i = 0; i < count; i++)
+        Task(
+          id: 'gorev-$i',
+          url: 'https://cdn.ornek.test/dosya-$i.bin',
+          filename: 'dosya-$i.bin',
+          dest: r'C:\indir\dosya.bin',
+          total: 1000,
+          downloaded: 0,
+          speed: 0,
+          status: 'downloading',
+          category: 'software',
+          createdAt: 0,
+        ),
+    ];
+
+/// Gorev listesi panosunu tek basina kurar.
+///
+/// `Hero` icindeki adres alani bir `TextField` tasir; o da bir `Material`
+/// atası ister. Bu yuzden kabuk gercek penceredeki gibi `Scaffold` kullanir.
+Widget _taskPaneHost(List<Task> tasks, {ValueNotifier<int>? progress}) =>
+    _scaffoldHost(
+      TaskPane(
+        tasks: tasks,
+        filter: 'all',
+        category: null,
+        query: '',
+        settings: _engineSettings(),
+        notice: null,
+        url: TextEditingController(),
+        progress: progress,
+        onQueryJump: (_) {},
+        onSubmitUrl: () {},
+        onAction: (_, _) {},
+        destOverride: null,
+        onPickFolder: () {},
+        onClearOverride: () {},
+        onOpenSettings: () {},
+      ),
+    );
+
+/// Kartin ust agaci tazelemeden tek basina boyandigini olcen kucuk kabuk.
+class _CardHost extends StatefulWidget {
+  const _CardHost({super.key, required this.task, required this.tick});
+
+  final Task task;
+  final ValueNotifier<int> tick;
+
+  @override
+  State<_CardHost> createState() => _CardHostState();
+}
+
+class _CardHostState extends State<_CardHost> {
+  int builds = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    builds++;
+    return TaskCard(
+      task: widget.task,
+      onAction: (_, _) {},
+      progress: widget.tick,
+    );
+  }
+}
+
 Task _handoffFixture() => Task(
       id: 'gorev-1',
       url: 'https://cdn.ornek.test/devralinan.bin',
@@ -686,6 +856,12 @@ Task _handoffFixture() => Task(
 /// Panel tek basina da ayni temayi seesin: katmanin sahibi ana pencere gibi.
 Widget _settingsHost(Widget child) =>
     MaterialApp(theme: sereneTheme(Brightness.light), home: child);
+
+/// Pano kabugu: ana penceredeki `Material` saglayicisini taklit eder.
+Widget _scaffoldHost(Widget child) => MaterialApp(
+      theme: sereneTheme(Brightness.light),
+      home: Scaffold(backgroundColor: Serene.background, body: child),
+    );
 
 Color? _probeColor(WidgetTester tester) {
   final box = tester.widget<Container>(find.byKey(_PaletteProbe.boxKey));

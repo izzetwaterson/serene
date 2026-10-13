@@ -55,6 +55,19 @@ class _MainWindowState extends State<MainWindow>
   /// Ilerleme paketleri listeyi bastan cizmeden yerinde islenir.
   final Map<String, Task> _byId = {};
 
+  /// Ilerleme boyamasi. Ust bar, kenar cubugu ve diger kartlar bu tike hic
+  /// kurulmaz: yalnizca bu bildirimi dinleyen kart parcalari yeniden cizer.
+  final ValueNotifier<int> _progressTick = ValueNotifier<int>(0);
+
+  /// Ham motor tikine karsi birlesme penceresi. Tikler burada tek kareye
+  /// birlesir; ust bar ve kenar cubugu her tikte yeniden kurulmaz.
+  late final ProgressPaintGate _progressGate = ProgressPaintGate(
+    window: progressCoalesce,
+    onPaint: () {
+      if (mounted) _progressTick.value++;
+    },
+  );
+
   late Settings _settings;
 
   String _filter = 'all';
@@ -284,6 +297,8 @@ class _MainWindowState extends State<MainWindow>
     _bridgeClock?.cancel();
     _noticeTimer?.cancel();
     _clipboardTimer?.cancel();
+    _progressGate.dispose();
+    _progressTick.dispose();
     for (final sub in _streams) {
       sub.cancel();
     }
@@ -357,6 +372,10 @@ class _MainWindowState extends State<MainWindow>
   }
 
   /// Ticker yalnizca inen gorevleri taşir; tam liste yeniden cizilmez.
+  ///
+  /// Tikler burada hemen indekse islenir, ama ekrana boyanmalari pencereye
+  /// birlesir. Agac bastan kurulmaz: ust bar, kenar cubugu ve samanlik
+  /// yalnizca ilerlemeyi dinleyen kart parcalari tazelenir.
   void _applyProgress(List<engine.Progress> ticks) {
     if (!mounted) return;
     // Esitleme beklerken indeks bayat olabilir, o yuzden paket uygulanmaz.
@@ -365,7 +384,7 @@ class _MainWindowState extends State<MainWindow>
       _onLostEvents();
       return;
     }
-    if (batch.changed) setState(() {});
+    if (batch.changed) _progressGate.request();
   }
 
   /// Ikinci acilis ya da eklentideki "Serene'yi Ac": pencere one gelir.
@@ -869,6 +888,7 @@ class _MainWindowState extends State<MainWindow>
                                     settings: _settings,
                                     notice: _notice,
                                     url: _url,
+                                    progress: _progressTick,
                                     onQueryJump: (value) => setState(() {
                                       _filter = value;
                                       _category = null;
@@ -1476,6 +1496,14 @@ class _DiskCard extends StatelessWidget {
 /// kendiliginden temizlenir, karsisiz kalici bir kart birikmez.
 const Duration clipboardToastVisible = Duration(seconds: 12);
 
+/// Ilerleme tiklerinin ekrana donusme araligi.
+///
+/// Motor birkac yuz milisaniyede bir ilerleme yayar; ham akis arayuzu her
+/// tikte bastan kurar. Tikler bu pencerede tek kareye birlesir: saniyede en
+/// cok bes boyama yapilir, aradaki degerler kaybolmaz - indekse yazilirlar ve
+/// pencere kapaninca son veri de boyanir.
+const Duration progressCoalesce = Duration(milliseconds: 200);
+
 /// Yayindan dusmus olay bildirimi. Motor kimlikleri UUID uretir; bu deger
 /// cift alt cizgiyle basladigi icin gercek bir gorev ya da yakalama ile
 /// caprazlamaz. Rust tarafi: `rust/src/api/events.rs` (`LOST_EVENTS_ID`).
@@ -1535,6 +1563,56 @@ ProgressBatch applyProgress(
     changed = true;
   }
   return ProgressBatch(lost: false, changed: changed);
+}
+
+/// Ilerleme boyamalarini pencerelere birler.
+///
+/// Motordan gelen tik her gelisinde degil, en fazla `window` araliginda bir
+/// boyamaya donusur. Kurallar:
+///
+///   * ilk tik gecikmeden boyanir - indirme basladigi anda bar oynar,
+///   * pencere doluyken gelen tikler birikir; pencere kapaninca birikmis son
+///     veri tek bir boyamada cikar, yani son tik ekranda kalmaz,
+///   * bos pencerede bekleme yoktur: pencere kapanmisken gelen tik yeniden
+///     gecikmeden boyanir.
+///
+/// Kendi kararini verir; cagiran yalnizca `request` ve `dispose` bilir.
+class ProgressPaintGate {
+  ProgressPaintGate({required this.window, required this.onPaint});
+
+  /// Iki boyama arasindaki en kisa sure.
+  final Duration window;
+
+  /// Pencere doldugunda cagrilir; cagiranin kareyi tazelemesi beklenir.
+  final VoidCallback onPaint;
+
+  Timer? _pump;
+  bool _dirty = false;
+
+  /// Yeni bir ilerleme tikini bildirir.
+  void request() {
+    _dirty = true;
+    if (_pump != null) return;
+    _flush();
+    _pump = Timer(window, _close);
+  }
+
+  void _flush() {
+    _dirty = false;
+    onPaint();
+  }
+
+  void _close() {
+    _pump = null;
+    // Pencerede birikmis taze veri varsa bir kez daha boyanir; yoksa durur.
+    if (_dirty) request();
+  }
+
+  /// Bekleyen pencereyi iptal eder; kapanista yeni boyama yapilmaz.
+  void dispose() {
+    _pump?.cancel();
+    _pump = null;
+  }
 }
 
 /// Yayindan dusmus olay sonrasi arayuzun motorla ayni duruma donmesini

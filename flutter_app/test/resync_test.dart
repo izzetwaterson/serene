@@ -201,4 +201,39 @@ void main() {
     );
     expect(pendingHandoffIds([_task('a')]), isEmpty);
   });
+
+  test('ilerleme boyamasi pencerede birlesir', () async {
+    var paints = 0;
+    final gate = ProgressPaintGate(
+      window: const Duration(milliseconds: 50),
+      onPaint: () => paints++,
+    );
+
+    // Ilk tik gecikmeden boyanir: indirme baslar baslamaz bar oynar.
+    gate.request();
+    expect(paints, 1);
+
+    // Pencere doluyken gelen tikler tek karede birikir.
+    gate.request();
+    gate.request();
+    expect(paints, 1);
+
+    // Pencere kapaninca birikmis taze veri bir kez daha boyanir.
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(paints, 2);
+
+    // Bos pencerede bekleme yok: yeni tik yine gecikmeden boyanir.
+    gate.request();
+    expect(paints, 3);
+
+    // Kapanista bekleyen pencere birakilmaz; yeni boyama yapilmaz.
+    gate.dispose();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(paints, 3);
+  });
+
+  test('ilerleme penceresi 150-250 ms arasinda kalir', () {
+    // Motor birkac yuz milisaniyede bir yayar; pencere bu aralikta secildi.
+    expect(progressCoalesce.inMilliseconds, inInclusiveRange(150, 250));
+  });
 }
