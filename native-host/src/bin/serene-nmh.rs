@@ -108,6 +108,9 @@ fn launch_app() {
 fn try_connect(info: &IpcInfo) -> io::Result<Link> {
     let stream = TcpStream::connect(("127.0.0.1", info.port))?;
     let _ = stream.set_nodelay(true);
+    // Askida kalan bir surece denk gelirsek sonsuza kadar beklemeyelim.
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
 
     let mut writer = stream.try_clone()?;
     let hello = serde_json::json!({ "type": "hello", "token": info.token }).to_string();
@@ -133,6 +136,10 @@ fn try_connect(info: &IpcInfo) -> io::Result<Link> {
 }
 
 /// Once mevcut kopruyu dener; yoksa uygulamayi baslatip `ipc.json`'u bekler.
+///
+/// Yoklama **hemen** baslar (uygulama zaten aciliyorsa 300 ms'lik sabit
+/// bekleme gereksiz gecikme ekliyordu); sonra 40 ms'den baslayip 250 ms'ye
+/// kadar kademeli artan araliklarla surer.
 fn connect_bridge() -> Result<Link, String> {
     if let Some(info) = read_ipc() {
         if let Ok(link) = try_connect(&info) {
@@ -143,13 +150,15 @@ fn connect_bridge() -> Result<Link, String> {
     launch_app();
 
     let deadline = Instant::now() + Duration::from_secs(20);
+    let mut wait = Duration::from_millis(40);
     while Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(300));
         if let Some(info) = read_ipc() {
             if let Ok(link) = try_connect(&info) {
                 return Ok(link);
             }
         }
+        std::thread::sleep(wait.min(deadline.saturating_duration_since(Instant::now())));
+        wait = (wait * 2).min(Duration::from_millis(250));
     }
 
     Err("Serene koprusune baglanilamadi".to_string())

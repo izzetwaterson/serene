@@ -169,7 +169,9 @@ impl Default for Settings {
             confirm_browser_download: true,
             theme: "light".to_string(),
             language: "en".to_string(),
-            autostart: false,
+            // Kurulum da varsayilan olarak Run anahtarini yazar; depolanan deger
+            // kayit defteriyle ayni kalir ki ayarlardaki anahtar yaniltmasin.
+            autostart: true,
             extension_offer_done: false,
         }
     }

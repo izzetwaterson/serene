@@ -5,6 +5,7 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use uuid::Uuid;
 
@@ -12,6 +13,10 @@ use crate::category;
 use crate::engine;
 use crate::manager::DownloadManager;
 use crate::models::{now_secs, Category, DownloadKind, DownloadMeta, Settings, Status};
+
+/// Tarayicidan devralinan indirmede onay penceresi `probe` icin bu kadar
+/// bekler; asilirsa URL'den turetilen adla devam edilir.
+const PROBE_BUDGET: Duration = Duration::from_millis(2500);
 
 /// Girdiyi gecerli bir http(s) URL'sine cevirir.
 /// Sema yazilmamissa https varsayilir; torrent baglantilari acikca reddedilir.
@@ -117,14 +122,29 @@ pub async fn enqueue_download(
         pending: false,
     };
 
-    let probe = engine::probe(&client, &meta.url, &meta)
-        .await
-        .map_err(|e| format!("{e:#}"))?;
+    // `probe` bir ag turudur ve tarayicidan devralinan indirmede onay
+    // penceresi bunun bitmesini bekler. Butceyi asarsa (yavas/tikanik sunucu)
+    // URL'den turetilen adla devam edilir; gercek boyut/ad indirme baslarken
+    // netlesir. Boylece "popup yok" yerine en kotu ihtimalle ad gec gelir.
+    let probe = match tokio::time::timeout(
+        PROBE_BUDGET,
+        engine::probe(&client, &meta.url, &meta),
+    )
+    .await
+    {
+        Ok(Ok(probe)) => Some(probe),
+        Ok(Err(err)) => return Err(format!("{err:#}")),
+        Err(_) => None,
+    };
 
     let filename = probe
-        .filename
-        .clone()
-        .or_else(|| engine::filename_from_url(&probe.final_url))
+        .as_ref()
+        .and_then(|p| p.filename.clone())
+        .or_else(|| {
+            probe
+                .as_ref()
+                .and_then(|p| engine::filename_from_url(&p.final_url))
+        })
         .or_else(|| engine::filename_from_url(&meta.url))
         .unwrap_or_else(|| "indirme".to_string());
 
@@ -136,14 +156,17 @@ pub async fn enqueue_download(
         .to_string();
     meta.category = category::classify(&meta.filename);
     meta.dest = dest.to_string_lossy().to_string();
-    meta.resumable = probe.resumable;
-    meta.segments = if probe.resumable {
-        engine::plan_segments(probe.total, settings.connections)
+    meta.resumable = probe.as_ref().map(|p| p.resumable).unwrap_or(false);
+    meta.segments = if meta.resumable {
+        engine::plan_segments(
+            probe.as_ref().map(|p| p.total).unwrap_or(0),
+            settings.connections,
+        )
     } else {
         engine::plan_segments(0, 1)
     };
-    meta.total = probe.total;
-    meta.etag = probe.etag;
+    meta.total = probe.as_ref().map(|p| p.total).unwrap_or(0);
+    meta.etag = probe.as_ref().and_then(|p| p.etag.clone());
 
     // Bekletilen gorev duraklatilmis dogar: kuyruk yalnizca `Queued` isleri
     // baslattigi icin kendiliginden calismaz.

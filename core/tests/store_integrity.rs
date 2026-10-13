@@ -263,7 +263,7 @@ fn unusable_state_falls_back_to_default_without_panicking() {
     let settings = load_settings(&settings_path);
     assert_eq!(settings.max_concurrent, Settings::default().max_concurrent);
     assert_eq!(settings.download_dir, Settings::default().download_dir);
-    assert!(!settings.autostart);
+    assert_eq!(settings.autostart, Settings::default().autostart);
 
     // hicbir dosya yoksa da ayni sonuc: panik yok, varsayilana donus var.
     assert!(load_tasks(&scratch.path("yok.json")).is_empty());

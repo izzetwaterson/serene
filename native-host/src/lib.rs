@@ -81,6 +81,12 @@ pub fn log_path_in(base: &Path) -> PathBuf {
 }
 
 pub fn data_dir() -> PathBuf {
+    // Cekirdek (`store::data_dir`) `SERENE_DATA_DIR` verilmisse onu kullanir;
+    // host ayni kapiyi tutmazsa kopru dosyasi iki ayri yerde aranir ve izole
+    // kosumlar sessizce baglanamaz.
+    if let Some(dir) = std::env::var_os("SERENE_DATA_DIR") {
+        return PathBuf::from(dir);
+    }
     data_dir_in(&config_base())
 }
 

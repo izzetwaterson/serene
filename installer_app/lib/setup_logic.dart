@@ -102,7 +102,10 @@ class SetupOptions {
     required this.dir,
     this.startMenu = true,
     this.desktop = true,
-    this.autostart = false,
+    // Tarayicidan devralma, uygulama acikken ~50 ms; kapaliyken Flutter soguk
+    // acilisi yuzunden ~3 sn. Kalici acilis (tepside) bu farki yok ediyor;
+    // kullanici kurulumda kutuyu kaldirabilir.
+    this.autostart = true,
     this.language = 'en',
   });
 

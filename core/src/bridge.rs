@@ -366,7 +366,42 @@ pub fn request(op: &str, args: &serde_json::Value) -> Result<serde_json::Value, 
 /// Calisan ornegin kopru kaydi; yoksa ya da bozuksa `None`.
 fn read_ipc() -> Option<IpcInfo> {
     let file = std::fs::File::open(store::data_dir().join(IPC_FILE)).ok()?;
-    serde_json::from_reader::<_, IpcInfo>(file).ok()
+    let info: IpcInfo = serde_json::from_reader(file).ok()?;
+    // Cokme sonrasi kalan bayat kayit: pid yasamiyorsa yok say. Aksi halde tek
+    // ornek yoklamasi bos bir porta baglanip zaman asimina kadar beklerdi.
+    if !pid_alive(info.pid) {
+        return None;
+    }
+    Some(info)
+}
+
+/// Kayitli pid hala yasiyor mu? Windows'ta `OpenProcess` ile sorgulanir;
+/// bu urun Windows'a ozel oldugu icin diger platformlarda daima `true`.
+#[cfg(windows)]
+fn pid_alive(pid: u32) -> bool {
+    if pid == 0 {
+        return false;
+    }
+    extern "system" {
+        fn OpenProcess(access: u32, inherit: i32, pid: u32) -> *mut std::ffi::c_void;
+        fn CloseHandle(handle: *mut std::ffi::c_void) -> i32;
+    }
+    // PROCESS_QUERY_LIMITED_INFORMATION: yalnizca sorgu, mudahale yok.
+    const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+    // SAFETY: yalnizca pid varligini sorgular; tutamac hemen kapatilir.
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if handle.is_null() {
+            return false;
+        }
+        CloseHandle(handle);
+        true
+    }
+}
+
+#[cfg(not(windows))]
+fn pid_alive(_pid: u32) -> bool {
+    true
 }
 
 /// Calisan ornek tek bir komut isledi mi? Pencereyi one getirmek gibi

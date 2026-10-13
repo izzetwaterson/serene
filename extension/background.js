@@ -632,7 +632,10 @@ async function handOffToSerene(item, source, refererHint) {
   if (item.kind) payload.kind = item.kind;
 
   try {
-    const task = await sendCommand({ type: "enqueue", ...payload }, 20000);
+    // 20 sn'lik bekleme kullaniciyi indirmesiz birakiyordu: cevap gelmezse
+    // erkenden Firefox'a geri dusulur. Soguk devralma ~3 sn surer; 8 sn bol
+    // pay, ama "hicbir sey olmuyor" hissini de bitirir.
+    const task = await sendCommand({ type: "enqueue", ...payload }, 8000);
     if (settingsCache?.notify !== false) {
       browser.notifications.create({
         type: "basic",

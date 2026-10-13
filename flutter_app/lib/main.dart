@@ -10,6 +10,7 @@ import 'src/data.dart';
 import 'src/download_window.dart';
 import 'src/handoff_window.dart';
 import 'src/main_window.dart';
+import 'src/perf.dart';
 // Motor koprusu; `Task` adi eskiden dosya okuyan katmanla carpistigi icin
 // simdilik onekli cagriliyor. Arayüz tamamen FFI'ye gecince ek kalkacak.
 import 'src/rust/api/commands.dart' as ffi;
@@ -156,6 +157,10 @@ Future<void> _openMain({
     await windowManager.focus();
   });
 
+  if (Platform.environment['SERENE_FPS'] != null) {
+    startFrameLogging();
+  }
+
   runApp(SereneApp(demo: demo, settings: settings, settingsTab: settingsTab));
 
   // Firefox native messaging kaydi ikilinin yolunu gosterir; surum
@@ -174,11 +179,15 @@ Future<void> _openMain({
   }
 
   if (Platform.environment['SERENE_DATA_DIR'] == null) {
-    try {
-      ffi.registerBrowserHost();
-    } catch (_) {
-      /* kayit zorunlu degil: eklenti olmadan da indirme baslar */
-    }
+    // Kayit defteri/surucu yazimi ilk kareden SONRA: pencere aninda gorunsun,
+    // agir I/O acilisi geciktirmesin.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        ffi.registerBrowserHost();
+      } catch (_) {
+        /* kayit zorunlu degil: eklenti olmadan da indirme baslar */
+      }
+    });
   }
 }
 
