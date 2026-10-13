@@ -14,6 +14,7 @@ import 'rust/api/dto.dart' as engine;
 import 'rust/api/lifecycle.dart' as ffi;
 import 'strings.dart';
 import 'theme.dart';
+import 'update_check.dart';
 import 'widgets.dart';
 
 /// Ayarlar katmani: web arayuzundeki `#settings-modal` ile ayni yerlesim.
@@ -26,6 +27,7 @@ class SettingsLayer extends StatelessWidget {
     required this.onClose,
     required this.onSaved,
     required this.engineVersion,
+    this.initialTab = 0,
   });
 
   final Settings settings;
@@ -34,6 +36,10 @@ class SettingsLayer extends StatelessWidget {
 
   /// Motor crate surumu; panelin altindaki surum satirinda gosterilir.
   final String engineVersion;
+
+  /// Panelin secili acilacagi sekme (0 = Genel). Kosumlar `--settings=<ad>` ile
+  /// About'u dogrudan acabilir; varsayilan ilk sekmedir.
+  final int initialTab;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +74,7 @@ class SettingsLayer extends StatelessWidget {
                 onClose: onClose,
                 onSaved: onSaved,
                 engineVersion: engineVersion,
+                initialTab: initialTab,
               ),
             ),
           ),
@@ -85,6 +92,7 @@ class SettingsPanel extends StatefulWidget {
     required this.onClose,
     required this.onSaved,
     required this.engineVersion,
+    this.initialTab = 0,
   });
 
   final Settings settings;
@@ -94,6 +102,10 @@ class SettingsPanel extends StatefulWidget {
   /// Motor crate'inin surumu. Uygulama surumunden ayri gosterilir; ikisi
   /// cogu kez karistirilir.
   final String engineVersion;
+
+  /// Baslangicta secili sekme (0 = Genel, 3 = Hakkinda). Yalnizca dogrulama
+  /// kosumlari kullanir.
+  final int initialTab;
 
   @override
   State<SettingsPanel> createState() => _SettingsPanelState();
@@ -124,7 +136,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   /// Aktif sekme. Ayarlar tek sayfada yigiliydi ve panele sigmazdi; kullanicinin
   /// istegiyle uc amaca gore bolundu: gorunum, indirme, davranis.
-  int _tab = 0;
+  late int _tab = widget.initialTab;
 
   @override
   void dispose() {
@@ -421,6 +433,16 @@ class _SettingsPanelState extends State<SettingsPanel> {
             label: T.aboutEngine,
             value: widget.engineVersion,
             monoFont: true,
+          ),
+          ValueListenableBuilder<UpdateInfo?>(
+            valueListenable: availableUpdate,
+            builder: (context, update, _) {
+              if (update == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: _UpdateBanner(update: update),
+              );
+            },
           ),
           const SizedBox(height: 20),
           _AboutLink(
@@ -729,6 +751,66 @@ class _AboutLink extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Hakkinda sekmesinde **yalnizca** yeni surum bulununca gorunen sakin satir.
+///
+/// Indirmeyi kullanici kendi yapar: buton surum sayfasini varsayilan tarayicida
+/// acar (`ffi.openExternal`). Uygulama kendisi hicbir sey indirmez ya da kurmaz.
+class _UpdateBanner extends StatelessWidget {
+  const _UpdateBanner({required this.update});
+
+  final UpdateInfo update;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: Serene.primaryFixed,
+        borderRadius: BorderRadius.circular(Serene.radiusField),
+      ),
+      child: Row(
+        children: [
+          SIcon('download', size: 15, color: Serene.onPrimaryFixed),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              T.updateAvailable(update.version),
+              style: body(
+                12,
+                weight: FontWeight.w600,
+                color: Serene.onPrimaryFixed,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          HoverSurface(
+            onTap: () => ffi.openExternal(url: update.url),
+            background: Serene.primary,
+            hoverBackground: Serene.primaryHover,
+            radius: Serene.radiusField,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  T.updateDownload,
+                  style: body(
+                    12,
+                    weight: FontWeight.w600,
+                    color: Serene.onPrimary,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                SIcon('open_in_new', size: 12, color: Serene.onPrimary),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

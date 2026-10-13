@@ -149,7 +149,6 @@ abstract class Strings {
   String percentLabel(int percent);
   String get calculating;
   String diskUsed(String used, String total);
-  String get demoWithSampleData;
 
   // --- Ayarlar ---
   String get folderLabel;
@@ -186,6 +185,8 @@ abstract class Strings {
   String get aboutEngine;
   String get aboutLicense;
   String get aboutRepository;
+  String updateAvailable(String version);
+  String get updateDownload;
   String get aboutWebsite;
   String get aboutClose;
   String get aboutDescription;
@@ -451,8 +452,6 @@ class TrStrings extends Strings {
   @override
   String diskUsed(String used, String total) =>
       '$used kullanılıyor / $total toplam alan';
-  @override
-  String get demoWithSampleData => 'Örnek veriyle göster';
 
   @override
   String get folderLabel => 'Kayıt klasörü';
@@ -538,6 +537,10 @@ class TrStrings extends Strings {
   String get versionCopied => 'Kopyalandi';
   @override
   String get versionEngine => 'Motor';
+  @override
+  String updateAvailable(String version) => 'Yeni sürüm mevcut: $version';
+  @override
+  String get updateDownload => 'İndir';
   @override
   String get clearCompletedLabel => 'Tamamlananları temizle';
 
@@ -812,8 +815,6 @@ class EnStrings extends Strings {
   String get calculating => 'Calculating…';
   @override
   String diskUsed(String used, String total) => '$used used / $total total';
-  @override
-  String get demoWithSampleData => 'Show with sample data';
 
   @override
   String get folderLabel => 'Download folder';
@@ -898,6 +899,10 @@ class EnStrings extends Strings {
   String get versionCopied => 'Copied';
   @override
   String get versionEngine => 'Engine';
+  @override
+  String updateAvailable(String version) => 'Update available: $version';
+  @override
+  String get updateDownload => 'Download';
   @override
   String get clearCompletedLabel => 'Clear completed';
 

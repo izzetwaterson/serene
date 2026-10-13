@@ -39,6 +39,9 @@ else to install. Everything stays on your machine: no account, no telemetry.
   panel. Nothing is downloaded without you asking for it.
 - **Clipboard suggestions, queue and categories, light and dark theme, English
   and Turkish.**
+- **Update notice** — on launch the app quietly checks for a newer release and,
+  if there is one, shows a link to the download page. Nothing is downloaded or
+  installed automatically.
 
 ## Install
 

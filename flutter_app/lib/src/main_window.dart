@@ -47,13 +47,21 @@ String _initialsOf(String raw) {
 
 /// Ana pencere: Tauri arayuzunun Flutter karsiligi.
 class MainWindow extends StatefulWidget {
-  const MainWindow({super.key, this.demoOn = false, this.settingsOn = false});
+  const MainWindow({
+    super.key,
+    this.demoOn = false,
+    this.settingsOn = false,
+    this.settingsTab = 0,
+  });
 
   final bool demoOn;
 
   /// Ayarlar katmani pencereyle birlikte acilir; kosumlar arayuzu tiklamadan
   /// gosterebilmek icin `--settings` bayragiyla verilir.
   final bool settingsOn;
+
+  /// Ayarlar katmani acikken secili baslayacak sekme (0 = Genel, 3 = Hakkinda).
+  final int settingsTab;
 
   @override
   State<MainWindow> createState() => _MainWindowState();
@@ -854,7 +862,6 @@ class _MainWindowState extends State<MainWindow>
                             filter: _filter,
                             category: _category,
                             view: _view,
-                            demoOn: _demoOn,
                             onFilter: (value) => setState(() {
                               _filter = value;
                               _category = null;
@@ -866,10 +873,6 @@ class _MainWindowState extends State<MainWindow>
                             }),
                             onCaptures: () =>
                                 setState(() => _view = 'captures'),
-                            onDemo: (value) {
-                              setState(() => _demoOn = value);
-                              _syncDemoClock();
-                            },
                           ),
                           const SizedBox(width: 24),
                           Expanded(
@@ -916,6 +919,7 @@ class _MainWindowState extends State<MainWindow>
                 onClose: _closeSettings,
                 onSaved: _applySettings,
                 engineVersion: _engineVersion,
+                initialTab: widget.settingsTab,
               ),
             ),
           // Pano onerisi icin ayarlar katmaninin altinda kalir: ayarlar
@@ -1244,11 +1248,9 @@ class Sidebar extends StatelessWidget {
     required this.filter,
     required this.category,
     required this.view,
-    required this.demoOn,
     required this.onFilter,
     required this.onCategory,
     required this.onCaptures,
-    required this.onDemo,
   });
 
   final List<Task> tasks;
@@ -1258,11 +1260,9 @@ class Sidebar extends StatelessWidget {
   final String filter;
   final String? category;
   final String view;
-  final bool demoOn;
   final ValueChanged<String> onFilter;
   final ValueChanged<String> onCategory;
   final VoidCallback onCaptures;
-  final ValueChanged<bool> onDemo;
 
   int _count(String key) => switch (key) {
     'active' => tasks.where((task) => inProgress.contains(task.status)).length,
@@ -1352,8 +1352,6 @@ class Sidebar extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             _DiskCard(disk: disk, retry: null),
-            const SizedBox(height: 16),
-            _DemoSwitch(value: demoOn, onChanged: onDemo),
           ],
         ),
       ),
@@ -1520,51 +1518,6 @@ class _DiskCard extends StatelessWidget {
                 ? T.calculating
                 : T.diskUsed(fmtBytes(usage.used), fmtBytes(usage.total)),
             style: body(11, color: Serene.secondary, height: 1.3),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Spike'a ozel: ornek veriyle tum kart durumlarini gormek icin.
-class _DemoSwitch extends StatelessWidget {
-  const _DemoSwitch({required this.value, required this.onChanged});
-
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return HoverSurface(
-      onTap: () => onChanged(!value),
-      background: Colors.transparent,
-      hoverBackground: Serene.surfaceContainer,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 14,
-            height: 14,
-            decoration: BoxDecoration(
-              color: value ? Serene.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(Serene.radiusControl),
-              border: Border.all(
-                color: value ? Serene.primary : Serene.outline,
-              ),
-            ),
-            child: value
-                ? Center(
-                    child: SIcon('check', size: 11, color: Serene.onPrimary),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              T.demoWithSampleData,
-              style: body(11, color: Serene.secondary),
-            ),
           ),
         ],
       ),

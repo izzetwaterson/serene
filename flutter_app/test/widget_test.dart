@@ -17,6 +17,7 @@ import 'package:serene_app/src/rust/api/dto.dart' as engine;
 import 'package:serene_app/src/settings_view.dart';
 import 'package:serene_app/src/strings.dart';
 import 'package:serene_app/src/theme.dart';
+import 'package:serene_app/src/update_check.dart';
 
 /// `Field` etiketi arayuzde buyuk harfe cevrilerek gosterilir; testte de
 /// ayni metni aramak icin burada cevriliyor. Elle yazilan metin, gun
@@ -254,6 +255,36 @@ void main() {
     expect(find.text(T.aboutLicense), findsOneWidget);
   });
 
+  testWidgets('yeni surum bulununca hakkinda sekmesinde indirme satiri cikar',
+      (tester) async {
+    await setRealWindow();
+    // Genel durum; testler arasinda sizmasin.
+    addTearDown(() => availableUpdate.value = null);
+    availableUpdate.value = const UpdateInfo(
+      version: '9.9.9',
+      url: 'https://example.com/serene',
+    );
+
+    await tester.pumpWidget(_settingsHost(
+      SettingsPanel(
+        settings: _engineSettings(),
+        onClose: () {},
+        engineVersion: '0.1.0',
+        onSaved: (_) {},
+      ),
+    ));
+    await _openTab(tester, T.tabAbout);
+
+    // Yalnizca yeni surum varken gorunur: uygulama indirmez, kullaniciya yol verir.
+    expect(find.text(T.updateAvailable('9.9.9')), findsOneWidget);
+    expect(find.text(T.updateDownload), findsOneWidget);
+
+    // Guncelleme kalkinca satir da kaybolur (sakin arayuz: kalici uyari yok).
+    availableUpdate.value = null;
+    await tester.pump();
+    expect(find.text(T.updateDownload), findsNothing);
+  });
+
   testWidgets('hakkinda sekmesi lisans metnini gosterir', (tester) async {
     await setRealWindow();
     await tester.pumpWidget(_settingsHost(
@@ -464,11 +495,9 @@ void main() {
         filter: 'all',
         category: null,
         view: 'tasks',
-        demoOn: false,
         onFilter: (_) {},
         onCategory: (_) {},
         onCaptures: () {},
-        onDemo: (_) {},
       ),
     ));
 

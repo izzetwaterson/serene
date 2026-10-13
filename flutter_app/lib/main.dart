@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -17,11 +18,13 @@ import 'src/rust/api/lifecycle.dart' as ffi;
 import 'src/rust/frb_generated.dart';
 import 'src/strings.dart';
 import 'src/theme.dart';
+import 'src/update_check.dart';
 
 /// Iki kip:
 ///   Serene.exe                    -> ana pencere (main window)
 ///   `Serene.exe --demo`           -> ana pencere ornek gorevlerle acilir
-///   `Serene.exe --settings`       -> ana pencere ayarlar katmani acik halde
+///   `Serene.exe --settings[=genel|downloads|behaviour|about]` -> ana pencere
+///        ayarlar katmani acik halde, istege bagli sekme secili
 ///   `Serene.exe --handoff=<b64>`  -> ayri "İndirme Bilgileri" penceresi
 ///        (`--handoff-theme=system|light|dark` ile o pencerenin temasi)
 ///        (`--handoff-lang=tr|en` ile o pencerenin dili)
@@ -67,7 +70,8 @@ Future<void> main(List<String> args) async {
 
   await _openMain(
     demo: args.contains('--demo'),
-    settings: args.contains('--settings'),
+    settings: args.contains('--settings') || _arg(args, 'settings') != null,
+    settingsTab: _settingsTabIndex(_arg(args, 'settings')),
   );
 }
 
@@ -110,7 +114,11 @@ Future<void> _selfcheck() async {
   }
 }
 
-Future<void> _openMain({bool demo = false, bool settings = false}) async {
+Future<void> _openMain({
+  bool demo = false,
+  bool settings = false,
+  int settingsTab = 0,
+}) async {
   // Motor pencereden once kurulur: ilk kare bos listeyle boyanmasın.
   await RustLib.init();
 
@@ -148,7 +156,7 @@ Future<void> _openMain({bool demo = false, bool settings = false}) async {
     await windowManager.focus();
   });
 
-  runApp(SereneApp(demo: demo, settings: settings));
+  runApp(SereneApp(demo: demo, settings: settings, settingsTab: settingsTab));
 
   // Firefox native messaging kaydi ikilinin yolunu gosterir; surum
   // yukseltmesinde degistigi icin her acilista tazele. Gelistirme derlemesinin
@@ -156,12 +164,30 @@ Future<void> _openMain({bool demo = false, bool settings = false}) async {
   // `SERENE_DATA_DIR` yaliniz yoklama icin verilir: o kipte kopru kaydi gecici
   // klasorde durur, tarayici ise gercek klasore bakar. Bu yuzden yoklama sirasi
   // tarayiciyi kendine baglamamali.
+  // Arka planda surum yoklamasi: pencereden sonra, kullaniciyi bloklamadan.
+  // Yalnizca okur; yeni surum varsa Ayarlar > Hakkinda gosterir. Yalitilmis
+  // kosumlarda (`SERENE_DATA_DIR`) GERCEK adrese cikilmaz; ama acikca bir adres
+  // verilmisse (`SERENE_UPDATE_URL`, dogrulama kosumu) o adres yoklanir.
+  final updateUrl = Platform.environment['SERENE_UPDATE_URL']?.trim() ?? '';
+  if (Platform.environment['SERENE_DATA_DIR'] == null || updateUrl.isNotEmpty) {
+    unawaited(checkForUpdate(currentVersion: _safeAppVersion()));
+  }
+
   if (Platform.environment['SERENE_DATA_DIR'] == null) {
     try {
       ffi.registerBrowserHost();
     } catch (_) {
       /* kayit zorunlu degil: eklenti olmadan da indirme baslar */
     }
+  }
+}
+
+/// Uygulama surumunu guvenle okur; motor kurulmamis cercevelerde `''`.
+String _safeAppVersion() {
+  try {
+    return ffi.appVersion();
+  } catch (_) {
+    return '';
   }
 }
 
@@ -230,6 +256,20 @@ String? _arg(List<String> args, String name) {
   return null;
 }
 
+/// `--settings=<ad>` icin sekme sirasi; bilinmeyen ya da bos deger Genel'e duser.
+int _settingsTabIndex(String? name) {
+  switch (name) {
+    case 'downloads':
+      return 1;
+    case 'behaviour':
+      return 2;
+    case 'about':
+      return 3;
+    default:
+      return 0;
+  }
+}
+
 Task _decodeTask(String payload) {
   try {
     // `normalize` dolguyu tamamlar: yuku ureten taraf `base64Url.encode`
@@ -254,12 +294,20 @@ Task _decodeTask(String payload) {
 }
 
 class SereneApp extends StatelessWidget {
-  const SereneApp({super.key, this.demo = false, this.settings = false});
+  const SereneApp({
+    super.key,
+    this.demo = false,
+    this.settings = false,
+    this.settingsTab = 0,
+  });
 
   final bool demo;
 
   /// Ana pencereyle birlikte ayarlar katmanini acar (`--settings`).
   final bool settings;
+
+  /// Ayarlar katmani acikken secili sekme (0 = Genel, 3 = Hakkinda).
+  final int settingsTab;
 
   @override
   Widget build(BuildContext context) {
@@ -273,7 +321,11 @@ class SereneApp extends StatelessWidget {
         theme: sereneTheme(Brightness.light),
         darkTheme: sereneTheme(Brightness.dark),
         themeMode: mode,
-        home: MainWindow(demoOn: demo, settingsOn: settings),
+        home: MainWindow(
+          demoOn: demo,
+          settingsOn: settings,
+          settingsTab: settingsTab,
+        ),
       ),
     );
   }
